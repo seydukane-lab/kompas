@@ -1,0 +1,13 @@
+# Blueprint dla Render.com — darmowy hosting Kompasa.
+# Po połączeniu repo Render sam wykryje ten plik i skonfiguruje usługę.
+# Uwaga: plan "free" usypia serwis po bezczynności; pierwsze wejście
+# po przerwie może potrwać ~30-60 s (to normalne i wystarczające na start).
+services:
+  - type: web
+    name: kompas
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    # Klucze API (Hotelbeds itd.) NIE są w repo — w razie potrzeby
+    # dodaje się je ręcznie w panelu Render: Environment -> Add Secret.
