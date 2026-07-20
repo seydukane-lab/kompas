@@ -97,6 +97,10 @@ export function applyFilters(list, crit) {
     if (crit.minRate && h.rating < crit.minRate) return false;
     if (crit.boards && crit.boards.length && !crit.boards.includes(h.board)) return false;
     if (crit.pax && h.cap < crit.pax) return false;
+    // Filtry pakietowe: dotyczą tylko ofert typu "package" (lot+hotel).
+    // Gdy aktywne, oferty hotel-only odpadają — użytkownik szuka wyjazdu z konkretnego miasta.
+    if (crit.departure && !(h.type === "package" && h.departureCity === crit.departure)) return false;
+    if (crit.transports && crit.transports.length && !(h.type === "package" && crit.transports.includes(h.transport))) return false;
     return true;
   });
 }

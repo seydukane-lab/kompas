@@ -7,9 +7,10 @@
 import * as mock from "./mock.js";
 import * as hotelbeds from "./hotelbeds.js";
 import * as merlinx from "./merlinx.js";
+import * as travellead from "./travellead.js";
 import * as plPackages from "./packages.js";
 
-const ALL = [merlinx, hotelbeds, plPackages, mock]; // kolejność = priorytet przy scalaniu
+const ALL = [travellead, merlinx, hotelbeds, plPackages, mock]; // kolejność = priorytet przy scalaniu
 
 export function activeProviders() {
   return ALL.filter((p) => p.isEnabled());

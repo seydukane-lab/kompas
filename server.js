@@ -50,6 +50,8 @@ app.get("/api/search", async (req, res) => {
       minRate: Number(q.minRate) || 0,
       boards: q.boards ? String(q.boards).split(",").filter(Boolean) : [],
       tags: q.tags ? String(q.tags).split(",").filter(Boolean) : [],
+      departure: q.departure || "",
+      transports: q.transports ? String(q.transports).split(",").filter(Boolean) : [],
       sort: q.sort || "score",
     };
 

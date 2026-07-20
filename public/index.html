@@ -130,8 +130,10 @@
   .price-total b{color:var(--ink);font-variant-numeric:tabular-nums}
   .card-actions{margin-top:13px;display:flex;flex-direction:column;gap:7px;width:100%}
   @media (max-width:680px){.card-actions{flex-direction:row}}
-  .btn-script{padding:9px 12px;font-size:13px;font-weight:600;border-radius:var(--radius-sm);border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;gap:6px;flex:1}
+  .btn-script{padding:9px 12px;font-size:13px;font-weight:600;border-radius:var(--radius-sm);border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;gap:6px;flex:1;text-decoration:none}
   .btn-script:hover{background:var(--accent);color:#fff}
+  .btn-book{border-color:var(--sand);background:var(--sand-soft);color:var(--sand)}
+  .btn-book:hover{background:var(--sand);color:#fff}
   .btn-script svg{width:15px;height:15px}
 
   .script{border-top:1px dashed var(--line-strong);padding:0 18px;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease}
@@ -202,11 +204,11 @@
   .pract-source{padding:10px 16px;font-size:11.5px;color:var(--ink-faint);border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
   .pract-source a{color:var(--accent-deep)}
 
-  /* ---------- Mapa-celownik ---------- */
+  /* ---------- Mapa kierunków ---------- */
   .maptool{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
   .maptool-head{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;user-select:none;border-bottom:1px solid transparent}
   .maptool.open .maptool-head{border-bottom-color:var(--line)}
-  .maptool-head .tico{width:28px;height:28px;border-radius:8px;background:var(--crit);color:#fff;display:grid;place-items:center;flex:none}
+  .maptool-head .tico{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;flex:none}
   .maptool-head .tico svg{width:16px;height:16px}
   .maptool-head h3{font-size:14.5px;flex:1}
   .maptool-head h3 small{font-weight:400;color:var(--ink-faint);font-size:12px}
@@ -219,7 +221,6 @@
   .hud-stat{display:flex;flex-direction:column;line-height:1.1}
   .hud-stat .n{font-size:20px;font-weight:750;font-variant-numeric:tabular-nums;color:var(--ink)}
   .hud-stat .l{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
-  .hud-stat .n.combo{color:var(--sand)}
   .hud-spacer{flex:1}
   .hud-btn{font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);display:inline-flex;align-items:center;gap:6px}
   .hud-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -228,65 +229,24 @@
   .hud-btn svg{width:14px;height:14px}
 
   .map-wrap{position:relative;background:radial-gradient(120% 120% at 50% 0%,color-mix(in srgb,var(--accent) 14%,var(--surface)) 0%,var(--surface) 70%)}
-  .map-svg{display:block;width:100%;height:auto;cursor:crosshair;touch-action:manipulation}
+  .map-svg{display:block;width:100%;height:auto;cursor:pointer;touch-action:manipulation}
   .map-land{fill:color-mix(in srgb,var(--ink) 8%,var(--surface));stroke:var(--line-strong);stroke-width:1}
   @media (prefers-color-scheme:dark){.map-land{fill:color-mix(in srgb,var(--ink) 14%,var(--surface))}}
   .map-grid{stroke:color-mix(in srgb,var(--accent) 20%,transparent);stroke-width:.7;stroke-dasharray:2 8}
-  .pin{cursor:crosshair}
+  .pin{cursor:pointer}
   .pin .halo{fill:transparent;transition:r .12s,fill .12s}
   .pin .dot{stroke:#fff;stroke-width:1.5;transition:r .12s,filter .12s}
-  .pin .ring{fill:none;stroke-width:2;opacity:0;pointer-events:none}
-  .pin:hover .halo{fill:color-mix(in srgb,var(--crit) 22%,transparent);r:16}
+  .pin:hover .halo{fill:color-mix(in srgb,var(--accent) 22%,transparent);r:16}
   .pin:hover .dot{r:8;filter:drop-shadow(0 0 6px rgba(0,0,0,.35))}
   .pin.sel .dot{stroke-width:2.5}
   .pin.sel .halo{fill:color-mix(in srgb,var(--accent) 26%,transparent)}
   .pin-label{font-family:var(--sans);font-size:11px;fill:var(--ink-soft);pointer-events:none;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
   .pin.sel .pin-label{fill:var(--ink);font-weight:650}
-  @keyframes hitring{0%{opacity:.9;r:6}100%{opacity:0;r:34}}
-  .pin.hit .ring{animation:hitring .45s ease-out}
-  @keyframes hitpop{0%{transform:scale(1)}40%{transform:scale(1.7)}100%{transform:scale(1)}}
-  .pin.hit .dot{animation:hitpop .3s ease}
   .map-legend{display:flex;flex-wrap:wrap;gap:12px;padding:11px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-soft)}
   .lg-item{display:inline-flex;align-items:center;gap:6px}
   .lg-dot{width:10px;height:10px;border-radius:50%}
   .map-sel-list{padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft)}
   .map-sel-list b{color:var(--ink)}
-  .float-hit{position:absolute;font-size:14px;font-weight:800;color:var(--sand);pointer-events:none;animation:floatup .7s ease-out forwards;text-shadow:0 1px 3px rgba(0,0,0,.3)}
-  @keyframes floatup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-26px)}}
-  .hud-btn.train{background:var(--crit-soft);color:var(--crit);border-color:color-mix(in srgb,var(--crit) 30%,transparent);font-weight:700}
-  .hud-btn.train:hover{background:var(--crit);color:#fff;border-color:var(--crit)}
-
-  /* ---------- Tryb treningu (aim) ---------- */
-  .aim-overlay{position:absolute;inset:0;z-index:5;cursor:crosshair;background:radial-gradient(120% 120% at 50% 0%,color-mix(in srgb,var(--crit) 10%,transparent),transparent 60%)}
-  .aim-overlay[hidden]{display:none}
-  .aim-gamehud{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:18px;background:color-mix(in srgb,var(--ink) 82%,transparent);color:#fff;padding:8px 18px;border-radius:999px;font-size:13px;backdrop-filter:blur(6px);white-space:nowrap;z-index:7}
-  .aim-gamehud b{font-variant-numeric:tabular-nums;font-size:15px}
-  .aim-gamehud .warn b{color:var(--sand)}
-  .aim-target{position:absolute;border-radius:50%;transform:translate(-50%,-50%);cursor:crosshair;background:radial-gradient(circle at 35% 30%,#ff8a7a,var(--crit) 60%,#7a1f1f);box-shadow:0 0 0 3px rgba(255,255,255,.5),0 4px 14px rgba(0,0,0,.35);display:grid;place-items:center;animation:tgtpop .13s ease-out}
-  .aim-target::before{content:"";width:38%;height:38%;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 0 4px rgba(255,255,255,.28)}
-  .aim-target .life{position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(255,255,255,.7);animation:lifespin linear forwards;transform-origin:center}
-  @keyframes tgtpop{0%{transform:translate(-50%,-50%) scale(.2)}100%{transform:translate(-50%,-50%) scale(1)}}
-  @keyframes lifespin{0%{opacity:.9;transform:scale(1.35)}100%{opacity:.2;transform:scale(.7)}}
-  .aim-splat{position:absolute;transform:translate(-50%,-50%);pointer-events:none;font-weight:800;font-size:15px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.5);animation:floatup .6s ease-out forwards;z-index:8}
-  .aim-miss{position:absolute;width:20px;height:20px;transform:translate(-50%,-50%);pointer-events:none;z-index:8;animation:missfade .4s ease-out forwards}
-  .aim-miss::before,.aim-miss::after{content:"";position:absolute;top:50%;left:0;width:100%;height:2px;background:var(--ink-faint)}
-  .aim-miss::before{transform:rotate(45deg)}.aim-miss::after{transform:rotate(-45deg)}
-  @keyframes missfade{0%{opacity:.8}100%{opacity:0}}
-  .aim-countdown{position:absolute;inset:0;display:grid;place-items:center;z-index:9;font-size:96px;font-weight:800;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,.5);pointer-events:none}
-  .aim-results{position:absolute;inset:0;z-index:10;background:color-mix(in srgb,var(--ink) 78%,transparent);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
-  .aim-results[hidden]{display:none}
-  .aim-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:24px 26px;max-width:420px;width:100%;text-align:center}
-  .aim-rank{font-size:64px;font-weight:800;line-height:1;letter-spacing:-.02em}
-  .aim-card h3{font-size:18px;margin:4px 0 2px}
-  .aim-card .sub{font-size:13px;color:var(--ink-faint);margin-bottom:18px}
-  .aim-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:18px}
-  .aim-cell{background:var(--surface);padding:12px}
-  .aim-cell .v{font-size:22px;font-weight:750;font-variant-numeric:tabular-nums}
-  .aim-cell .k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
-  .aim-actions{display:flex;gap:9px}
-  .aim-actions button{flex:1;padding:11px;font-size:14px;font-weight:650;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
-  .aim-actions .again{background:linear-gradient(180deg,var(--crit),#8f2e2e);color:#fff;border:none}
-  .aim-actions button:hover{filter:brightness(1.05)}
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -298,7 +258,8 @@
       <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="7" stroke="#fff" stroke-width="1.6"/><path d="M15 9l-2.2 4.8L8 16l2.2-4.8L15 9z" fill="#fff"/></svg></div>
       <div><div class="brand-name">Kompas</div><div class="brand-sub">Wyszukiwarka ofert &middot; panel doradcy</div></div>
     </div>
-    <span class="src-pill demo" id="srcPill"><span class="dot"></span>Sprawdzam źródła…</span>
+    <a href="/o-serwisie.html" style="margin-left:auto;font-size:13px;font-weight:600;color:var(--ink-soft);text-decoration:none;padding:6px 10px;border-radius:8px" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink-soft)'">O serwisie</a>
+    <span class="src-pill demo" id="srcPill" style="margin-left:0"><span class="dot"></span>Sprawdzam źródła…</span>
     <button class="theme-btn" id="themeBtn" aria-label="Przełącz motyw" title="Przełącz jasny/ciemny"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg></button>
   </div>
 </header>
@@ -315,11 +276,19 @@
         </div>
       </div>
       <div class="field"><label for="dest">Kierunek</label>
-        <select id="dest"><option value="">Dowolny kierunek</option><option>Grecja</option><option>Hiszpania</option><option>Egipt</option><option>Turcja</option><option>Włochy</option><option>Tunezja</option><option>Portugalia</option></select>
+        <select id="dest"><option value="">Dowolny kierunek</option><option>Grecja</option><option>Hiszpania</option><option>Egipt</option><option>Turcja</option><option>Włochy</option><option>Tunezja</option><option>Portugalia</option><option>Bułgaria</option><option>Albania</option><option>Cypr</option></select>
       </div>
       <div class="field" id="regionField" hidden><label>Regiony <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— można zaznaczyć kilka</span></label>
         <div class="chips" id="regionChips"></div>
       </div>
+      <div class="field"><label for="depCity">Wylot z</label>
+        <select id="depCity"><option value="">Dowolne miejsce wylotu</option><option>Warszawa</option><option>Katowice</option><option>Kraków</option><option>Gdańsk</option><option>Poznań</option><option>Wrocław</option></select>
+      </div>
+      <div class="field"><label>Transport</label><div class="chips" id="transChips">
+        <button class="chip" data-trans="Samolot" aria-pressed="false">✈️ Samolot</button>
+        <button class="chip" data-trans="Autokar" aria-pressed="false">🚌 Autokar</button>
+        <button class="chip" data-trans="Własny dojazd" aria-pressed="false">🚗 Własny</button>
+      </div></div>
       <div class="field"><label>Termin</label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div></div>
       <div class="field"><label>Uczestnicy</label><div class="field-row">
         <div><input type="number" id="adults" min="1" max="9" value="2" aria-label="Dorośli"><div style="font-size:11px;color:var(--ink-faint);margin-top:3px">Dorośli</div></div>
@@ -348,50 +317,22 @@
   <main>
     <section class="maptool" id="maptool">
       <div class="maptool-head" id="maptoolHead">
-        <span class="tico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="round"/></svg></span>
-        <h3>Celownik kierunków <small>— „zestrzel" destynacje na mapie 🎯</small></h3>
+        <span class="tico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0114 0c0 4.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+        <h3>Mapa kierunków <small>— kliknij, aby wybrać destynacje</small></h3>
         <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <div class="maptool-body">
         <div class="map-hud">
-          <div class="hud-stat"><span class="n" id="hudHits">0</span><span class="l">Trafienia</span></div>
-          <div class="hud-stat"><span class="n combo" id="hudCombo">0</span><span class="l">Combo</span></div>
           <div class="hud-stat"><span class="n" id="hudSel">0</span><span class="l">Wybrane</span></div>
           <div class="hud-spacer"></div>
-          <button class="hud-btn train" id="mapTrain">🎯 Trening celności</button>
           <button class="hud-btn" id="mapClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Wyczyść</button>
           <button class="hud-btn go" id="mapSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Szukaj zaznaczone (<span id="mapSearchN">0</span>)</button>
         </div>
         <div class="map-wrap" id="mapWrap">
           <svg class="map-svg" id="mapSvg" viewBox="0 0 1000 620" role="img" aria-label="Mapa destynacji — kliknij, aby wybrać"></svg>
-          <div class="aim-overlay" id="aimOverlay" hidden>
-            <div class="aim-gamehud">
-              <span class="warn">⏱ <b id="aimTime">30</b>s</span>
-              <span>Wynik <b id="aimScore">0</b></span>
-              <span>Celność <b id="aimAcc">100</b>%</span>
-              <span>Combo <b id="aimCombo">0</b></span>
-            </div>
-          </div>
-          <div class="aim-results" id="aimResults" hidden>
-            <div class="aim-card">
-              <div class="aim-rank" id="aimRank">A</div>
-              <h3 id="aimTitle">Niezły refleks!</h3>
-              <div class="sub">Trening celności — wynik końcowy</div>
-              <div class="aim-grid">
-                <div class="aim-cell"><div class="v" id="rScore">0</div><div class="k">Wynik</div></div>
-                <div class="aim-cell"><div class="v" id="rAcc">0%</div><div class="k">Celność</div></div>
-                <div class="aim-cell"><div class="v" id="rReact">0 ms</div><div class="k">Śr. reakcja</div></div>
-                <div class="aim-cell"><div class="v" id="rCombo">0</div><div class="k">Najlepsze combo</div></div>
-              </div>
-              <div class="aim-actions">
-                <button id="aimExit">Wróć do wyboru</button>
-                <button class="again" id="aimAgain">Zagraj ponownie 🎯</button>
-              </div>
-            </div>
-          </div>
         </div>
         <div class="map-legend" id="mapLegend"></div>
-        <div class="map-sel-list" id="mapSelList">Nie trafiłeś jeszcze w żadną destynację — kliknij punkt na mapie.</div>
+        <div class="map-sel-list" id="mapSelList">Nie wybrano jeszcze żadnej destynacji — kliknij punkt na mapie.</div>
       </div>
     </section>
 
@@ -446,10 +387,11 @@
   function nights(){var f=document.getElementById("dateFrom").value,t=document.getElementById("dateTo").value;if(!f||!t)return 7;var d=Math.round((new Date(t)-new Date(f))/864e5);return d>0?d:7;}
   function paxCount(){return (+document.getElementById("adults").value||0)+(+document.getElementById("kids").value||0);}
 
-  var activeBoards=[],activeTags=[],activeRegions=[];
-  function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
+  var activeBoards=[],activeTags=[],activeRegions=[],activeTrans=[];
+  function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag||b.dataset.trans,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
   wireChips(document.getElementById("boardChips"),activeBoards);
   wireChips(document.getElementById("tagChips"),activeTags);
+  wireChips(document.getElementById("transChips"),activeTrans);
 
   var budget=document.getElementById("budget"),budgetVal=document.getElementById("budgetVal");
   var minRate=document.getElementById("minRate"),minRateVal=document.getElementById("minRateVal");
@@ -535,7 +477,7 @@
           '<div style="margin-top:10px"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span></div>'+
         '</div>'+
         '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+pax+' os.)</div>'+
-          '<div class="card-actions"><button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button></div>'+
+          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button></div>'+
         '</div>'+
       '</div>'+
       '<div class="script"><div class="script-inner"><div class="script-tone"><span class="swatch" style="background:'+tm.c+'"></span>'+tm.label+'</div><p class="script-lead">'+sc.lead+'</p><div class="cb-list">'+cb+'</div><p class="script-close-img">'+sc.closer+'</p><div class="script-tools"><button class="tool-btn" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Kopiuj ofertę</button><button class="tool-btn" data-print><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Drukuj / PDF</button></div></div></div>';
@@ -553,7 +495,7 @@
   function search(){
     searchBtn.disabled=true;
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
-    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),dest:document.getElementById("dest").value,regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,budget:budget.value,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),sort:document.getElementById("sort").value});
+    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),dest:document.getElementById("dest").value,regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,budget:budget.value,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departure:document.getElementById("depCity").value,transports:activeTrans.join(","),sort:document.getElementById("sort").value});
     fetch("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
@@ -563,7 +505,7 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";document.getElementById("dest").value="";activeRegions.length=0;regionChips.innerHTML="";document.querySelectorAll("#mapSvg .pin.sel").forEach(function(p){p.classList.remove("sel");});updateMapHud();document.getElementById("regionField").hidden=true;document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";document.getElementById("dest").value="";activeRegions.length=0;regionChips.innerHTML="";document.querySelectorAll("#mapSvg .pin.sel").forEach(function(p){p.classList.remove("sel");});updateMapHud();document.getElementById("regionField").hidden=true;document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;document.getElementById("depCity").value="";document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});search();});
 
   (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);})();
 
@@ -668,7 +610,7 @@
   document.getElementById("agentInput").addEventListener("keydown",function(e){if(e.key==="Enter")runAgent();});
   document.getElementById("agentExamples").addEventListener("click",function(e){var ex=e.target.closest(".agent-ex");if(!ex)return;document.getElementById("agentInput").value=ex.textContent;runAgent();});
 
-  /* ---------- Mapa-celownik ---------- */
+  /* ---------- Mapa kierunków ---------- */
   var mapSvg=document.getElementById("mapSvg"),mapWrap=document.getElementById("mapWrap"),maptool=document.getElementById("maptool");
   var CCOL={Hiszpania:"#E0A64B",Grecja:"#2F9E8F",Egipt:"#C77F3C",Turcja:"#C6534B",Włochy:"#4E9A57",Tunezja:"#A86BB0",Portugalia:"#3E86C4"};
   var REGION_POINTS=[
@@ -701,7 +643,6 @@
       var col=CCOL[p.c]||"#0F6B68";
       var label=p.r.split(/[\/(]/)[0].trim();
       parts.push('<g class="pin" data-region="'+p.r+'" data-country="'+p.c+'" transform="translate('+p.x+','+p.y+')">'+
-        '<circle class="ring" r="6" stroke="'+col+'"/>'+
         '<circle class="halo" r="6"/>'+
         '<circle class="dot" r="6" fill="'+col+'"/>'+
         '<text class="pin-label" x="10" y="4">'+label+'</text>'+
@@ -712,102 +653,25 @@
     document.getElementById("mapLegend").innerHTML=Object.keys(CCOL).map(function(c){return '<span class="lg-item"><span class="lg-dot" style="background:'+CCOL[c]+'"></span>'+c+'</span>';}).join("");
   }
 
-  var hits=0,combo=0,comboTimer=null;
   function updateMapHud(){
     document.getElementById("hudSel").textContent=activeRegions.length;
     document.getElementById("mapSearchN").textContent=activeRegions.length;
     var list=document.getElementById("mapSelList");
-    if(activeRegions.length)list.innerHTML="Na celowniku: <b>"+activeRegions.join("</b>, <b>")+"</b>";
-    else list.textContent="Nie trafiłeś jeszcze w żadną destynację — kliknij punkt na mapie.";
-  }
-  function floatHit(x,y,txt){
-    var f=document.createElement("div");f.className="float-hit";f.textContent=txt;f.style.left=x+"px";f.style.top=y+"px";
-    mapWrap.appendChild(f);setTimeout(function(){f.remove();},700);
+    if(activeRegions.length)list.innerHTML="Wybrane kierunki: <b>"+activeRegions.join("</b>, <b>")+"</b>";
+    else list.textContent="Nie wybrano jeszcze żadnej destynacji — kliknij punkt na mapie.";
   }
 
   mapSvg.addEventListener("click",function(e){
     var pin=e.target.closest(".pin");if(!pin)return;
     var region=pin.dataset.region,willSelect=activeRegions.indexOf(region)===-1;
     syncRegionUI(region,willSelect);
-    if(willSelect){
-      // trafienie!
-      hits++;combo++;
-      document.getElementById("hudHits").textContent=hits;
-      document.getElementById("hudCombo").textContent=combo;
-      pin.classList.remove("hit");void pin.getBBox();pin.classList.add("hit");
-      setTimeout(function(){pin.classList.remove("hit");},480);
-      var rect=mapWrap.getBoundingClientRect();
-      floatHit(e.clientX-rect.left-6,e.clientY-rect.top-10,combo>=3?("COMBO x"+combo):"+1");
-      renderPractical(pin.dataset.country);
-      clearTimeout(comboTimer);comboTimer=setTimeout(function(){combo=0;document.getElementById("hudCombo").textContent="0";},2500);
-    }
+    if(willSelect)renderPractical(pin.dataset.country);
   });
 
   document.getElementById("maptoolHead").addEventListener("click",function(){maptool.classList.toggle("open");});
-  document.getElementById("mapClear").addEventListener("click",function(){activeRegions.slice().forEach(function(r){syncRegionUI(r,false);});combo=0;document.getElementById("hudCombo").textContent="0";});
+  document.getElementById("mapClear").addEventListener("click",function(){activeRegions.slice().forEach(function(r){syncRegionUI(r,false);});});
   document.getElementById("mapSearch").addEventListener("click",function(){if(!activeRegions.length){toast("Najpierw zaznacz destynacje na mapie");return;}search();document.querySelector("main").scrollIntoView({behavior:"smooth"});});
   buildMap();
-
-  /* ---------- Tryb treningu (aim trainer) ---------- */
-  var aimOverlay=document.getElementById("aimOverlay"),aimResults=document.getElementById("aimResults");
-  var LIFETIME=1400; // ms na trafienie celu
-  var GAME={active:false,score:0,hits:0,expired:0,empty:0,combo:0,bestCombo:0,react:[],timeLeft:30,timer:null,lifeTimer:null,curTarget:null,endAt:0};
-
-  function gameCleanup(){clearInterval(GAME.timer);if(GAME.lifeTimer)clearTimeout(GAME.lifeTimer);GAME.lifeTimer=null;if(GAME.curTarget){GAME.curTarget.remove();GAME.curTarget=null;}aimOverlay.querySelectorAll(".aim-target,.aim-splat,.aim-miss,.aim-countdown").forEach(function(el){el.remove();});}
-
-  function startGame(){
-    gameCleanup();aimResults.hidden=true;aimOverlay.hidden=false;
-    GAME.active=false;GAME.score=0;GAME.hits=0;GAME.expired=0;GAME.empty=0;GAME.combo=0;GAME.bestCombo=0;GAME.react=[];GAME.timeLeft=30;
-    updateGameHud();document.getElementById("aimTime").textContent="30";
-    var cd=document.createElement("div");cd.className="aim-countdown";cd.textContent="3";aimOverlay.appendChild(cd);
-    var n=3;var ci=setInterval(function(){n--;if(n>0)cd.textContent=n;else if(n===0)cd.textContent="START";else{clearInterval(ci);cd.remove();runGame();}},650);
-  }
-  function runGame(){GAME.active=true;GAME.endAt=Date.now()+30000;spawnTarget();GAME.timer=setInterval(function(){GAME.timeLeft=Math.max(0,Math.ceil((GAME.endAt-Date.now())/1000));document.getElementById("aimTime").textContent=GAME.timeLeft;if(Date.now()>=GAME.endAt)endGame();},100);}
-  function rnd(a,b){return Math.random()*(b-a)+a;}
-  function clearTarget(){if(GAME.lifeTimer){clearTimeout(GAME.lifeTimer);GAME.lifeTimer=null;}if(GAME.curTarget){GAME.curTarget.remove();GAME.curTarget=null;}}
-  function spawnTarget(){
-    if(!GAME.active)return;clearTarget();
-    var size=rnd(30,52),t=document.createElement("div");t.className="aim-target";
-    t.style.width=size+"px";t.style.height=size+"px";t.style.left=rnd(8,92)+"%";t.style.top=rnd(18,88)+"%";
-    var ring=document.createElement("span");ring.className="life";ring.style.animationDuration=LIFETIME+"ms";t.appendChild(ring);
-    t.dataset.born=Date.now();t.dataset.size=size;aimOverlay.appendChild(t);GAME.curTarget=t;
-    GAME.lifeTimer=setTimeout(function(){if(GAME.curTarget===t){GAME.expired++;GAME.combo=0;missMark(t.offsetLeft,t.offsetTop);clearTarget();updateGameHud();setTimeout(spawnTarget,120);}},LIFETIME);
-  }
-  aimOverlay.addEventListener("click",function(e){
-    if(!GAME.active)return;
-    var t=e.target.closest(".aim-target"),rect=aimOverlay.getBoundingClientRect(),px=e.clientX-rect.left,py=e.clientY-rect.top;
-    if(t){
-      var react=Date.now()-(+t.dataset.born),size=+t.dataset.size;
-      GAME.hits++;GAME.combo++;GAME.bestCombo=Math.max(GAME.bestCombo,GAME.combo);GAME.react.push(react);
-      var speedBonus=Math.max(0,Math.round((LIFETIME-react)/12)),sizeBonus=Math.round(52-size);
-      var gained=100+speedBonus+sizeBonus+GAME.combo*4;GAME.score+=gained;
-      splat(px,py,GAME.combo>=3?("COMBO x"+GAME.combo):"+"+gained);
-      clearTarget();updateGameHud();setTimeout(spawnTarget,90);
-    }else{GAME.empty++;GAME.combo=0;missMark(px,py);updateGameHud();}
-  });
-  function splat(x,y,txt){var s=document.createElement("div");s.className="aim-splat";s.style.left=x+"px";s.style.top=y+"px";s.textContent=txt;aimOverlay.appendChild(s);setTimeout(function(){s.remove();},600);}
-  function missMark(x,y){var m=document.createElement("div");m.className="aim-miss";m.style.left=x+"px";m.style.top=y+"px";aimOverlay.appendChild(m);setTimeout(function(){m.remove();},400);}
-  function updateGameHud(){document.getElementById("aimScore").textContent=GAME.score;document.getElementById("aimCombo").textContent=GAME.combo;var res=GAME.hits+GAME.expired+GAME.empty;document.getElementById("aimAcc").textContent=res?Math.round(GAME.hits/res*100):100;}
-  function endGame(){
-    GAME.active=false;clearInterval(GAME.timer);clearTarget();
-    var res=GAME.hits+GAME.expired+GAME.empty,acc=res?Math.round(GAME.hits/res*100):0;
-    var avg=GAME.react.length?Math.round(GAME.react.reduce(function(a,b){return a+b;},0)/GAME.react.length):0;
-    var rank,title;
-    if(GAME.score>=2600&&acc>=85){rank="S";title="Snajper! 🏆";}
-    else if(GAME.score>=1800){rank="A";title="Świetny refleks!";}
-    else if(GAME.score>=1100){rank="B";title="Nieźle Ci idzie!";}
-    else if(GAME.score>=500){rank="C";title="Jest potencjał.";}
-    else{rank="D";title="Rozgrzewka zaliczona.";}
-    document.getElementById("aimRank").textContent=rank;document.getElementById("aimTitle").textContent=title;
-    document.getElementById("rScore").textContent=GAME.score;document.getElementById("rAcc").textContent=acc+"%";
-    document.getElementById("rReact").textContent=avg+" ms";document.getElementById("rCombo").textContent=GAME.bestCombo;
-    aimResults.hidden=false;
-  }
-  function exitGame(){GAME.active=false;gameCleanup();aimOverlay.hidden=true;aimResults.hidden=true;}
-  document.getElementById("mapTrain").addEventListener("click",function(){maptool.classList.add("open");startGame();});
-  document.getElementById("aimAgain").addEventListener("click",startGame);
-  document.getElementById("aimExit").addEventListener("click",exitGame);
-
 
   // Status źródeł danych
   fetch("/api/status").then(function(r){return r.json();}).then(function(d){

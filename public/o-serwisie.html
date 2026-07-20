@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O serwisie — Kompas</title>
+<style>
+  :root{--paper:#FBFAF6;--surface:#fff;--ink:#13201F;--ink-soft:#46534F;--ink-faint:#7C8783;--line:#E4DFD4;--accent:#0F6B68;--accent-deep:#0A4F4C;--accent-soft:#E1EEED;--sand:#C68A3E;--radius:14px;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  @media (prefers-color-scheme:dark){:root{--paper:#0E1615;--surface:#151F1E;--ink:#EDF1EF;--ink-soft:#AEBAB6;--ink-faint:#7E8B87;--line:#263332;--accent:#3FB0AB;--accent-deep:#63C6C1;--accent-soft:#14302E;--sand:#D6A05C}}
+  :root[data-theme="light"]{--paper:#FBFAF6;--surface:#fff;--ink:#13201F;--ink-soft:#46534F;--ink-faint:#7C8783;--line:#E4DFD4;--accent:#0F6B68;--accent-deep:#0A4F4C;--accent-soft:#E1EEED;--sand:#C68A3E}
+  :root[data-theme="dark"]{--paper:#0E1615;--surface:#151F1E;--ink:#EDF1EF;--ink-soft:#AEBAB6;--ink-faint:#7E8B87;--line:#263332;--accent:#3FB0AB;--accent-deep:#63C6C1;--accent-soft:#14302E;--sand:#D6A05C}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:680px;margin:0 auto;padding:32px 24px 60px}
+  .back{display:inline-flex;align-items:center;gap:7px;color:var(--accent-deep);text-decoration:none;font-weight:600;font-size:13.5px;margin-bottom:28px}
+  .back:hover{text-decoration:underline}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .mark{width:38px;height:38px;border-radius:10px;background:radial-gradient(120% 120% at 30% 20%,var(--accent) 0%,var(--accent-deep) 100%);display:grid;place-items:center}
+  h1{font-size:26px;margin:0;letter-spacing:-.01em}
+  .lead{font-size:17px;color:var(--ink-soft);margin:14px 0 30px;text-wrap:balance}
+  h2{font-size:16px;margin:30px 0 8px;color:var(--accent-deep)}
+  p{margin:0 0 12px;color:var(--ink-soft)}
+  p b{color:var(--ink)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:18px 0}
+  ul{margin:0;padding-left:20px;color:var(--ink-soft)}
+  li{margin-bottom:8px}
+  .note{font-size:13px;color:var(--ink-faint);border-top:1px solid var(--line);margin-top:36px;padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← Wróć do wyszukiwarki</a>
+  <div class="brand">
+    <div class="mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#fff" stroke-width="1.6"/><path d="M15 9l-2.2 4.8L8 16l2.2-4.8L15 9z" fill="#fff"/></svg></div>
+    <h1>Kompas</h1>
+  </div>
+  <p class="lead">Wyszukiwarka wyjazdów wakacyjnych, która pomaga szybko znaleźć ofertę dopasowaną do Ciebie — bez przekopywania się przez setki stron.</p>
+
+  <h2>Co potrafi Kompas</h2>
+  <div class="card"><ul>
+    <li><b>Wyszukiwanie po tym, co ważne:</b> kierunek i region, termin, budżet na osobę, wyżywienie, profil wyjazdu (rodzinny, dla pary, spa…), miasto wylotu i transport — a także konkretny hotel po nazwie.</li>
+    <li><b>Uczciwy ranking:</b> oceny gości ważymy wskaźnikiem wiarygodności — wysoka ocena z kilku starych opinii znaczy mniej niż dobra ocena z tysięcy świeżych. Nie „koloryzujemy".</li>
+    <li><b>Informacje praktyczne:</b> dla każdego kierunku podpowiadamy dokumenty, walutę, warunki wjazdowe i numery alarmowe (na podstawie gov.pl/MSZ).</li>
+    <li><b>Przejrzyste karty ofert:</b> zdjęcia, standard, odległość od plaży, touroperator i miasto wylotu — wszystko w jednym miejscu.</li>
+  </ul></div>
+
+  <h2>Skąd pochodzą oferty</h2>
+  <p>Kompas prezentuje oferty pochodzące z <b>oficjalnych źródeł danych</b> — feedów produktowych i API partnerów (m.in. programów partnerskich portali turystycznych). Rezerwacja odbywa się zawsze <b>u organizatora lub sprzedawcy oferty</b> — przycisk „Przejdź do oferty" prowadzi bezpośrednio na jego stronę. Kompas może otrzymywać prowizję za polecenie, co nie wpływa na cenę dla klienta.</p>
+  <p>Serwis działa obecnie w <b>wersji przedpremierowej</b> — część prezentowanych ofert to dane demonstracyjne, oznaczone w interfejsie. Ceny mają charakter orientacyjny i wymagają potwierdzenia u organizatora.</p>
+
+  <h2>Kontakt</h2>
+  <p>Pytania i sugestie: <a href="mailto:seydukane@gmail.com" style="color:var(--accent-deep)">seydukane@gmail.com</a></p>
+
+  <p class="note">Kompas nie jest organizatorem turystyki ani agentem turystycznym — jest narzędziem prezentującym i porównującym oferty publicznie dostępne u partnerów. Wszystkie znaki towarowe należą do ich właścicieli.</p>
+</div>
+</body>
+</html>
