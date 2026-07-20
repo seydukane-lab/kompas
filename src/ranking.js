@@ -83,9 +83,12 @@ export function applyFilters(list, crit) {
     // odpowiada KTÓREMUKOLWIEK z zaznaczonych regionów.
     if (crit.regions && crit.regions.length) {
       const hay = (h.region || "").toLowerCase();
-      // Dla Hotelbeds region jest już właściwy (zapytanie po kodach destynacji),
-      // więc przepuszczamy oferty z tego źródła; filtrujemy tylko dane demo.
-      if (h.source === "demo") {
+      // Hotelbeds jest odpytywany po kodach destynacji (region już właściwy,
+      // ale po angielsku, np. "Majorca" != "Majorka"), więc jego oferty
+      // przepuszczamy bez filtra tekstowego. Pozostałe źródła (pakiety PL,
+      // dane demo, TravelLead) mają polskie nazwy regionów — filtrujemy je,
+      // żeby np. przy wyborze "Kreta" nie wpadały hotele z Egiptu czy Rodos.
+      if (h.source !== "Hotelbeds") {
         const match = crit.regions.some((reg) => {
           const needle = reg.split(/[\/(]/)[0].trim().toLowerCase();
           return needle && hay.includes(needle);
