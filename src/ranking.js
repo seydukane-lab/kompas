@@ -57,12 +57,13 @@ export function sortOffers(list, mode) {
 
 // Normalizacja tekstu do porównań nazw: małe litery + usunięcie polskich znaków
 // diakrytycznych (ł, ą, é…), żeby "Lagoon" == "lagoon", a "Dżerba" == "dzerba".
-function normalizeName(s) {
+export function normalizeName(s) {
   return String(s || "")
     .toLowerCase()
     .replace(/ł/g, "l") // ł
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "") // znaki diakrytyczne
+    .replace(/\s+/g, " ") // zwiń wielokrotne spacje (różne zapisy między źródłami)
     .trim();
 }
 
@@ -76,33 +77,56 @@ export function applyFilters(list, crit) {
     return needle ? list.filter((h) => normalizeName(h.name).includes(needle)) : list;
   }
 
+  const hasCountries = crit.countries && crit.countries.length;
+  const hasRegions = crit.regions && crit.regions.length;
+
   return list.filter((h) => {
-    // Filtr kraju — pomijany, gdy wybrano konkretne regiony (mogą być z różnych krajów).
-    if (crit.dest && !(crit.regions && crit.regions.length) && h.country !== crit.dest) return false;
-    // Filtr regionów (wielokrotny wybór): oferta pasuje, jeśli jej region
-    // odpowiada KTÓREMUKOLWIEK z zaznaczonych regionów.
-    if (crit.regions && crit.regions.length) {
-      const hay = (h.region || "").toLowerCase();
-      // Hotelbeds jest odpytywany po kodach destynacji (region już właściwy,
-      // ale po angielsku, np. "Majorca" != "Majorka"), więc jego oferty
-      // przepuszczamy bez filtra tekstowego. Pozostałe źródła (pakiety PL,
-      // dane demo, TravelLead) mają polskie nazwy regionów — filtrujemy je,
-      // żeby np. przy wyborze "Kreta" nie wpadały hotele z Egiptu czy Rodos.
-      if (h.source !== "Hotelbeds") {
-        const match = crit.regions.some((reg) => {
-          const needle = reg.split(/[\/(]/)[0].trim().toLowerCase();
-          return needle && hay.includes(needle);
-        });
-        if (!match) return false;
+    // --- Filtr geograficzny: SUMA „całych krajów" i „konkretnych regionów" ---
+    // Oferta przechodzi, gdy jej kraj jest zaznaczony w całości (countryOk),
+    // ALBO jej region pasuje do któregoś z zaznaczonych regionów (regionOk).
+    // „Cały kraj" filtruje po nazwie kraju (odporne na różnice nazw regionów,
+    // np. „Marsa Alam" vs „Marsa El Alam").
+    if (hasCountries || hasRegions) {
+      const countryOk = hasCountries && crit.countries.includes(h.country);
+      let regionOk = false;
+      if (hasRegions && !countryOk) {
+        if (h.source === "Hotelbeds") {
+          // HB odpytywany po kodach destynacji (region po angielsku) — przepuszczamy.
+          regionOk = true;
+        } else {
+          const hay = (h.region || "").toLowerCase();
+          regionOk = crit.regions.some((reg) => {
+            // Pierwszy człon nazwy regionu (przed „/", „(" lub „,"), np.
+            // „Kreta, Heraklion" -> „kreta", by pasowało do „Kreta" z wakacje.pl.
+            const needle = reg.split(/[\/(,]/)[0].trim().toLowerCase();
+            return needle && hay.includes(needle);
+          });
+        }
       }
+      if (!countryOk && !regionOk) return false;
+    } else if (crit.dest && h.country !== crit.dest) {
+      // Wsteczna zgodność: pojedynczy kierunek (agent NL / stare wywołania).
+      return false;
     }
-    if (crit.budget && h.price > crit.budget) return false;
+    // Budżet = TWARDY limit realnej ceny. Tryb "total" porównuje z ceną łączną
+    // za cały wyjazd (priceTotal z API — za 2 dor.; w braku: cena/os. × liczba osób),
+    // tryb "person" — z ceną za osobę. Ustawisz 8000 → nic powyżej 8000 się nie pokaże.
+    if (crit.budget) {
+      if (crit.budgetMode === "total") {
+        const total = h.priceTotal || h.price * Math.max(1, crit.pax || 2);
+        if (total > crit.budget) return false;
+      } else if (h.price > crit.budget) return false;
+    }
     if (crit.minRate && h.rating < crit.minRate) return false;
+    // Długość pobytu: tolerancja ±1 noc (7 vs 8 to praktycznie ten sam wyjazd).
+    if (crit.nights && h.nights && Math.abs(h.nights - crit.nights) > 1) return false;
     if (crit.boards && crit.boards.length && !crit.boards.includes(h.board)) return false;
     if (crit.pax && h.cap < crit.pax) return false;
     // Filtry pakietowe: dotyczą tylko ofert typu "package" (lot+hotel).
     // Gdy aktywne, oferty hotel-only odpadają — użytkownik szuka wyjazdu z konkretnego miasta.
-    if (crit.departure && !(h.type === "package" && h.departureCity === crit.departure)) return false;
+    // Wylot z (wiele miast): oferta pakietowa musi startować z któregokolwiek wybranego.
+    if (crit.departures && crit.departures.length && !(h.type === "package" && crit.departures.includes(h.departureCity))) return false;
+    else if (crit.departure && !(h.type === "package" && h.departureCity === crit.departure)) return false;
     if (crit.transports && crit.transports.length && !(h.type === "package" && crit.transports.includes(h.transport))) return false;
     return true;
   });

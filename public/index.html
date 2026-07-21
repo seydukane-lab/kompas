@@ -47,12 +47,15 @@
   .shell{max-width:var(--maxw);margin:0 auto;padding:24px;display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start}
   @media (max-width:900px){.shell{grid-template-columns:1fr}}
 
-  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);position:sticky;top:84px}
-  @media (max-width:900px){.panel{position:static}}
-  .panel-head{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  /* Panel przyklejony do góry i ograniczony do wysokości ekranu — jego zawartość
+     przewija się WEWNĄTRZ, więc przycisk „Szukaj" jest zawsze w zasięgu bez
+     zjeżdżania na dół całej strony. Nagłówek zostaje widoczny, przewija się body. */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);position:sticky;top:84px;display:flex;flex-direction:column;max-height:calc(100vh - 108px)}
+  @media (max-width:900px){.panel{position:static;max-height:none}}
+  .panel-head{padding:16px 18px 12px;border-bottom:1px solid var(--line);flex:0 0 auto}
   .panel-head h2{font-size:14px;letter-spacing:.02em}
   .panel-head p{margin:3px 0 0;font-size:12px;color:var(--ink-faint)}
-  .panel-body{padding:16px 18px;display:flex;flex-direction:column;gap:15px}
+  .panel-body{padding:16px 18px;display:flex;flex-direction:column;gap:15px;overflow-y:auto;flex:1 1 auto}
   .field{display:flex;flex-direction:column;gap:6px}
   .field>label{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
   .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -70,6 +73,13 @@
   .chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
   .chip:hover{border-color:var(--accent)}
   .range-val{font-size:13px;font-weight:650;color:var(--accent-deep);font-variant-numeric:tabular-nums}
+  .budget-toggle{display:inline-flex;gap:0;margin:5px 0 8px;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;background:var(--surface)}
+  .bt-opt{cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:4px 13px;border:0;background:transparent;color:var(--ink-soft);transition:background .12s,color .12s}
+  .bt-opt.active{background:var(--accent);color:#fff}
+  .child-ages{margin-top:10px}
+  .child-ages-lbl{font-size:11px;color:var(--ink-faint);margin-bottom:5px}
+  .child-ages-row{display:flex;flex-wrap:wrap;gap:6px}
+  .child-age{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
   input[type=range]{width:100%;accent-color:var(--accent)}
   .btn-primary{width:100%;padding:12px;font-size:14.5px;font-weight:650;border:none;border-radius:var(--radius-sm);color:#fff;background:linear-gradient(180deg,var(--accent) 0%,var(--accent-deep) 100%);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:8px}
   .btn-primary:hover{filter:brightness(1.06)}
@@ -135,12 +145,49 @@
   .btn-book{border-color:var(--sand);background:var(--sand-soft);color:var(--sand)}
   .btn-book:hover{background:var(--sand);color:#fff}
   .btn-script svg{width:15px;height:15px}
+  .btn-pract{border-color:var(--line-strong);background:transparent;color:var(--ink-soft)}
+  .btn-pract:hover{background:var(--surface-2);color:var(--ink)}
+  .offer-no{margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px dashed var(--line-strong);color:var(--ink-soft);font-size:11.5px;padding:5px 9px;border-radius:var(--radius-sm);cursor:pointer;font-variant-numeric:tabular-nums}
+  .offer-no b{color:var(--ink)}
+  .offer-no:hover{border-color:var(--accent);color:var(--accent-deep)}
+  .offer-no svg{width:12px;height:12px}
+  .pract-inner{padding:0;overflow:hidden;border:1px solid var(--line);border-radius:var(--radius-sm)}
+  /* ---------- Drzewo kierunków (kraje → regiony) ---------- */
+  .geo-quick{display:flex;gap:6px;margin-bottom:7px;flex-wrap:wrap}
+  .geo-q{cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);transition:background .12s,border-color .12s}
+  .geo-q:hover{background:var(--surface);border-color:var(--accent)}
+  .geo-q-clear{margin-left:auto;color:var(--ink-faint)}
+  .geo-tree{border:1px solid var(--line);border-radius:var(--radius-sm);max-height:280px;overflow-y:auto;background:var(--surface)}
+  .geo-loading{padding:14px;font-size:13px;color:var(--ink-faint)}
+  .geo-cty{border-bottom:1px solid var(--line)}
+  .geo-cty:last-child{border-bottom:none}
+  .geo-cty-head{display:flex;align-items:center;gap:9px;padding:8px 11px}
+  .geo-cty-cb,.geo-reg input{width:16px;height:16px;flex:0 0 auto;accent-color:var(--accent);cursor:pointer;margin:0}
+  .geo-cty-name{flex:1;display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--ink);text-align:left;padding:2px 0}
+  .geo-flag{font-size:16px}
+  .geo-count{margin-left:auto;font-size:11px;font-weight:500;color:var(--ink-faint);white-space:nowrap}
+  .geo-chev{width:15px;height:15px;color:var(--ink-faint);transition:transform .2s;flex:0 0 auto}
+  .geo-cty-name.open .geo-chev{transform:rotate(180deg)}
+  .geo-regions{padding:2px 11px 9px 34px;display:flex;flex-direction:column;gap:2px;background:var(--surface-2)}
+  .geo-regions[hidden]{display:none}
+  .geo-divider{padding:7px 11px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:700}
+  .geo-reg{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;padding:3px 0}
+  .geo-reg:hover{color:var(--ink)}
+  .geo-reg-name{line-height:1.3}
 
   .script{border-top:1px dashed var(--line-strong);padding:0 18px;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease}
   .script.open{max-height:1400px;padding:18px}
   .script-inner{background:var(--surface-2);border-radius:var(--radius-sm);padding:18px 20px}
   .script-tone{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-deep);margin-bottom:12px}
   .script-tone .swatch{width:9px;height:9px;border-radius:50%}
+  .aud-label{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px}
+  .aud-label span{text-transform:none;font-weight:500;letter-spacing:0}
+  .aud-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .aud-chip{cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);transition:all .12s}
+  .aud-chip:hover{border-color:var(--ac);color:var(--ac)}
+  .aud-chip.active{background:var(--ac);border-color:var(--ac);color:#fff}
+  .aud-shuffle{cursor:pointer;font:inherit;font-size:11px;font-weight:600;text-transform:none;letter-spacing:0;margin-left:10px;padding:3px 9px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft)}
+  .aud-shuffle:hover{border-color:var(--accent);color:var(--accent)}
   .script-lead{font-family:var(--serif);font-size:17px;line-height:1.5;color:var(--ink);font-style:italic;margin:0 0 14px}
   .cb-list{display:flex;flex-direction:column;gap:10px;margin:0 0 14px}
   .cb{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;font-size:14px;line-height:1.45}
@@ -204,50 +251,6 @@
   .pract-source{padding:10px 16px;font-size:11.5px;color:var(--ink-faint);border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
   .pract-source a{color:var(--accent-deep)}
 
-  /* ---------- Mapa kierunków ---------- */
-  .maptool{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
-  .maptool-head{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;user-select:none;border-bottom:1px solid transparent}
-  .maptool.open .maptool-head{border-bottom-color:var(--line)}
-  .maptool-head .tico{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;flex:none}
-  .maptool-head .tico svg{width:16px;height:16px}
-  .maptool-head h3{font-size:14.5px;flex:1}
-  .maptool-head h3 small{font-weight:400;color:var(--ink-faint);font-size:12px}
-  .maptool-head .chev{color:var(--ink-faint);transition:transform .2s}
-  .maptool.open .maptool-head .chev{transform:rotate(180deg)}
-  .maptool-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
-  .maptool.open .maptool-body{max-height:1400px}
-
-  .map-hud{display:flex;align-items:center;gap:16px;padding:11px 18px;background:var(--surface-2);flex-wrap:wrap}
-  .hud-stat{display:flex;flex-direction:column;line-height:1.1}
-  .hud-stat .n{font-size:20px;font-weight:750;font-variant-numeric:tabular-nums;color:var(--ink)}
-  .hud-stat .l{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
-  .hud-spacer{flex:1}
-  .hud-btn{font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);display:inline-flex;align-items:center;gap:6px}
-  .hud-btn:hover{border-color:var(--accent);color:var(--accent)}
-  .hud-btn.go{background:linear-gradient(180deg,var(--accent),var(--accent-deep));color:#fff;border:none}
-  .hud-btn.go:hover{filter:brightness(1.07);color:#fff}
-  .hud-btn svg{width:14px;height:14px}
-
-  .map-wrap{position:relative;background:radial-gradient(120% 120% at 50% 0%,color-mix(in srgb,var(--accent) 14%,var(--surface)) 0%,var(--surface) 70%)}
-  .map-svg{display:block;width:100%;height:auto;cursor:pointer;touch-action:manipulation}
-  .map-land{fill:color-mix(in srgb,var(--ink) 8%,var(--surface));stroke:var(--line-strong);stroke-width:1}
-  @media (prefers-color-scheme:dark){.map-land{fill:color-mix(in srgb,var(--ink) 14%,var(--surface))}}
-  .map-grid{stroke:color-mix(in srgb,var(--accent) 20%,transparent);stroke-width:.7;stroke-dasharray:2 8}
-  .pin{cursor:pointer}
-  .pin .halo{fill:transparent;transition:r .12s,fill .12s}
-  .pin .dot{stroke:#fff;stroke-width:1.5;transition:r .12s,filter .12s}
-  .pin:hover .halo{fill:color-mix(in srgb,var(--accent) 22%,transparent);r:16}
-  .pin:hover .dot{r:8;filter:drop-shadow(0 0 6px rgba(0,0,0,.35))}
-  .pin.sel .dot{stroke-width:2.5}
-  .pin.sel .halo{fill:color-mix(in srgb,var(--accent) 26%,transparent)}
-  .pin-label{font-family:var(--sans);font-size:11px;fill:var(--ink-soft);pointer-events:none;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
-  .pin.sel .pin-label{fill:var(--ink);font-weight:650}
-  .map-legend{display:flex;flex-wrap:wrap;gap:12px;padding:11px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-soft)}
-  .lg-item{display:inline-flex;align-items:center;gap:6px}
-  .lg-dot{width:10px;height:10px;border-radius:50%}
-  .map-sel-list{padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft)}
-  .map-sel-list b{color:var(--ink)}
-
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -275,26 +278,52 @@
           <button class="clr" id="hotelNameClr" type="button" aria-label="Wyczyść nazwę">&times;</button>
         </div>
       </div>
-      <div class="field"><label for="dest">Kierunek</label>
-        <select id="dest"><option value="">Dowolny kierunek</option><option>Grecja</option><option>Hiszpania</option><option>Egipt</option><option>Turcja</option><option>Włochy</option><option>Tunezja</option><option>Portugalia</option><option>Bułgaria</option><option>Albania</option><option>Cypr</option></select>
+      <div class="field"><label>Kierunki <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— zaznacz kraje i/lub regiony</span></label>
+        <div class="geo-quick">
+          <button class="geo-q" id="geoWorld" type="button" title="Zaznacz wszystkie kierunki">🌍 Cały świat</button>
+          <button class="geo-q" id="geoNoPass" type="button" title="Kraje, do których Polakowi wystarczy dowód osobisty">🛂 Bez paszportu</button>
+          <button class="geo-q geo-q-clear" id="geoClear" type="button" title="Odznacz wszystko">✕ Wyczyść</button>
+        </div>
+        <div class="geo-tree" id="geoTree"><div class="geo-loading">Ładowanie kierunków…</div></div>
       </div>
-      <div class="field" id="regionField" hidden><label>Regiony <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— można zaznaczyć kilka</span></label>
-        <div class="chips" id="regionChips"></div>
-      </div>
-      <div class="field"><label for="depCity">Wylot z</label>
-        <select id="depCity"><option value="">Dowolne miejsce wylotu</option><option>Warszawa</option><option>Katowice</option><option>Kraków</option><option>Gdańsk</option><option>Poznań</option><option>Wrocław</option></select>
-      </div>
+      <div class="field"><label>Wylot z <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— można kilka</span></label><div class="chips" id="depChips">
+        <button class="chip" data-dep="Warszawa" aria-pressed="false">Warszawa</button>
+        <button class="chip" data-dep="Katowice" aria-pressed="false">Katowice</button>
+        <button class="chip" data-dep="Kraków" aria-pressed="false">Kraków</button>
+        <button class="chip" data-dep="Gdańsk" aria-pressed="false">Gdańsk</button>
+        <button class="chip" data-dep="Poznań" aria-pressed="false">Poznań</button>
+        <button class="chip" data-dep="Wrocław" aria-pressed="false">Wrocław</button>
+        <button class="chip" data-dep="Łódź" aria-pressed="false">Łódź</button>
+        <button class="chip" data-dep="Rzeszów" aria-pressed="false">Rzeszów</button>
+        <button class="chip" data-dep="Szczecin" aria-pressed="false">Szczecin</button>
+        <button class="chip" data-dep="Bydgoszcz" aria-pressed="false">Bydgoszcz</button>
+        <button class="chip" data-dep="Lublin" aria-pressed="false">Lublin</button>
+      </div></div>
       <div class="field"><label>Transport</label><div class="chips" id="transChips">
         <button class="chip" data-trans="Samolot" aria-pressed="false">✈️ Samolot</button>
         <button class="chip" data-trans="Autokar" aria-pressed="false">🚌 Autokar</button>
         <button class="chip" data-trans="Własny dojazd" aria-pressed="false">🚗 Własny</button>
       </div></div>
       <div class="field"><label>Termin</label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div></div>
+      <div class="field"><label>Długość pobytu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— liczba nocy</span></label><div class="chips" id="nightsChips">
+        <button class="chip" data-nights="0" aria-pressed="true">Dowolna</button>
+        <button class="chip" data-nights="7" aria-pressed="false">7 nocy</button>
+        <button class="chip" data-nights="10" aria-pressed="false">10 nocy</button>
+        <button class="chip" data-nights="11" aria-pressed="false">11 nocy</button>
+        <button class="chip" data-nights="14" aria-pressed="false">14 nocy</button>
+      </div></div>
       <div class="field"><label>Uczestnicy</label><div class="field-row">
         <div><input type="number" id="adults" min="1" max="9" value="2" aria-label="Dorośli"><div style="font-size:11px;color:var(--ink-faint);margin-top:3px">Dorośli</div></div>
         <div><input type="number" id="kids" min="0" max="6" value="0" aria-label="Dzieci"><div style="font-size:11px;color:var(--ink-faint);margin-top:3px">Dzieci</div></div>
-      </div></div>
-      <div class="field"><label for="budget">Budżet / os. — max <span class="range-val" id="budgetVal">6 000 zł</span></label><input type="range" id="budget" min="1500" max="12000" step="250" value="6000"></div>
+      </div>
+        <div class="child-ages" id="childAges" hidden></div>
+      </div>
+      <div class="field"><label for="budget"><span id="budgetLabel">Budżet / os. — max</span> <span class="range-val" id="budgetVal">6 000 zł</span></label>
+        <div class="budget-toggle" id="budgetToggle">
+          <button type="button" class="bt-opt active" data-bmode="person">za osobę</button>
+          <button type="button" class="bt-opt" data-bmode="total">za wszystkich</button>
+        </div>
+        <input type="range" id="budget" min="1500" max="30000" step="250" value="6000"></div>
       <div class="field"><label for="minRate">Min. ocena gości <span class="range-val" id="minRateVal">7,5</span></label><input type="range" id="minRate" min="6" max="9.5" step="0.1" value="7.5"></div>
       <div class="field"><label>Wyżywienie</label><div class="chips" id="boardChips">
         <button class="chip" data-board="All Inclusive" aria-pressed="false">All Inclusive</button>
@@ -315,27 +344,6 @@
   </aside>
 
   <main>
-    <section class="maptool" id="maptool">
-      <div class="maptool-head" id="maptoolHead">
-        <span class="tico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0114 0c0 4.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
-        <h3>Mapa kierunków <small>— kliknij, aby wybrać destynacje</small></h3>
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-      <div class="maptool-body">
-        <div class="map-hud">
-          <div class="hud-stat"><span class="n" id="hudSel">0</span><span class="l">Wybrane</span></div>
-          <div class="hud-spacer"></div>
-          <button class="hud-btn" id="mapClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Wyczyść</button>
-          <button class="hud-btn go" id="mapSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Szukaj zaznaczone (<span id="mapSearchN">0</span>)</button>
-        </div>
-        <div class="map-wrap" id="mapWrap">
-          <svg class="map-svg" id="mapSvg" viewBox="0 0 1000 620" role="img" aria-label="Mapa destynacji — kliknij, aby wybrać"></svg>
-        </div>
-        <div class="map-legend" id="mapLegend"></div>
-        <div class="map-sel-list" id="mapSelList">Nie wybrano jeszcze żadnej destynacji — kliknij punkt na mapie.</div>
-      </div>
-    </section>
-
     <div class="agent">
       <div class="agent-top">
         <div class="agent-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 00-9 9c0 1.6.4 3 1.2 4.3L3 21l4.7-1.2A9 9 0 1012 3z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg></div>
@@ -387,46 +395,190 @@
   function nights(){var f=document.getElementById("dateFrom").value,t=document.getElementById("dateTo").value;if(!f||!t)return 7;var d=Math.round((new Date(t)-new Date(f))/864e5);return d>0?d:7;}
   function paxCount(){return (+document.getElementById("adults").value||0)+(+document.getElementById("kids").value||0);}
 
-  var activeBoards=[],activeTags=[],activeRegions=[],activeTrans=[];
-  function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag||b.dataset.trans,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
+  var activeBoards=[],activeTags=[],activeRegions=[],activeTrans=[],activeCountries=[],activeDeps=[];
+  function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag||b.dataset.trans||b.dataset.dep,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
   wireChips(document.getElementById("boardChips"),activeBoards);
   wireChips(document.getElementById("tagChips"),activeTags);
   wireChips(document.getElementById("transChips"),activeTrans);
+  wireChips(document.getElementById("depChips"),activeDeps);
+
+  // Długość pobytu — wybór POJEDYNCZY (0 = dowolna). Wysyłane jako `nights`.
+  var activeNights=0,nightsChips=document.getElementById("nightsChips");
+  nightsChips.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;
+    activeNights=+b.dataset.nights;
+    nightsChips.querySelectorAll(".chip").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});
+  });
+
+  // Wiek dzieci — pola pojawiają się wg liczby dzieci. UWAGA: API wakacje.pl
+  // (wrapper) liczy cenę dla 2 dorosłych i nie przyjmuje wieku dzieci, więc na
+  // realnych ofertach wakacje.pl wiek NIE zmieni ceny — służy do doprecyzowania
+  // zapytania i pod przyszłe źródła (occupancy). Hotelbeds wiek uwzględnia.
+  var kidsInput=document.getElementById("kids"),childAges=document.getElementById("childAges");
+  function renderChildAges(){
+    var kn=Math.max(0,Math.min(6,+kidsInput.value||0));
+    if(!kn){childAges.hidden=true;childAges.innerHTML="";return;}
+    childAges.hidden=false;
+    var old=[].map.call(childAges.querySelectorAll("select"),function(s){return s.value;});
+    var html='<div class="child-ages-lbl">Wiek dzieci (w dniu wylotu)</div><div class="child-ages-row">';
+    for(var i=0;i<kn;i++){
+      var opts='<option value="0">niemowlę &lt;2</option>';
+      for(var a=2;a<=17;a++)opts+='<option value="'+a+'"'+(old[i]==String(a)?" selected":"")+'>'+a+' lat</option>';
+      html+='<select class="child-age" aria-label="Wiek dziecka '+(i+1)+'">'+opts+'</select>';
+    }
+    childAges.innerHTML=html+'</div>';
+  }
+  kidsInput.addEventListener("input",renderChildAges);
+  function childAgesValue(){return [].map.call(childAges.querySelectorAll("select"),function(s){return s.value;}).join(",");}
 
   var budget=document.getElementById("budget"),budgetVal=document.getElementById("budgetVal");
   var minRate=document.getElementById("minRate"),minRateVal=document.getElementById("minRateVal");
   budget.addEventListener("input",function(){budgetVal.textContent=fmt(+budget.value)+" zł";});
+  // Przełącznik budżetu: „za osobę" (cena/os.) vs „za wszystkich" (cena łączna).
+  // Twardy limit — filtr odcina wszystko powyżej wybranej kwoty w danym trybie.
+  // „Za wszystkich" ma większy zakres suwaka (bo to suma za cały wyjazd).
+  var budgetMode="person";
+  function applyBudgetMode(){
+    if(budgetMode==="total"){
+      budget.min=3000;budget.max=120000;budget.step=1000;
+      if(+budget.value<3000)budget.value=12000;
+      document.getElementById("budgetLabel").textContent="Budżet / za wszystkich — max";
+    }else{
+      budget.min=1500;budget.max=30000;budget.step=250;
+      if(+budget.value>30000)budget.value=6000;
+      document.getElementById("budgetLabel").textContent="Budżet / os. — max";
+    }
+    budgetVal.textContent=fmt(+budget.value)+" zł";
+  }
+  document.getElementById("budgetToggle").addEventListener("click",function(e){
+    var b=e.target.closest(".bt-opt");if(!b)return;
+    budgetMode=b.dataset.bmode;
+    this.querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x===b);});
+    applyBudgetMode();
+  });
   minRate.addEventListener("input",function(){minRateVal.textContent=(+minRate.value).toFixed(1).replace(".",",");});
 
   function trustLabel(t){if(t>=0.7)return{cls:"high",txt:"Opinie wiarygodne"};if(t>=0.45)return{cls:"mid",txt:"Opinie umiarkowane"};return{cls:"low",txt:"Mało / stare opinie"};}
 
   /* ---------- Skrypt sprzedażowy (po stronie panelu) ---------- */
-  function detectTone(h){var t=h.tags||[];if(t.indexOf("impreza")>-1)return"energiczny";if(t.indexOf("rodzina")>-1&&h.cap>=4)return"rodzinny";if(h.stars===5&&h.price>=6000&&(t.indexOf("spa")>-1||t.indexOf("para")>-1))return"premium";if(t.indexOf("para")>-1)return"para";return"uniwersalny";}
-  var TONE_META={energiczny:{c:"#6D3B8E",label:"Ton: energiczny"},rodzinny:{c:"#2F7D57",label:"Ton: rodzinny"},premium:{c:"#8A5A2B",label:"Ton: premium"},para:{c:"#A34747",label:"Ton: romantyczny"},uniwersalny:{c:"#0F6B68",label:"Ton: uniwersalny"}};
+  // GRUPY DOCELOWE — konsultant może przełączać na karcie, skrypt szyje się „na miarę".
+  var AUDIENCES=[
+    {id:"rodzina",label:"Rodzina z dziećmi",c:"#2F7D57"},
+    {id:"para",label:"Para",c:"#A34747"},
+    {id:"nowozency",label:"Nowożeńcy",c:"#B5476E"},
+    {id:"koledzy",label:"Męski wypad",c:"#3B5A8E"},
+    {id:"kolezanki",label:"Babski wypad",c:"#8E5AA8"},
+    {id:"premium",label:"Premium / VIP",c:"#8A5A2B"},
+    {id:"uniwersalny",label:"Dla każdego",c:"#0F6B68"}
+  ];
+  var AUD_META={};AUDIENCES.forEach(function(a){AUD_META[a.id]={c:a.c,label:a.label};});
+  // Domyślna grupa na podstawie tagów oferty (konsultant i tak może zmienić klikiem).
+  function detectAudience(h){var t=h.tags||[];
+    if(t.indexOf("rodzina")>-1&&h.cap>=4)return"rodzina";
+    if(h.stars===5&&h.price>=6000&&(t.indexOf("spa")>-1||t.indexOf("para")>-1))return"premium";
+    if(t.indexOf("para")>-1)return"para";
+    if(t.indexOf("impreza")>-1)return"koledzy";
+    return"uniwersalny";}
+  // Lead = pierwsze zdanie czytane klientowi (rejestr Pan/Pani). KAŻDA grupa ma
+  // kilka wariantów → „inny wariant" na karcie, żeby skrypt nie brzmiał szablonowo.
   var LEADS={
-    energiczny:function(h){return"Wyobraź sobie "+h.region+" tętniące życiem — dni na plaży, wieczory, które nie chcą się kończyć. "+h.name+" to baza wypadowa dla tych, którzy nie przyjechali odpoczywać na leżaku.";},
-    rodzinny:function(h){return"Są takie miejsca, gdzie rodzice wreszcie łapią oddech, a dzieci nie chcą wracać do pokoju. "+h.name+" w "+h.region+" jest właśnie takim miejscem — poukładanym pod każdego z Was.";},
-    premium:function(h){return h.name+" to nie jest \"kolejny hotel\". To "+h.region+" w wersji, w której liczy się każdy detal — cisza, przestrzeń i obsługa, która wie, zanim poprosisz.";},
-    para:function(h){return"Kilka dni tylko we dwoje, z "+h.region+" w tle. "+h.name+" stworzono dla par, które chcą zwolnić i po prostu być razem.";},
-    uniwersalny:function(h){return h.name+" w "+h.region+" to bezpieczny, sprawdzony wybór — dobra ocena gości, wygodny standard i lokalizacja, która robi robotę od pierwszego dnia.";}
+    rodzina:[
+      function(h){return"Są takie miejsca, gdzie rodzice wreszcie łapią oddech, a dzieci nie chcą wracać do pokoju. "+h.name+" w "+h.region+" jest właśnie takie — poukładane pod każdego z osobna.";},
+      function(h){return"Proszę sobie wyobrazić: dzieci bawią się przy basenie pod okiem animatorów, a Państwo pierwszy raz od dawna piją kawę do końca ciepłą. Tak wygląda zwykły dzień w "+h.name+".";},
+      function(h){return"Wyjazd z dziećmi bywa odpoczynkiem albo drugą pracą — wszystko zależy od hotelu. "+h.name+" w "+h.region+" jest z tych pierwszych: tu naprawdę da się wypocząć całą rodziną.";}
+    ],
+    para:[
+      function(h){return"Kilka dni tylko we dwoje, z "+h.region+" w tle. "+h.name+" powstał z myślą o parach, które chcą zwolnić i po prostu być razem.";},
+      function(h){return"Poranki bez budzika, wieczory we dwoje i żadnych obowiązków. "+h.name+" to miejsce, które samo wprowadza w ten spokojny tryb.";},
+      function(h){return"Czasem najlepszy prezent to nie rzecz, tylko wspólny czas. "+h.name+" w "+h.region+" daje dokładnie to — spokój, klimat i chwilę wyłącznie dla Was dwojga.";}
+    ],
+    nowozency:[
+      function(h){return"Po weselu należy się Państwu coś wyjątkowego — i "+h.name+" w "+h.region+" jest właśnie na taką okazję. Pierwsza podróż jako małżeństwo powinna zostać w pamięci na lata.";},
+      function(h){return"Miesiąc miodowy zdarza się raz. "+h.name+" to miejsce, gdzie o wszystko zadbają za Państwa — zostaje tylko cieszyć się sobą i tym, co dookoła.";},
+      function(h){return"Romantyczna kolacja, zachód słońca nad "+h.region+" i żadnych trosk — "+h.name+" stworzono dla par, które właśnie zaczynają wspólne życie.";}
+    ],
+    koledzy:[
+      function(h){return"Męski wypad rządzi się swoimi prawami — ma być luźno, wesoło i bez spinania się o cokolwiek. "+h.name+" w "+h.region+" daje dokładnie taki klimat.";},
+      function(h){return"Dobra baza, słońce i ekipa w komplecie — reszta zrobi się sama. Z "+h.name+" blisko do wszystkiego, co się liczy na takim wyjeździe.";},
+      function(h){return"Kilka dni oderwania od codzienności z paczką znajomych — "+h.name+" w "+h.region+" jest jak stworzony pod taki wypad: swoboda, dobra zabawa i zero zmartwień.";}
+    ],
+    kolezanki:[
+      function(h){return"Babski wyjazd ma swoją świętą zasadę: żadnych obowiązków, dużo słońca i czas tylko dla siebie. "+h.name+" w "+h.region+" jest jak pod to skrojony.";},
+      function(h){return"Basen, dobre drinki, wieczory pełne śmiechu i ani chwili na myślenie o codzienności — tak wygląda babski wypad w "+h.name+".";},
+      function(h){return"Czasem trzeba po prostu spakować walizkę, zabrać przyjaciółki i wyjechać. "+h.name+" w "+h.region+" to idealne miejsce na taki reset we własnym gronie.";}
+    ],
+    premium:[
+      function(h){return h.name+" to nie jest kolejny hotel z brzegu. To "+h.region+" w wersji, w której liczy się każdy detal — cisza, przestrzeń i obsługa, która wie, czego Pan potrzebuje, zanim jeszcze poprosi.";},
+      function(h){return"Są wyjazdy, i są doświadczenia. "+h.name+" należy do tej drugiej kategorii — miejsce dla kogoś, kto ceni swój czas i nie robi kompromisów.";},
+      function(h){return"Najwyższy standard, pełna dyskrecja i obsługa, która przewiduje potrzeby — "+h.name+" w "+h.region+" to propozycja dla wymagających, którzy dokładnie wiedzą, czego chcą.";}
+    ],
+    uniwersalny:[
+      function(h){return h.name+" w "+h.region+" to bezpieczny, sprawdzony wybór — dobra ocena gości, wygodny standard i lokalizacja, która sprawdza się od pierwszego dnia.";},
+      function(h){return"Jeśli szuka Pan czegoś pewnego, bez niespodzianek — "+h.name+" jest właśnie taką propozycją. Dobre opinie, uczciwa cena i wszystko na swoim miejscu.";},
+      function(h){return"Nie każdy wyjazd musi być pod konkretny klucz — czasem chodzi po prostu o udane wakacje. "+h.name+" w "+h.region+" daje to bez kombinowania.";}
+    ]
   };
+  // Cecha → korzyść, ale KAŻDE zdanie napisane tak, żeby konsultant mógł je
+  // przeczytać klientowi wprost (drugą osobą, naturalnie), bez meta-komentarzy
+  // typu „to argument, który sprzedaje". Nic nie zmyślamy: linia o plaży leci
+  // tylko, gdy znamy realny dystans (wakacje.pl daje beach=null → pomijamy).
   function featureBenefits(h){
     var l=[],t=h.tags||[];
-    if((h.board||"").indexOf("All Inclusive")>-1)l.push({f:h.board==="Ultra All Inclusive"?"Ultra All Inclusive":"All Inclusive",b:"zero pilnowania portfela na miejscu — jedzenie, napoje i przekąski przez całą dobę w cenie. Klient płaci raz i o niczym nie myśli."});
-    else if(h.board==="HB")l.push({f:"Śniadania i obiadokolacje",b:"dwa posiłki dziennie na spokojnie, a lunch to pretekst, żeby wyjść i posmakować okolicy."});
-    else l.push({f:"Śniadania w cenie",b:"pełna swoboda — poranek zaczynasz najedzony, a resztę dnia planujesz po swojemu."});
-    if(h.beach<=100)l.push({f:"Plaża "+h.beach+" m od hotelu",b:"rano ręcznik na piasku, w południe drzemka w pokoju — bez transferów i marnowania dnia na dojazdy."});
-    else if(h.beach<=250)l.push({f:"Plaża ok. "+h.beach+" m",b:"kilka minut spacerem do morza, a hotel wciąż na tyle z boku, że wieczorem jest cisza."});
-    else l.push({f:"Spokojna lokalizacja",b:"z dala od zgiełku — kameralny klimat, którego nie ma w kurortach z pierwszej linii."});
-    if(t.indexOf("spa")>-1)l.push({f:"Strefa spa & wellness",b:"masaż i sauna na koniec dnia to argument, który sprzedaje wyjazd sam — zwłaszcza parom i osobom po sezonie w pracy."});
-    if(t.indexOf("rodzina")>-1&&h.cap>=4)l.push({f:"Pokoje rodzinne do "+h.cap+" osób",b:"cała rodzina w jednej przestrzeni, animacje dla dzieci i basen, przy którym maluchy są zajęte — a Wy naprawdę odpoczywacie."});
-    if(t.indexOf("impreza")>-1)l.push({f:"Życie nocne w zasięgu ręki",b:"kluby, bary i plażowe party tuż obok — nie trzeba nigdzie jechać, żeby wieczór się rozkręcił."});
-    if(h.stars===5&&l.length<4)l.push({f:"Standard 5 gwiazdek",b:"przestrzeń, jakość i obsługa na poziomie, który podnosi cały wyjazd — to widać już w recepcji."});
+    if((h.board||"").indexOf("All Inclusive")>-1)l.push({f:h.board==="Ultra All Inclusive"?"Ultra All Inclusive":"All Inclusive",b:"ma Pan wszystko w cenie — posiłki, napoje i przekąski o każdej porze. Płaci Pan raz, a na miejscu już o nic nie musi się martwić."});
+    else if(h.board==="HB")l.push({f:"Śniadania i obiadokolacje",b:"dwa spokojne posiłki w hotelu, a porę obiadu zostawiamy wolną — idealny moment, żeby wyjść i spróbować lokalnej kuchni."});
+    else l.push({f:"Śniadania w cenie",b:"dzień zaczyna się na spokojnie, przy dobrym śniadaniu, a resztę planuje Pan już całkiem po swojemu."});
+    if(typeof h.beach==="number"){
+      if(h.beach<=100)l.push({f:"Plaża "+h.beach+" m od hotelu",b:"rano ręcznik na piasku, w południe drzemka w pokoju — morze ma Pan praktycznie pod nosem, bez dojazdów."});
+      else if(h.beach<=250)l.push({f:"Plaża ok. "+h.beach+" m",b:"kilka minut spacerem do morza, a hotel na tyle z boku, że wieczorem jest naprawdę cicho."});
+      else l.push({f:"Spokojna lokalizacja",b:"z dala od zgiełku pierwszej linii — kameralnie i cicho, dla tych, którzy cenią spokój."});
+    }
+    if(t.indexOf("spa")>-1)l.push({f:"Strefa spa & wellness",b:"sauna i masaż na miejscu — po całym dniu na słońcu to najlepszy sposób, żeby wieczorem naprawdę odpocząć."});
+    if(t.indexOf("rodzina")>-1&&h.cap>=4)l.push({f:"Pokoje rodzinne nawet dla "+h.cap+" osób",b:"cała rodzina w jednej przestrzeni, animacje dla dzieci i basen, przy którym maluchy mają zajęcie — a Państwo w końcu łapią oddech."});
+    if(t.indexOf("impreza")>-1)l.push({f:"Życie nocne pod ręką",b:"kluby, bary i plażowe imprezy tuż obok — nigdzie nie trzeba jechać, żeby wieczór się rozkręcił."});
+    if(h.stars===5&&l.length<4)l.push({f:"Standard 5 gwiazdek",b:"przestrzeń, jakość i obsługę czuć już od progu — to ten poziom, który zapamiętuje się na długo."});
     return l.slice(0,4);
   }
-  var CLOSERS={energiczny:"Sprzedajesz nie hotel — sprzedajesz historię, którą będą opowiadać znajomym po powrocie.",rodzinny:"To wyjazd, po którym dzieci pytają \"a kiedy znowu?\" — a to najlepsza rekomendacja, jaką może dostać rodzic.",premium:"Klient nie kupuje tu noclegu. Kupuje poczucie, że zasłużył na coś naprawdę dobrego.",para:"Kilka dni, które w związku pamięta się dłużej niż niejeden prezent.",uniwersalny:"Solidna propozycja, którą łatwo obronić przy kliencie — dobre ceny, dobre opinie, żadnej ściemy."};
-  function buildScript(h){var tone=detectTone(h);return{tone:tone,lead:LEADS[tone](h),cb:featureBenefits(h),closer:CLOSERS[tone]};}
-  function scriptText(h,sc){var t="OFERTA: "+h.name+" — "+h.region+"\n";t+="Ocena: "+ratingTxt(h)+"  |  "+h.board+"  |  "+h.stars+"*\nCena od "+fmt(h.price)+" zł/os.\n\n"+sc.lead+"\n\nDLACZEGO WARTO:\n";sc.cb.forEach(function(x){t+="• "+x.f+" — "+x.b+"\n";});return t+"\n"+sc.closer+"\n";}
+  // Domknięcie = ostatnie zdanie, które konsultant CZYTA klientowi. Naturalne,
+  // z lekkim, uczciwym „pchnięciem" do decyzji — bez meta-porad dla sprzedawcy.
+  // Domknięcie = ostatnie zdanie czytane klientowi, z uczciwym „pchnięciem". Warianty per grupa.
+  var CLOSERS={
+    rodzina:[
+      "To jeden z tych wyjazdów, po których dzieci same pytają, kiedy jedziecie znowu. Przy takim standardzie i cenie trudno o coś lepszego dla całej rodziny — chce Pan, żebym zaklepał termin?",
+      "Zadowolone dzieci to spokojni rodzice — a tu zadbano o jedno i drugie. Jeśli termin pasuje, zarezerwuję go, zanim miejsca się rozejdą."
+    ],
+    para:[
+      "Kilka takich dni we dwoje pamięta się dłużej niż niejeden prezent. Najlepsze pokoje znikają pierwsze, więc jeśli termin pasuje, zarezerwujmy go teraz.",
+      "To wyjazd, z którego wraca się bliżej sobie. Mam sprawdzić dostępność na Państwa termin?"
+    ],
+    nowozency:[
+      "Miesiąc miodowy przeżywa się raz — warto, żeby był naprawdę wyjątkowy. Jeśli się Państwu podoba, zarezerwuję z prośbą o miłą niespodziankę od hotelu dla nowożeńców.",
+      "Taki wyjazd zostaje w pamięci na całe małżeństwo. Chcą Państwo, żebym zaklepał termin, póki jest jeszcze wolny?"
+    ],
+    koledzy:[
+      "Szczerze — na taki wypad to strzał w dziesiątkę, a najlepsze terminy schodzą pierwsze. Jak ekipa mówi „jedziemy", sprawdzę od razu dostępność.",
+      "Tego typu wyjazdy najlepiej domykać wcześniej — ceny rosną z każdym tygodniem. Zaklepać na Wasz termin?"
+    ],
+    kolezanki:[
+      "To będzie ten wyjazd, o którym będziecie wspominać jeszcze długo po powrocie. Jeśli klimat pasuje, zarezerwuję, zanim miejsca znikną.",
+      "Najlepsze terminy na taki babski wypad schodzą błyskawicznie. Chce Pani, żebym sprawdził dostępność?"
+    ],
+    premium:[
+      "To propozycja dla kogoś, kto chce mieć wszystko dopięte i zasłużyć na kilka dni bez kompromisów. W tym przedziale trafia się to rzadko, więc warto się nie ociągać.",
+      "Najlepsze apartamenty w takich hotelach rezerwuje się z dużym wyprzedzeniem. Jeśli to Pana przekonuje, zabezpieczę termin od ręki."
+    ],
+    uniwersalny:[
+      "To bezpieczny, sprawdzony wybór — dobre opinie, uczciwa cena i żadnych niespodzianek na miejscu. Spokojnie mogę go Panu polecić.",
+      "Trudno tu o rozczarowanie — solidny hotel w dobrej cenie. Jeśli termin pasuje, zarezerwuję go dla Pana."
+    ]
+  };
+  function leadCount(aud){return (LEADS[aud]||LEADS.uniwersalny).length;}
+  // Buduje skrypt dla wybranej grupy i wariantu (variant „zawija się" modulo).
+  function buildScript(h,aud,variant){
+    aud=aud||detectAudience(h);
+    var leads=LEADS[aud]||LEADS.uniwersalny,closers=CLOSERS[aud]||CLOSERS.uniwersalny;
+    var v=variant||0;v=((v%leads.length)+leads.length)%leads.length;
+    return {aud:aud,variant:v,lead:leads[v](h),cb:featureBenefits(h),closer:closers[v%closers.length]};
+  }
+  function scriptText(h,sc){var t="OFERTA: "+h.name+" — "+h.region+"  ["+AUD_META[sc.aud].label+"]\n";t+="Ocena: "+ratingTxt(h)+"  |  "+h.board+"  |  "+h.stars+"*\nCena od "+fmt(h.price)+" zł/os.\n\n"+sc.lead+"\n\nDLACZEGO WARTO:\n";sc.cb.forEach(function(x){t+="• "+x.f+" — "+x.b+"\n";});return t+"\n"+sc.closer+"\n";}
 
   function stars(n){return "★★★★★☆☆☆☆☆".slice(5-n,10-n);}
   function rateColor(r){if(r>=9)return"#0F6B68";if(r>=8.3)return"#2F7D57";if(r>=7.5)return"#7A8A2E";return"#B26A1E";}
@@ -458,33 +610,65 @@
 
   function cardEl(h,i,n,pax){
     var el=document.createElement("article");el.className="card";
-    var tl=trustLabel(h.trust||0),total=h.price*Math.max(1,pax),sc=buildScript(h),tm=TONE_META[sc.tone];
+    var tl=trustLabel(h.trust||0);
+    var cur={aud:detectAudience(h),variant:0};  // aktualna grupa docelowa + wariant skryptu (przełączane na karcie)
+    // Kwota łączna: jeśli źródło podaje realny total (wakacje.pl = za 2 doros.),
+    // pokazujemy JEGO — inaczej szacujemy jako cena/os. × liczba osób.
+    var hasSrcTotal=typeof h.priceTotal==="number"&&h.priceTotal>0;
+    var total=hasSrcTotal?h.priceTotal:h.price*Math.max(1,pax);
+    var totalWho=hasSrcTotal?"2 doros.":(pax+" os.");
+    var practInner=practGridHtml(h.country);   // rozwijacz z warunkami wjazdowymi (jeśli znamy kraj)
+    var offerNo=h.offerNumber||"";             // numer oferty do skopiowania (wakacje.pl)
     var isPkg=h.type==="package",offN=h.nights||n;
     var transIco=h.transport==="Autokar"?"🚌":(h.transport==="Własny dojazd"?"🚗":"✈️");
     var pkgMeta=isPkg?('<span class="tag pkg">'+transIco+' Wylot: '+h.departureCity+'</span>'+(h.transferIncluded?'<span class="tag">transfer w cenie</span>':'')):'';
     var srcBadge=isPkg?'<span class="src-badge op">'+h.operator+'</span>':'<span class="src-badge">'+(h.source||"demo")+'</span>';
     var photo=isImg(h.photo)?'<img src="'+h.photo+'" alt="'+h.name+'" loading="lazy">':'';
     var photoStyle=isImg(h.photo)?'':'background:'+(h.photo||"linear-gradient(135deg,#0F6B68,#3FB0AB)")+'';
-    var cb=sc.cb.map(function(x){return '<div class="cb"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><div><span class="feat">'+x.f+'</span> — <span class="benefit">'+x.b+'</span></div></div>';}).join("");
     el.innerHTML=
       '<div class="card-main">'+
         '<div class="card-photo" style="'+photoStyle+'">'+photo+'<div class="badge-row">'+(i<3?'<span class="rank-badge">#'+(i+1)+' rekomendacja</span>':'')+srcBadge+'</div></div>'+
         '<div class="card-body">'+
           '<div class="loc"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.4-7-11a7 7 0 0114 0c0 4.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'+(h.region||h.country)+'</div>'+
           '<h3>'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></h3>'+
-          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+'<span class="tag">do '+h.cap+' os.</span><span class="tag">plaża '+h.beach+' m</span></div>'+
+          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">plaża '+h.beach+' m</span>':'')+'</div>'+
           '<div class="rate-row"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span><span class="rate-txt">'+(h.reviews>0?('<b>'+fmt(h.reviews)+'</b> opinii · najśw. '+h.freshDays+' dni temu'):'brak danych o opiniach')+'</span></div>'+
           '<div style="margin-top:10px"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span></div>'+
         '</div>'+
-        '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+pax+' os.)</div>'+
-          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button></div>'+
+        '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+(offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
+          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'</div>'+
         '</div>'+
       '</div>'+
-      '<div class="script"><div class="script-inner"><div class="script-tone"><span class="swatch" style="background:'+tm.c+'"></span>'+tm.label+'</div><p class="script-lead">'+sc.lead+'</p><div class="cb-list">'+cb+'</div><p class="script-close-img">'+sc.closer+'</p><div class="script-tools"><button class="tool-btn" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Kopiuj ofertę</button><button class="tool-btn" data-print><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Drukuj / PDF</button></div></div></div>';
-    var drawer=el.querySelector(".script");
-    el.querySelector("[data-toggle]").addEventListener("click",function(){drawer.classList.toggle("open");});
-    el.querySelector("[data-copy]").addEventListener("click",function(){var txt=scriptText(h,sc);if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano ofertę ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
-    el.querySelector("[data-print]").addEventListener("click",function(){printOffer(h,sc,n,pax);});
+      '<div class="script js-script"><div class="script-inner"></div></div>'+
+      (practInner?'<div class="script js-pract"><div class="script-inner pract-inner">'+practInner+'</div></div>':'');
+    var sDrawer=el.querySelector(".js-script"),pDrawer=el.querySelector(".js-pract");
+    var scriptInner=sDrawer.querySelector(".script-inner");
+    // Wypełnia drawer skryptu dla aktualnej grupy (cur.aud) i wariantu (cur.variant).
+    function fillScript(){
+      var s=buildScript(h,cur.aud,cur.variant),meta=AUD_META[s.aud];
+      var chips=AUDIENCES.map(function(a){return '<button class="aud-chip'+(a.id===cur.aud?" active":"")+'" data-aud="'+a.id+'" style="--ac:'+a.c+'">'+a.label+'</button>';}).join("");
+      var cbh=s.cb.map(function(x){return '<div class="cb"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><div><span class="feat">'+x.f+'</span> — <span class="benefit">'+x.b+'</span></div></div>';}).join("");
+      scriptInner.innerHTML=
+        '<div class="aud-label">Skrypt dla kogo? <span>— kliknij, dobierze się w locie</span></div>'+
+        '<div class="aud-row">'+chips+'</div>'+
+        '<div class="script-tone"><span class="swatch" style="background:'+meta.c+'"></span>'+meta.label+' · wariant '+(s.variant+1)+'/'+leadCount(s.aud)+'<button class="aud-shuffle" data-shuffle title="Inny wariant tekstu">🔀 Inny wariant</button></div>'+
+        '<p class="script-lead">'+s.lead+'</p>'+
+        '<div class="cb-list">'+cbh+'</div>'+
+        '<p class="script-close-img">'+s.closer+'</p>'+
+        '<div class="script-tools"><button class="tool-btn" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Kopiuj ofertę</button><button class="tool-btn" data-print><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Drukuj / PDF</button></div>';
+    }
+    fillScript();
+    el.querySelector("[data-toggle]").addEventListener("click",function(){sDrawer.classList.toggle("open");if(pDrawer)pDrawer.classList.remove("open");});
+    var pBtn=el.querySelector("[data-pract]");if(pBtn)pBtn.addEventListener("click",function(){pDrawer.classList.toggle("open");sDrawer.classList.remove("open");});
+    var noBtn=el.querySelector("[data-copyno]");if(noBtn)noBtn.addEventListener("click",function(){var nn=noBtn.getAttribute("data-copyno");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(nn).then(function(){toast("Skopiowano nr oferty: "+nn+" ✓");},function(){fallbackCopy(nn);});else fallbackCopy(nn);});
+    // Delegacja: przełącznik grupy, „inny wariant", kopiowanie i druk — jeden listener.
+    scriptInner.addEventListener("click",function(e){
+      var chip=e.target.closest(".aud-chip");
+      if(chip){cur.aud=chip.dataset.aud;cur.variant=0;fillScript();return;}
+      if(e.target.closest("[data-shuffle]")){cur.variant++;fillScript();return;}
+      if(e.target.closest("[data-copy]")){var txt=scriptText(h,buildScript(h,cur.aud,cur.variant));if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano ofertę ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);return;}
+      if(e.target.closest("[data-print]")){printOffer(h,buildScript(h,cur.aud,cur.variant),n,pax);return;}
+    });
     return el;
   }
   function fallbackCopy(txt){var ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Skopiowano ofertę ✓");}catch(e){toast("Nie udało się skopiować");}document.body.removeChild(ta);}
@@ -495,7 +679,7 @@
   function search(){
     searchBtn.disabled=true;
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
-    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),dest:document.getElementById("dest").value,regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,budget:budget.value,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departure:document.getElementById("depCity").value,transports:activeTrans.join(","),sort:document.getElementById("sort").value});
+    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),sort:document.getElementById("sort").value});
     fetch("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
@@ -505,35 +689,113 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";document.getElementById("dest").value="";activeRegions.length=0;regionChips.innerHTML="";document.querySelectorAll("#mapSvg .pin.sel").forEach(function(p){p.classList.remove("sel");});updateMapHud();document.getElementById("regionField").hidden=true;document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;document.getElementById("depCity").value="";document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});search();});
 
   (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);})();
 
   /* ---------- Kraje: regiony + informacje praktyczne ---------- */
-  var COUNTRY_DATA={},destEl=document.getElementById("dest"),regionChips=document.getElementById("regionChips"),regionField=document.getElementById("regionField");
+  var COUNTRY_DATA={},REGION_TO_COUNTRY={},geoTree=document.getElementById("geoTree");
+  // Kraje bez rozbicia na regiony w countries.js — jako węzły „cały kraj".
+  var EXTRAS=[{name:"Bułgaria",flag:"🇧🇬"},{name:"Albania",flag:"🇦🇱"},{name:"Cypr",flag:"🇨🇾"}];
+  // Kierunki egzotyczne (sprawdzone w API). name = kraj DOKŁADNIE jak w danych
+  // (Zanzibar figuruje jako „Tanzania", Bali jako „Indonezja") — inaczej filtr by nie łapał.
+  var EXOTIC=[
+    {name:"Malediwy",flag:"🇲🇻"},{name:"Tajlandia",flag:"🇹🇭"},{name:"Dominikana",flag:"🇩🇴"},
+    {name:"Meksyk",flag:"🇲🇽"},{name:"Tanzania",flag:"🇹🇿",label:"Zanzibar (Tanzania)"},
+    {name:"Kenia",flag:"🇰🇪"},{name:"Sri Lanka",flag:"🇱🇰"},{name:"Mauritius",flag:"🇲🇺"},
+    {name:"Wietnam",flag:"🇻🇳"},{name:"Indonezja",flag:"🇮🇩",label:"Bali (Indonezja)"},
+    {name:"Wyspy Zielonego Przylądka",flag:"🇨🇻"}
+  ];
   var practical=document.getElementById("practical");
   var PRACT_ICONS={documents:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>',visa:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h4M7 13h6"/>',currency:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2 0 013 -1c1.5 0 2.5 1 2.5 2s-1 1.5-2.5 2-2.5 1-2.5 2 1 2 2.5 2a2.5 2 0 003-1"/>',time:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',language:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/>',emergency:'<path d="M12 2l9 4v6c0 5-3.8 8.5-9 10-5.2-1.5-9-5-9-10V6z"/><path d="M12 8v4M12 16h.01"/>',plug:'<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 01-12 0z"/><path d="M12 17v5"/>',health:'<path d="M12 21C7 17 3 13 3 8.5A4.5 4.5 0 0112 6a4.5 4.5 0 019 2.5C21 13 17 17 12 21z"/>'};
   var PRACT_LABELS={documents:"Dokumenty",visa:"Wiza",currency:"Waluta",time:"Strefa czasowa",language:"Język",emergency:"Nr alarmowy",plug:"Gniazdka / prąd",health:"Zdrowie"};
 
-  function populateRegions(country){
-    activeRegions.length=0;
-    regionChips.innerHTML="";
+  // Siatka „informacji praktycznych" dla danego kraju — używana i w karcie kraju,
+  // i w rozwijaczu na karcie oferty. Pusty string, gdy brak danych o kraju.
+  function practGridHtml(country){
     var c=COUNTRY_DATA[country];
-    if(c&&c.regions){c.regions.forEach(function(r){var b=document.createElement("button");b.className="chip";b.type="button";b.dataset.region=r;b.setAttribute("aria-pressed","false");b.textContent=r;regionChips.appendChild(b);});regionField.hidden=false;}
-    else regionField.hidden=true;
+    if(!c||!c.practical)return"";
+    var p=c.practical,keys=["documents","visa","currency","time","language","emergency","plug","health"];
+    var grid=keys.map(function(k){return '<div class="pract-item"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(PRACT_ICONS[k]||"")+'</svg>'+PRACT_LABELS[k]+'</div><div class="v">'+p[k]+'</div></div>';}).join("");
+    return '<div class="practical-grid">'+grid+'</div>'+(p.note?'<div class="pract-note"><b>Dobrze wiedzieć:</b> '+p.note+'</div>':'')+'<div class="pract-source"><span>Źródło: gov.pl / MSZ (lipiec 2026) — <b>zawsze zweryfikuj przed wyjazdem</b></span><a href="https://www.gov.pl/web/dyplomacja/informacje-dla-podrozujacych" target="_blank" rel="noopener">gov.pl ↗</a></div>';
   }
-  regionChips.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;syncRegionUI(b.dataset.region,activeRegions.indexOf(b.dataset.region)===-1);});
 
-  // Jedno źródło prawdy dla zaznaczenia regionu — synchronizuje panel + mapę + licznik.
-  function syncRegionUI(region,on){
+  // Budowa drzewa kierunków: kraje z regionami + kraje-ekstra (cały kraj).
+  function buildGeoTree(){
+    function ctyNode(x){var lbl=x.label||x.name;return '<div class="geo-cty" data-country="'+x.name+'"><div class="geo-cty-head"><input type="checkbox" class="geo-cty-cb" data-country="'+x.name+'" aria-label="Cały kraj: '+lbl+'"><button type="button" class="geo-cty-name" style="cursor:default"><span class="geo-flag">'+x.flag+'</span><span>'+lbl+'</span><span class="geo-count">cały kraj</span></button></div></div>';}
+    var html=Object.keys(COUNTRY_DATA).map(function(country){
+      var c=COUNTRY_DATA[country],regs=c.regions||[];
+      var regHtml=regs.map(function(r){return '<label class="geo-reg"><input type="checkbox" class="geo-reg-cb" data-region="'+r+'"><span class="geo-reg-name">'+r+'</span></label>';}).join("");
+      return '<div class="geo-cty" data-country="'+country+'">'+
+        '<div class="geo-cty-head"><input type="checkbox" class="geo-cty-cb" data-country="'+country+'" aria-label="Cały kraj: '+country+'">'+
+        '<button type="button" class="geo-cty-name" data-expand><span class="geo-flag">'+(c.flag||"🏝️")+'</span><span>'+country+'</span><span class="geo-count">'+regs.length+' reg.</span><svg class="geo-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button></div>'+
+        (regs.length?'<div class="geo-regions" hidden>'+regHtml+'</div>':'')+'</div>';
+    }).join("");
+    html+=EXTRAS.map(ctyNode).join("");
+    html+='<div class="geo-divider">✈️ Egzotyka</div>';
+    html+=EXOTIC.map(ctyNode).join("");
+    geoTree.innerHTML=html;
+  }
+  function countryRegions(country){var c=COUNTRY_DATA[country];return (c&&c.regions)||[];}
+  // Stan checkboxa kraju wynika z zaznaczonych regionów:
+  //  wszystkie regiony zaznaczone → „cały kraj" (trafia też do activeCountries →
+  //  filtr po kraju = odporny na różnice nazw); część → „indeterminate"; żaden → pusty.
+  //  Kraje BEZ regionów (egzotyka/ekstra): stan wprost z activeCountries.
+  function refreshCountryState(country){
+    var cb=geoTree.querySelector('.geo-cty-cb[data-country="'+country+'"]');if(!cb)return;
+    var regs=countryRegions(country);
+    if(regs.length){
+      var cnt=regs.filter(function(r){return activeRegions.indexOf(r)>-1;}).length;
+      var whole=cnt===regs.length,some=cnt>0&&!whole,i=activeCountries.indexOf(country);
+      if(whole&&i===-1)activeCountries.push(country);
+      if(!whole&&i>-1)activeCountries.splice(i,1);
+      cb.checked=whole;cb.indeterminate=some;
+    }else{
+      cb.checked=activeCountries.indexOf(country)>-1;cb.indeterminate=false;
+    }
+  }
+  // Ustaw pojedynczy region (bez odświeżania UI) — do użycia hurtowego.
+  function setRegion(region,on){
     var i=activeRegions.indexOf(region);
     if(on&&i===-1)activeRegions.push(region);
     if(!on&&i>-1)activeRegions.splice(i,1);
-    var chip=regionChips.querySelector('.chip[data-region="'+region+'"]');
-    if(chip)chip.setAttribute("aria-pressed",on?"true":"false");
-    var pin=document.querySelector('#mapSvg .pin[data-region="'+region+'"]');
-    if(pin)pin.classList.toggle("sel",on);
-    updateMapHud();
+    var rcb=geoTree.querySelector('.geo-reg-cb[data-region="'+region+'"]');if(rcb)rcb.checked=on;
+  }
+  // Jedno źródło prawdy dla REGIONU — drzewo + licznik + karta praktyczna.
+  function syncRegionUI(region,on){
+    setRegion(region,on);
+    var ctry=REGION_TO_COUNTRY[region];if(ctry)refreshCountryState(ctry);
+    refreshPractical();
+  }
+  // Kraj: zaznacz/odznacz WSZYSTKIE jego regiony (albo — bez regionów — sam kraj).
+  function syncCountryUI(country,on){
+    var regs=countryRegions(country);
+    if(regs.length){regs.forEach(function(r){setRegion(r,on);});refreshCountryState(country);}
+    else{var i=activeCountries.indexOf(country);if(on&&i===-1)activeCountries.push(country);if(!on&&i>-1)activeCountries.splice(i,1);refreshCountryState(country);}
+    refreshPractical();
+  }
+  function clearGeo(){activeCountries.slice().forEach(function(c){syncCountryUI(c,false);});activeRegions.slice().forEach(function(r){syncRegionUI(r,false);});}
+  // Zaznacz podaną listę krajów „w całości" (czyści wcześniejszy wybór).
+  function selectCountries(list){clearGeo();list.forEach(function(c){syncCountryUI(c,true);});}
+  // Kraje, do których Polakowi wystarczy DOWÓD OSOBISTY (UE/Schengen + Albania + Turcja).
+  // Paszport potrzebny: Egipt, Tunezja i cała egzotyka → poza tą listą.
+  var NO_PASSPORT=["Grecja","Hiszpania","Włochy","Portugalia","Bułgaria","Albania","Cypr","Turcja"];
+  // Wszystkie kierunki dostępne w drzewie (kraje z regionami + ekstra + egzotyka).
+  function allCountries(){return Object.keys(COUNTRY_DATA).concat(EXTRAS.map(function(x){return x.name;})).concat(EXOTIC.map(function(x){return x.name;}));}
+  document.getElementById("geoWorld").addEventListener("click",function(){selectCountries(allCountries());});
+  document.getElementById("geoNoPass").addEventListener("click",function(){selectCountries(NO_PASSPORT.filter(countryExists));});
+  document.getElementById("geoClear").addEventListener("click",function(){clearGeo();});
+  // Czy dany kraj w ogóle istnieje w drzewie (ma checkbox)?
+  function countryExists(c){return !!geoTree.querySelector('.geo-cty-cb[data-country="'+c+'"]');}
+  geoTree.addEventListener("change",function(e){var t=e.target;if(t.classList.contains("geo-cty-cb"))syncCountryUI(t.dataset.country,t.checked);else if(t.classList.contains("geo-reg-cb"))syncRegionUI(t.dataset.region,t.checked);});
+  geoTree.addEventListener("click",function(e){var ex=e.target.closest("[data-expand]");if(!ex)return;var regs=ex.closest(".geo-cty").querySelector(".geo-regions");if(!regs)return;var willOpen=regs.hasAttribute("hidden");if(willOpen)regs.removeAttribute("hidden");else regs.setAttribute("hidden","");ex.classList.toggle("open",willOpen);});
+  // Karta praktyczna u góry: pokazuj, gdy w grze DOKŁADNIE jeden kraj
+  // (przy wielu — na kartach ofert są osobne rozwijacze per kraj).
+  function refreshPractical(){
+    var set={};activeCountries.forEach(function(c){set[c]=1;});
+    activeRegions.forEach(function(r){var c=REGION_TO_COUNTRY[r];if(c)set[c]=1;});
+    var ks=Object.keys(set);
+    if(ks.length===1)renderPractical(ks[0]);else practical.classList.remove("show","open");
   }
   function renderPractical(country){
     var c=COUNTRY_DATA[country];
@@ -545,10 +807,14 @@
     document.getElementById("practicalBody").innerHTML='<div class="practical-grid">'+grid+'</div>'+(p.note?'<div class="pract-note"><b>Dobrze wiedzieć:</b> '+p.note+'</div>':'')+'<div class="pract-source"><span>Źródło: gov.pl / MSZ (stan: lipiec 2026) — <b>zawsze zweryfikuj przed wyjazdem</b></span><a href="https://www.gov.pl/web/dyplomacja/informacje-dla-podrozujacych" target="_blank" rel="noopener">gov.pl — informacje dla podróżujących ↗</a></div>';
     practical.classList.add("show");
   }
-  destEl.addEventListener("change",function(){populateRegions(destEl.value);renderPractical(destEl.value);});
   document.getElementById("practicalHead").addEventListener("click",function(){practical.classList.toggle("open");});
 
-  fetch("/api/countries").then(function(r){return r.json();}).then(function(d){COUNTRY_DATA=d.countries||{};if(destEl.value){populateRegions(destEl.value);renderPractical(destEl.value);}}).catch(function(){});
+  fetch("/api/countries").then(function(r){return r.json();}).then(function(d){
+    COUNTRY_DATA=d.countries||{};
+    // Indeks region → kraj (z danych krajów).
+    Object.keys(COUNTRY_DATA).forEach(function(country){(COUNTRY_DATA[country].regions||[]).forEach(function(r){REGION_TO_COUNTRY[r]=country;});});
+    buildGeoTree();
+  }).catch(function(){geoTree.innerHTML='<div class="geo-loading">Nie udało się wczytać kierunków.</div>';});
 
   /* ---------- Asystent (parsowanie języka naturalnego) ---------- */
   var MONTHS={stycz:0,luty:1,lut:1,marz:2,mar:2,kwiec:3,kwie:3,maj:4,czerw:5,lip:6,sierp:7,sie:7,wrze:8,wrz:8,paźdz:9,pazdz:9,paźd:9,listop:10,list:10,grud:11};
@@ -589,12 +855,13 @@
   }
   function applyParsed(crit){
     var parts=[];
-    if(crit.dest){destEl.value=crit.dest;populateRegions(crit.dest);renderPractical(crit.dest);parts.push("kierunek: <b>"+crit.dest+"</b>");}
+    clearGeo();
+    if(crit.dest&&!(crit.regions&&crit.regions.length)){syncCountryUI(crit.dest,true);parts.push("kierunek: <b>"+crit.dest+"</b> (cały kraj)");}
     if(crit.regions&&crit.regions.length){crit.regions.forEach(function(r){syncRegionUI(r,true);});parts.push("regiony: <b>"+crit.regions.join(", ")+"</b>");}
     if(crit.month!==undefined){var y=new Date().getFullYear(),now=new Date().getMonth();if(crit.month<now)y++;var f=new Date(y,crit.month,10),t2=new Date(y,crit.month,17);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t2.toISOString().slice(0,10);parts.push("termin: <b>"+["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"][crit.month]+"</b>");}
     if(crit.adults!==undefined){document.getElementById("adults").value=crit.adults;parts.push("<b>"+crit.adults+"</b> dorosłych");}
     if(crit.kids!==undefined){document.getElementById("kids").value=crit.kids;if(crit.kids>0)parts.push("<b>"+crit.kids+"</b> dzieci");}
-    if(crit.budget){budget.value=Math.min(12000,Math.max(1500,crit.budget));budgetVal.textContent=fmt(+budget.value)+" zł";parts.push("budżet do <b>"+fmt(budget.value)+" zł/os</b>");}
+    if(crit.budget){budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=Math.min(30000,Math.max(1500,crit.budget));budgetVal.textContent=fmt(+budget.value)+" zł";parts.push("budżet do <b>"+fmt(budget.value)+" zł/os</b>");}
     // reset i ustaw chipy
     activeBoards.length=0;activeTags.length=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
     crit.boards.forEach(function(b){var el=document.querySelector('.chip[data-board="'+b+'"]');if(el){el.setAttribute("aria-pressed","true");activeBoards.push(b);}});
@@ -610,75 +877,12 @@
   document.getElementById("agentInput").addEventListener("keydown",function(e){if(e.key==="Enter")runAgent();});
   document.getElementById("agentExamples").addEventListener("click",function(e){var ex=e.target.closest(".agent-ex");if(!ex)return;document.getElementById("agentInput").value=ex.textContent;runAgent();});
 
-  /* ---------- Mapa kierunków ---------- */
-  var mapSvg=document.getElementById("mapSvg"),mapWrap=document.getElementById("mapWrap"),maptool=document.getElementById("maptool");
-  var CCOL={Hiszpania:"#E0A64B",Grecja:"#2F9E8F",Egipt:"#C77F3C",Turcja:"#C6534B",Włochy:"#4E9A57",Tunezja:"#A86BB0",Portugalia:"#3E86C4"};
-  var REGION_POINTS=[
-    {r:"Lizbona",c:"Portugalia",x:95,y:270},{r:"Algarve",c:"Portugalia",x:110,y:322},{r:"Madera",c:"Portugalia",x:60,y:470},
-    {r:"Madryt",c:"Hiszpania",x:200,y:262},{r:"Barcelona / Costa Brava",c:"Hiszpania",x:302,y:212},{r:"Costa del Sol (Malaga)",c:"Hiszpania",x:215,y:346},
-    {r:"Majorka",c:"Hiszpania",x:332,y:286},{r:"Ibiza",c:"Hiszpania",x:305,y:322},{r:"Menorka",c:"Hiszpania",x:362,y:270},{r:"Gran Canaria",c:"Hiszpania",x:100,y:525},
-    {r:"Wenecja",c:"Włochy",x:476,y:176},{r:"Rzym / Lacjum",c:"Włochy",x:486,y:266},{r:"Sardynia",c:"Włochy",x:430,y:302},{r:"Sycylia",c:"Włochy",x:506,y:372},
-    {r:"Hammamet / Enfidha",c:"Tunezja",x:462,y:414},{r:"Monastir / Sousse",c:"Tunezja",x:492,y:432},{r:"Dżerba",c:"Tunezja",x:508,y:472},
-    {r:"Korfu",c:"Grecja",x:585,y:276},{r:"Zakynthos",c:"Grecja",x:602,y:332},{r:"Santorini",c:"Grecja",x:682,y:366},{r:"Kreta",c:"Grecja",x:665,y:406},{r:"Rodos",c:"Grecja",x:748,y:388},{r:"Kos",c:"Grecja",x:726,y:352},
-    {r:"Bodrum",c:"Turcja",x:748,y:328},{r:"Marmaris / Dalaman",c:"Turcja",x:772,y:340},{r:"Antalya / Belek",c:"Turcja",x:828,y:346},{r:"Alanya",c:"Turcja",x:860,y:356},
-    {r:"Sharm el-Sheikh",c:"Egipt",x:840,y:482},{r:"Hurghada",c:"Egipt",x:808,y:502},{r:"Marsa Alam",c:"Egipt",x:822,y:542}
-  ];
-  // Uproszczone sylwetki lądów (tło) — nie są geograficznie dokładne.
-  var LAND=[
-    "M40,150 L280,140 L340,205 L320,300 L210,360 L120,350 L60,270 Z",       // Iberia
-    "M300,120 L560,110 L560,175 L470,175 L300,190 Z",                        // płd. Europa (pas)
-    "M455,165 L500,168 L525,255 L540,345 L505,380 L478,350 L470,270 Z",      // Włochy (but)
-    "M560,150 L680,150 L690,255 L620,320 L585,270 L565,210 Z",              // Bałkany/Grecja
-    "M690,270 L960,270 L960,360 L760,372 L700,330 Z",                        // Anatolia (Turcja)
-    "M40,450 L960,450 L960,610 L40,610 Z"                                    // Afryka Płn. (pas)
-  ];
-
-  function buildMap(){
-    var parts=[];
-    // linie pomocnicze (siatka)
-    for(var gx=100;gx<1000;gx+=100)parts.push('<line class="map-grid" x1="'+gx+'" y1="0" x2="'+gx+'" y2="620"/>');
-    for(var gy=100;gy<620;gy+=100)parts.push('<line class="map-grid" x1="0" y1="'+gy+'" x2="1000" y2="'+gy+'"/>');
-    LAND.forEach(function(d){parts.push('<path class="map-land" d="'+d+'"/>');});
-    REGION_POINTS.forEach(function(p){
-      var col=CCOL[p.c]||"#0F6B68";
-      var label=p.r.split(/[\/(]/)[0].trim();
-      parts.push('<g class="pin" data-region="'+p.r+'" data-country="'+p.c+'" transform="translate('+p.x+','+p.y+')">'+
-        '<circle class="halo" r="6"/>'+
-        '<circle class="dot" r="6" fill="'+col+'"/>'+
-        '<text class="pin-label" x="10" y="4">'+label+'</text>'+
-      '</g>');
-    });
-    mapSvg.innerHTML=parts.join("");
-    // legenda
-    document.getElementById("mapLegend").innerHTML=Object.keys(CCOL).map(function(c){return '<span class="lg-item"><span class="lg-dot" style="background:'+CCOL[c]+'"></span>'+c+'</span>';}).join("");
-  }
-
-  function updateMapHud(){
-    document.getElementById("hudSel").textContent=activeRegions.length;
-    document.getElementById("mapSearchN").textContent=activeRegions.length;
-    var list=document.getElementById("mapSelList");
-    if(activeRegions.length)list.innerHTML="Wybrane kierunki: <b>"+activeRegions.join("</b>, <b>")+"</b>";
-    else list.textContent="Nie wybrano jeszcze żadnej destynacji — kliknij punkt na mapie.";
-  }
-
-  mapSvg.addEventListener("click",function(e){
-    var pin=e.target.closest(".pin");if(!pin)return;
-    var region=pin.dataset.region,willSelect=activeRegions.indexOf(region)===-1;
-    syncRegionUI(region,willSelect);
-    if(willSelect)renderPractical(pin.dataset.country);
-  });
-
-  document.getElementById("maptoolHead").addEventListener("click",function(){maptool.classList.toggle("open");});
-  document.getElementById("mapClear").addEventListener("click",function(){activeRegions.slice().forEach(function(r){syncRegionUI(r,false);});});
-  document.getElementById("mapSearch").addEventListener("click",function(){if(!activeRegions.length){toast("Najpierw zaznacz destynacje na mapie");return;}search();document.querySelector("main").scrollIntoView({behavior:"smooth"});});
-  buildMap();
-
   // Status źródeł danych
   fetch("/api/status").then(function(r){return r.json();}).then(function(d){
     var live=(d.providers||[]).filter(function(p){return p.enabled&&p.needsKeys;});
     var pill=document.getElementById("srcPill"),foot=document.getElementById("footnote");
     if(live.length){pill.className="src-pill live";pill.innerHTML='<span class="dot"></span>Dane na żywo: '+live.map(function(p){return p.label;}).join(", ");foot.innerHTML='<b>Tryb produkcyjny.</b> Oferty i zdjęcia pochodzą z API dostawców ('+live.map(function(p){return p.label;}).join(", ")+') na podstawie umowy partnerskiej.';}
-    else{pill.className="src-pill demo";pill.innerHTML='<span class="dot"></span>Dane demo · Etap 1';foot.innerHTML='<b>Tryb demo.</b> Brak kluczy API — działają dane demonstracyjne. Wklej klucz Hotelbeds do pliku <code>.env</code>, aby zobaczyć prawdziwe hotele i zdjęcia. Silnik rankingu i skrypty sprzedażowe działają identycznie na obu źródłach.';}
+    else{pill.className="src-pill demo";pill.innerHTML='<span class="dot"></span>Wersja przedpremierowa';foot.innerHTML='<b>Wersja przedpremierowa.</b> Część prezentowanych ofert to dane demonstracyjne, oznaczone w interfejsie. Ceny mają charakter orientacyjny i wymagają potwierdzenia u organizatora.';}
   }).catch(function(){});
 
   search();

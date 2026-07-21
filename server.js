@@ -40,17 +40,27 @@ app.get("/api/search", async (req, res) => {
     const crit = {
       dest: q.dest || "",
       name: (q.name || "").trim(),
+      // Wybór wielu krajów naraz (całe kraje). Regiony = konkretne obszary w krajach.
+      countries: q.countries ? String(q.countries).split(",").filter(Boolean) : [],
       regions: q.regions ? String(q.regions).split(",").filter(Boolean) : [],
       from: q.from || "",
       to: q.to || "",
       adults: Number(q.adults) || 2,
       kids: Number(q.kids) || 0,
       pax: (Number(q.adults) || 2) + (Number(q.kids) || 0),
+      // Wiek każdego dziecka (lata; 0 = niemowlę). Uwaga: wrapper wakacje.pl
+      // liczy 2 dorosłych i wieku nie przyjmuje — pole pod inne źródła/filtry.
+      childAges: q.childAges ? String(q.childAges).split(",").filter((s) => s !== "").map(Number) : [],
+      // Długość pobytu w nocach (0/brak = dowolna).
+      nights: Number(q.nights) || 0,
       budget: Number(q.budget) || 0,
+      // Tryb budżetu: "person" = limit ceny za osobę, "total" = za cały wyjazd.
+      budgetMode: q.budgetMode === "total" ? "total" : "person",
       minRate: Number(q.minRate) || 0,
       boards: q.boards ? String(q.boards).split(",").filter(Boolean) : [],
       tags: q.tags ? String(q.tags).split(",").filter(Boolean) : [],
       departure: q.departure || "",
+      departures: q.departures ? String(q.departures).split(",").filter(Boolean) : [],
       transports: q.transports ? String(q.transports).split(",").filter(Boolean) : [],
       sort: q.sort || "score",
     };
