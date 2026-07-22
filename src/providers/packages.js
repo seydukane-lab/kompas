@@ -166,7 +166,7 @@ export const meta = { id: "pl-packages", label: "Oferty PL (demo)", needsKeys: f
 export async function search(crit) {
   // Provider zwraca pełną listę pakietów; filtrowanie/ranking robi warstwa wspólna.
   // source = touroperator, żeby na karcie widać było, kto organizuje wyjazd.
-  return DATA.map((h) => ({ ...h, type: "package", source: h.operator, photos: [h.photo] }));
+  return DATA.map((h) => ({ ...h, type: "package", source: h.operator, demo: true, photos: [h.photo] }));
 }
 
 export function isEnabled() {

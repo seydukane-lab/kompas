@@ -53,5 +53,8 @@ export async function search(crit) {
 }
 
 export function isEnabled() {
-  return true; // mock działa zawsze
+  // Fikcyjne hotele z wymyślonymi ocenami kłócą się z anty-przekoloryzacją,
+  // więc DOMYŚLNIE WYŁĄCZONE (na produkcji i lokalnie). Włącz tylko świadomie
+  // flagą ENABLE_MOCK=1, gdy potrzebujesz zapełnić kraje bez pakietów.
+  return process.env.ENABLE_MOCK === "1";
 }
