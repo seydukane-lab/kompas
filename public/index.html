@@ -286,8 +286,8 @@
   .ci-link:hover{text-decoration:underline}
   .ci-rm{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:11.5px;padding:0}
   .ci-rm:hover{color:#C6534B}
-  .cart-foot{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
-  .cart-foot-btn{flex:1;font-size:12.5px;font-weight:600;padding:9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer}
+  .cart-foot{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+  .cart-foot-btn{flex:1;min-width:82px;font-size:12.5px;font-weight:600;padding:9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer}
   .cart-foot-btn:hover{border-color:var(--accent);color:var(--accent)}
   .cart-foot-btn.danger:hover{border-color:#C6534B;color:#C6534B}
 
@@ -514,7 +514,7 @@
   <aside class="cart-panel" role="dialog" aria-label="Koszyk odłożonych ofert">
     <div class="cart-head"><h3>Koszyk <span id="cartHeadN"></span></h3><button class="cart-x" id="cartClose" aria-label="Zamknij">&times;</button></div>
     <div class="cart-list" id="cartList"></div>
-    <div class="cart-foot"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartCopy">Kopiuj</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
+    <div class="cart-foot"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartCopy">Kopiuj</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
   </aside>
 </div>
 
@@ -785,6 +785,17 @@
     document.getElementById("cmpModal").hidden=false;
   }
   document.getElementById("cartCompare").addEventListener("click",openCompare);
+  // Drukowalna prezentacja koszyka dla klienta (pod „PREZENTACJĘ OFERTY").
+  function printCart(){
+    if(!cart.length){toast("Koszyk jest pusty");return;}
+    var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}
+    var rows=cart.map(function(x,i){
+      return '<div class="off"><div class="n">'+(i+1)+'. '+x.name+' '+stars(x.stars)+'</div><div class="loc">'+x.region+'</div><div class="meta">'+(x.rating?"Ocena "+x.rating.toFixed(1).replace(".",",")+" · ":"")+(x.board||"")+(x.nights?" · "+x.nights+" nocy":"")+(x.operator?" · "+x.operator:"")+'</div><div class="price">od '+fmt(x.price)+' zł/os.'+(x.priceTotal>0?" &nbsp;·&nbsp; razem ok. "+fmt(x.priceTotal)+" zł":"")+'</div></div>';
+    }).join("");
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:15px 18px;margin-bottom:13px;page-break-inside:avoid}.n{font-size:17px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 8px}.meta{font-family:system-ui,sans-serif;font-size:13px;color:#46534F;margin-bottom:6px}.price{font-family:system-ui,sans-serif;font-size:16px;font-weight:bold}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}</style><h1>Propozycje wyjazdów</h1><div class="sub">Przygotowane w systemie Kompas · '+cart.length+' ofert · ceny orientacyjne, do potwierdzenia u organizatora</div>'+rows+'<div class="foot">Kompas — wyszukiwarka i porównywarka ofert wakacyjnych.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
+    w.document.close();
+  }
+  document.getElementById("cartPrint").addEventListener("click",printCart);
   document.getElementById("cmpClose").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
   document.getElementById("cmpBackdrop").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"){var cm=document.getElementById("cmpModal");if(cm&&!cm.hidden)cm.hidden=true;}});
