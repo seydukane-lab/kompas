@@ -915,7 +915,8 @@
     // pokazujemy JEGO — inaczej szacujemy jako cena/os. × liczba osób.
     var hasSrcTotal=typeof h.priceTotal==="number"&&h.priceTotal>0;
     var total=hasSrcTotal?h.priceTotal:h.price*Math.max(1,pax);
-    var totalWho=hasSrcTotal?"2 doros.":(pax+" os.");
+    var adN=+document.getElementById("adults").value||2,kN=+document.getElementById("kids").value||0;
+    var totalWho=hasSrcTotal?"2 doros.":(adN+" dor."+(kN?" + "+kN+" dz.":""));
     var practInner=practGridHtml(h.country);   // rozwijacz z warunkami wjazdowymi (jeśli znamy kraj)
     var offerNo=h.offerNumber||"";             // numer oferty do skopiowania (wakacje.pl)
     var isPkg=h.type==="package",offN=h.nights||n;
