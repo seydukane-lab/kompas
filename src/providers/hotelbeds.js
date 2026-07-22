@@ -111,28 +111,28 @@ export async function search(crit) {
   const from = crit.from ? isoDate(crit.from) : isoDate(Date.now() + 30 * 864e5);
   const to = crit.to ? isoDate(crit.to) : isoDate(Date.now() + 37 * 864e5);
 
-  const results = [];
-  for (const dest of targets) {
-    try {
-      const avail = await availability({ dest, from, to, adults, children });
-      // Bierzemy górę listy — sandbox potrafi zwrócić setki hoteli.
-      const hotels = (avail?.hotels?.hotels || []).slice(0, 40);
-      if (!hotels.length) continue;
+  // Destynacje odpytujemy RÓWNOLEGLE (nie zwiększa liczby zapytań — ten sam
+  // limit dzienny — a wyraźnie skraca czas odpowiedzi przy kilku regionach).
+  const perDest = await Promise.all(
+    targets.map(async (dest) => {
+      try {
+        const avail = await availability({ dest, from, to, adults, children });
+        // Bierzemy górę listy — sandbox potrafi zwrócić setki hoteli.
+        const hotels = (avail?.hotels?.hotels || []).slice(0, 40);
+        if (!hotels.length) return [];
 
-      // Wzbogacenie o treści statyczne (nazwa, zdjęcia, gwiazdki, plaża).
-      const codes = hotels.map((h) => h.code);
-      const content = await fetchContent(codes);
+        // Wzbogacenie o treści statyczne (nazwa, zdjęcia, gwiazdki, plaża).
+        const codes = hotels.map((h) => h.code);
+        const content = await fetchContent(codes);
 
-      for (const h of hotels) {
-        const c = content[h.code] || {};
-        const cheapest = cheapestRate(h);
-        results.push(normalize(h, c, cheapest, pax));
+        return hotels.map((h) => normalize(h, content[h.code] || {}, cheapestRate(h), pax));
+      } catch (err) {
+        console.warn(`[hotelbeds] błąd dla destynacji ${dest}:`, err.message);
+        return [];
       }
-    } catch (err) {
-      console.warn(`[hotelbeds] błąd dla destynacji ${dest}:`, err.message);
-    }
-  }
-  return results;
+    })
+  );
+  return perDest.flat();
 }
 
 // --- Availability API: dostępność + ceny ---

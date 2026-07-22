@@ -2,3 +2,7 @@ node_modules/
 .env
 *.log
 .DS_Store
+
+# Provider LOKALNY (nieoficjalny endpoint wakacje.pl) — NIGDY na publiczne repo.
+# Włącza się tylko lokalnie przez WAKACJE_API_URL/KEY w .env.
+src/providers/wakacje.js
