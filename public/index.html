@@ -313,6 +313,16 @@
   .tc-price small,.tc-total small{font-weight:500;color:var(--ink-faint);font-size:10.5px;margin-left:2px}
   .tc-total{white-space:nowrap;font-weight:650;color:var(--ink)}
   .tc-act a{color:var(--accent);text-decoration:none;font-weight:700;font-size:15px}
+
+  /* ---------- Filtr operatora (post-search) ---------- */
+  .op-filter{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 14px}
+  .opf-lbl{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+  .opf-chip{font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:20px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .opf-chip:hover{border-color:var(--accent);color:var(--accent)}
+  .opf-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .opf-n{font-size:10.5px;opacity:.75;font-variant-numeric:tabular-nums}
+  .opf-clear{font-size:12px;color:var(--ink-faint);background:none;border:none;cursor:pointer;text-decoration:underline}
+  .opf-clear:hover{color:#C6534B}
 </style>
 </head>
 <body>
@@ -441,6 +451,7 @@
         </select></div>
       </div>
     </div>
+    <div class="op-filter" id="opFilter" hidden></div>
     <div class="summary" id="summary" hidden></div>
     <div class="cards" id="cards"></div>
   </main>
@@ -708,15 +719,19 @@
       if(nm){document.getElementById("resSub").textContent='Brak hotelu o nazwie zawierającej „'+nm+'".';cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nie znaleziono „'+nm+'"</h3><p>Sprawdź pisownię lub wpisz fragment nazwy. W trybie danych na żywo szukaj w obrębie wybranego kierunku.</p></div>';}
       else{document.getElementById("resSub").textContent="Brak dopasowań — poluzuj kryteria (budżet, ocena lub wyżywienie).";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nic nie pasuje do tych kryteriów</h3><p>Podnieś budżet, obniż minimalną ocenę albo odznacz część filtrów.</p></div>';}
       return;}
+    buildOpFilter(list);
+    var shown=activeOperators.length?list.filter(function(h){return activeOperators.indexOf(operOf(h))>-1;}):list;
+    document.getElementById("resCount").textContent=shown.length;
+    if(!shown.length){summary.hidden=true;cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Brak ofert wybranych operatorów</h3><p>Odznacz operatora u góry, aby zobaczyć pozostałe oferty.</p></div>';document.getElementById("resSub").textContent="Filtr operatora ukrył wszystkie oferty.";return;}
     document.getElementById("resSub").textContent="Termin: "+n+" nocy · "+pax+" "+(pax===1?"osoba":(pax<5?"osoby":"osób"))+" · ceny orientacyjne.";
-    var avg=Math.round(list.reduce(function(a,b){return a+b.price;},0)/list.length);
-    var best=list.reduce(function(a,b){return b.rating>a.rating?b:a;});
-    var cheap=list.reduce(function(a,b){return b.price<a.price?b:a;});
-    var avgT=Math.round(list.reduce(function(a,b){return a+(b.trust||0);},0)/list.length*100);
+    var avg=Math.round(shown.reduce(function(a,b){return a+b.price;},0)/shown.length);
+    var best=shown.reduce(function(a,b){return b.rating>a.rating?b:a;});
+    var cheap=shown.reduce(function(a,b){return b.price<a.price?b:a;});
+    var avgT=Math.round(shown.reduce(function(a,b){return a+(b.trust||0);},0)/shown.length*100);
     summary.hidden=false;
     summary.innerHTML=stat("Śr. cena / os.",fmt(avg)+" <small>zł</small>")+stat("Najlepiej oceniany",best.rating.toFixed(1).replace(".",",")+" <small>/10</small>")+stat("Najtańsza oferta",fmt(cheap.price)+" <small>zł</small>")+stat("Śr. wiarygodność opinii",avgT+" <small>%</small>");
-    if(resultView==="table")renderTable(list,n,pax);
-    else list.forEach(function(h,i){cardsEl.appendChild(cardEl(h,i,n,pax));});
+    if(resultView==="table")renderTable(shown,n,pax);
+    else shown.forEach(function(h,i){cardsEl.appendChild(cardEl(h,i,n,pax));});
   }
   function stat(k,v){return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>';}
 
@@ -749,6 +764,26 @@
     render(lastList);
   });
   document.querySelectorAll("#viewToggle .vt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.view===resultView);});
+
+  /* ---------- Filtr operatora (post-search, jak sidebar „Operator" w MerlinX) ---------- */
+  var activeOperators=[];
+  function operOf(h){return h.operator||h.source||"—";}
+  function buildOpFilter(list){
+    var el=document.getElementById("opFilter"),counts={};
+    list.forEach(function(h){var o=operOf(h);counts[o]=(counts[o]||0)+1;});
+    var ops=Object.keys(counts).sort();
+    activeOperators=activeOperators.filter(function(o){return counts[o];}); // usuń martwe zaznaczenia
+    if(ops.length<2){el.hidden=true;el.innerHTML="";return;}
+    el.hidden=false;
+    el.innerHTML='<span class="opf-lbl">Operator</span>'+ops.map(function(o){return '<button class="opf-chip'+(activeOperators.indexOf(o)>-1?" active":"")+'" data-op="'+o.replace(/"/g,"&quot;")+'">'+o+' <span class="opf-n">'+counts[o]+'</span></button>';}).join("")+(activeOperators.length?'<button class="opf-clear" data-opclear>× wyczyść</button>':"");
+  }
+  document.getElementById("opFilter").addEventListener("click",function(e){
+    if(e.target.closest("[data-opclear]")){activeOperators=[];render(lastList);return;}
+    var c=e.target.closest(".opf-chip");if(!c)return;
+    var o=c.dataset.op,i=activeOperators.indexOf(o);
+    if(i>-1)activeOperators.splice(i,1);else activeOperators.push(o);
+    render(lastList);
+  });
 
   function cardEl(h,i,n,pax){
     var el=document.createElement("article");el.className="card";
