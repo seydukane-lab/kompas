@@ -357,6 +357,8 @@
   .price-demo{font-size:10px;color:var(--ink-faint);margin-top:2px;font-style:italic;letter-spacing:.02em}
   .btn-ask{color:var(--ink-soft)}
   .btn-ask:hover{color:var(--accent);border-color:var(--accent)}
+  .th-sort{cursor:pointer;user-select:none;white-space:nowrap}
+  .th-sort:hover{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -814,9 +816,17 @@
   function stat(k,v){return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>';}
 
   /* ---------- Widok tabeli (styl MerlinX) + przełącznik widoku ---------- */
-  var resultView="cards",lastList=[];
+  var resultView="cards",lastList=[],tableSort=null;
   try{if(localStorage.getItem("kompasView")==="table")resultView="table";}catch(e){}
   function renderTable(list,n,pax){
+    if(tableSort){var sk=tableSort.key,sd=tableSort.dir;list=list.slice().sort(function(a,b){
+      if(sk==="region")return String(a.region||a.country).localeCompare(String(b.region||b.country))*sd;
+      var av,bv;
+      if(sk==="rating"){av=a.rating||0;bv=b.rating||0;}
+      else if(sk==="total"){av=a.priceTotal>0?a.priceTotal:a.price*Math.max(1,pax);bv=b.priceTotal>0?b.priceTotal:b.price*Math.max(1,pax);}
+      else{av=a.price;bv=b.price;}
+      return (av-bv)*sd;
+    });}
     var rows=list.map(function(h,i){
       var hasT=typeof h.priceTotal==="number"&&h.priceTotal>0,total=hasT?h.priceTotal:h.price*Math.max(1,pax);
       return '<tr data-idx="'+i+'"><td class="tc-fav"><button class="row-fav'+(inCart(h.id)?" saved":"")+'" data-cid="'+h.id+'" title="Odłóż do koszyka">'+(inCart(h.id)?"★":"☆")+'</button></td>'+
@@ -827,13 +837,21 @@
         '<td class="tc-total">'+fmt(total)+'<small>zł</small></td>'+
         '<td class="tc-act">'+(h.bookingUrl?'<a href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored" title="Przejdź do oferty">↗</a>':'')+'</td></tr>';
     }).join("");
-    cardsEl.innerHTML='<div class="table-wrap"><table class="res-table"><thead><tr><th></th><th>Region</th><th>Hotel</th><th>Ocena</th><th>Cena / os.</th><th>Razem</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    function th(key,label){var a="";if(tableSort&&tableSort.key===key)a=tableSort.dir>0?" ▲":" ▼";return '<th class="th-sort" data-sort="'+key+'">'+label+a+'</th>';}
+    cardsEl.innerHTML='<div class="table-wrap"><table class="res-table"><thead><tr><th></th>'+th("region","Region")+'<th>Hotel</th>'+th("rating","Ocena")+th("price","Cena / os.")+th("total","Razem")+'<th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
   // Klik gwiazdki w wierszu tabeli = odłóż/zdejmij z koszyka (delegacja).
   document.getElementById("cards").addEventListener("click",function(e){
     var fav=e.target.closest(".row-fav");if(!fav)return;
     var h=lastList.find(function(x){return x.id===fav.getAttribute("data-cid");});
     if(h){var added=toggleCart(h);syncCardButtons();toast(added?"Dodano do koszyka ✓":"Usunięto z koszyka");}
+  });
+  // Sortowanie po kliknięciu nagłówka kolumny tabeli (ten sam klucz → odwróć kierunek).
+  document.getElementById("cards").addEventListener("click",function(e){
+    var th=e.target.closest(".th-sort");if(!th)return;
+    var k=th.dataset.sort;
+    if(tableSort&&tableSort.key===k)tableSort.dir*=-1;else tableSort={key:k,dir:k==="rating"?-1:1};
+    render(lastList);
   });
   document.getElementById("viewToggle").addEventListener("click",function(e){
     var b=e.target.closest(".vt-opt");if(!b)return;
