@@ -252,6 +252,8 @@
   .pract-source a{color:var(--accent-deep)}
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  /* Atrybut hidden ZAWSZE ukrywa — inaczej reguły display:flex (.cmp-modal,.op-filter…) nadpisują [hidden] i element wisi na ekranie. */
+  [hidden]{display:none!important}
 
   /* ---------- Koszyk (odkładka ofert) ---------- */
   .cart-btn{position:relative;background:none;border:none;color:var(--ink-soft);padding:6px;border-radius:8px;cursor:pointer;display:inline-flex}
