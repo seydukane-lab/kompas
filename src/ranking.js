@@ -124,6 +124,9 @@ export function applyFilters(list, crit) {
     // Długość pobytu: tolerancja ±1 noc (7 vs 8 to praktycznie ten sam wyjazd).
     if (crit.nights && h.nights && Math.abs(h.nights - crit.nights) > 1) return false;
     if (crit.boards && crit.boards.length && !crit.boards.includes(h.board)) return false;
+    // Profil wyjazdu = twardy filtr (OR): oferta musi mieć CHOĆ JEDEN z wybranych
+    // tagów. OR (nie AND), bo tagi są heurystyczne — nie chcemy wycinać za ostro.
+    if (crit.tags && crit.tags.length && !crit.tags.some((t) => (h.tags || []).includes(t))) return false;
     if (crit.pax && h.cap < crit.pax) return false;
     // Filtry pakietowe: dotyczą tylko ofert typu "package" (lot+hotel).
     // Gdy aktywne, oferty hotel-only odpadają — użytkownik szuka wyjazdu z konkretnego miasta.
