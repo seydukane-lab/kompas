@@ -98,7 +98,7 @@ export function dedupeOffers(list) {
   const out = [];
   for (const grp of groups.values()) {
     if (grp.length === 1) {
-      out.push(strip(grp[0]));
+      out.push(strip(attachVariants(grp[0], grp)));
       continue;
     }
     // Reprezentant: najwyższy priorytet dostawcy (najniższy __prio).
@@ -130,9 +130,39 @@ export function dedupeOffers(list) {
     }
     // Ślad, że oferta łączy kilka źródeł (do ewentualnej plakietki na karcie).
     primary.mergedFrom = grp.map((o) => o.source).filter((s, i, a) => s && a.indexOf(s) === i);
-    out.push(strip(primary));
+    out.push(strip(attachVariants(primary, grp)));
   }
   return out;
+}
+
+// Warianty oferty = wszystkie terminy/wyloty tego samego hotelu, które inaczej
+// zniknęłyby przy scalaniu. Zasila „widok hotelu" (klik → lista wylotów z osobnymi
+// cenami). Unikalne po (data|wylot|cena), rosnąco po cenie.
+function variantOf(o) {
+  return {
+    departDate: o.departDate || "",
+    nights: o.nights || 0,
+    price: o.price,
+    priceTotal: o.priceTotal || 0,
+    board: o.board || "",
+    departureCity: o.departureCity || "",
+    transport: o.transport || "",
+    operator: o.operator || o.source || "",
+    bookingUrl: o.bookingUrl || "",
+    offerNumber: o.offerNumber || "",
+  };
+}
+function attachVariants(primary, grp) {
+  const seen = new Set();
+  const vars = [];
+  for (const o of grp) {
+    const v = variantOf(o);
+    const k = v.departDate + "|" + v.departureCity + "|" + v.price;
+    if (!seen.has(k)) { seen.add(k); vars.push(v); }
+  }
+  vars.sort((a, b) => a.price - b.price);
+  primary.variants = vars;
+  return primary;
 }
 
 function strip(o) {
