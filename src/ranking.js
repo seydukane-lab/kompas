@@ -118,6 +118,9 @@ export function applyFilters(list, crit) {
       } else if (h.price > crit.budget) return false;
     }
     if (crit.minRate && h.rating < crit.minRate) return false;
+    if (crit.minStars && (h.stars || 0) < crit.minStars) return false;
+    // „Tylko z realnymi opiniami" — anty-przekoloryzacja: odrzuca oferty bez wolumenu opinii.
+    if (crit.onlyReviewed && !(h.reviews > 0)) return false;
     // Długość pobytu: tolerancja ±1 noc (7 vs 8 to praktycznie ten sam wyjazd).
     if (crit.nights && h.nights && Math.abs(h.nights - crit.nights) > 1) return false;
     if (crit.boards && crit.boards.length && !crit.boards.includes(h.board)) return false;

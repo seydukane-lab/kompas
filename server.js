@@ -57,6 +57,9 @@ app.get("/api/search", async (req, res) => {
       // Tryb budżetu: "person" = limit ceny za osobę, "total" = za cały wyjazd.
       budgetMode: q.budgetMode === "total" ? "total" : "person",
       minRate: Number(q.minRate) || 0,
+      // Minimalna kategoria (gwiazdki) i filtr „tylko z realnymi opiniami".
+      minStars: Number(q.minStars) || 0,
+      onlyReviewed: q.onlyReviewed === "1" || q.onlyReviewed === "true",
       boards: q.boards ? String(q.boards).split(",").filter(Boolean) : [],
       tags: q.tags ? String(q.tags).split(",").filter(Boolean) : [],
       departure: q.departure || "",

@@ -443,6 +443,15 @@
         <button class="chip" data-tag="plaza" aria-pressed="false">Przy plaży</button>
         <button class="chip" data-tag="spa" aria-pressed="false">Spa / relaks</button>
       </div></div>
+      <div class="field"><label>Min. kategoria <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— gwiazdki</span></label><div class="chips" id="starChips">
+        <button class="chip" data-stars="0" aria-pressed="true">Dowolna</button>
+        <button class="chip" data-stars="3" aria-pressed="false">3★+</button>
+        <button class="chip" data-stars="4" aria-pressed="false">4★+</button>
+        <button class="chip" data-stars="5" aria-pressed="false">5★</button>
+      </div></div>
+      <div class="field"><label>Jakość opinii <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— anty-ściema</span></label><div class="chips" id="reviewChips">
+        <button class="chip" data-rev="1" aria-pressed="false">✓ Tylko z realnymi opiniami</button>
+      </div></div>
       <button class="btn-primary" id="searchBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Szukaj ofert</button>
       <button class="btn-ghost" id="resetBtn">Wyczyść kryteria</button>
     </div>
@@ -858,6 +867,12 @@
     });
   });
 
+  /* ---------- Min. kategoria (gwiazdki) + „tylko realne opinie" ---------- */
+  var activeMinStars=0,starChips=document.getElementById("starChips");
+  starChips.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;activeMinStars=+b.dataset.stars;starChips.querySelectorAll(".chip").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});});
+  var onlyReviewed=false,reviewChips=document.getElementById("reviewChips");
+  reviewChips.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;onlyReviewed=!onlyReviewed;b.setAttribute("aria-pressed",onlyReviewed?"true":"false");});
+
   function cardEl(h,i,n,pax){
     var el=document.createElement("article");el.className="card";
     var tl=trustLabel(h.trust||0);
@@ -930,7 +945,7 @@
   function search(){
     searchBtn.disabled=true;
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
-    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),sort:document.getElementById("sort").value});
+    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
     fetch("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
@@ -940,7 +955,7 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeMinStars=0;onlyReviewed=false;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");search();});
 
   (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);})();
 
