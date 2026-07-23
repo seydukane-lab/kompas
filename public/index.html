@@ -392,6 +392,9 @@
   .rep-close{font-size:13px;color:var(--ink-soft);border-left:3px solid var(--sand);padding-left:12px;margin:0}
   .rep-intel{font-size:12.5px;color:var(--ink-soft);background:var(--surface-2);border-radius:8px;padding:8px 11px;margin:0 0 8px;line-height:1.5}
   .rep-intel b{color:var(--ink)}
+  .card-trust-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .card-eta{display:inline-flex;align-items:center;gap:7px;margin-left:auto}
+  .card-eta-n{font-size:11px;font-weight:700;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
   .card-intel{font-size:11.5px;color:var(--ink-soft);margin-top:9px;line-height:1.45;padding:7px 10px;background:var(--surface-2);border-radius:8px;border-left:2px solid var(--accent)}
   .card-intel b{color:var(--ink)}
   .det-note{font-size:12px;color:var(--ink-faint);background:var(--surface-2);border-radius:8px;padding:9px 12px;margin:0 0 14px;line-height:1.5}
@@ -1206,7 +1209,7 @@
           '<h3>'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></h3>'+
           '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">plaża '+h.beach+' m</span>':'')+'</div>'+
           '<div class="rate-row"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span><span class="rate-txt">'+(h.reviews>0?('<b>'+fmt(h.reviews)+'</b> opinii · najśw. '+h.freshDays+' dni temu'):'brak danych o opiniach')+'</span></div>'+
-          '<div style="margin-top:10px"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span></div>'+
+          '<div class="card-trust-row"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span>'+(function(){var v=etaVerdict(h);return '<span class="card-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="card-eta-n" title="Ocena wartości za pieniądze (ETA)">ETA '+etaValue(h)+'/100</span></span>';})()+'</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
         '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+(offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
