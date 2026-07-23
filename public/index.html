@@ -286,7 +286,10 @@
   .ci-link:hover{text-decoration:underline}
   .ci-rm{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:11.5px;padding:0}
   .ci-rm:hover{color:#C6534B}
-  .cart-foot{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+  .cart-foot{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+  .cart-foot-row{display:flex;flex-wrap:wrap;gap:8px}
+  .cart-report-btn{width:100%;font-size:13px;font-weight:700;padding:11px;border-radius:9px;border:none;background:linear-gradient(180deg,var(--accent),var(--accent-deep));color:#fff;cursor:pointer}
+  .cart-report-btn:hover{filter:brightness(1.07)}
   .cart-foot-btn{flex:1;min-width:82px;font-size:12.5px;font-weight:600;padding:9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer}
   .cart-foot-btn:hover{border-color:var(--accent);color:var(--accent)}
   .cart-foot-btn.danger:hover{border-color:#C6534B;color:#C6534B}
@@ -359,6 +362,30 @@
   .btn-ask:hover{color:var(--accent);border-color:var(--accent)}
   .th-sort{cursor:pointer;user-select:none;white-space:nowrap}
   .th-sort:hover{color:var(--accent)}
+
+  /* ---------- Raport doradcy (ETA OS — ranking + skrypty) ---------- */
+  .rep-note{font-size:12px;color:var(--ink-faint);background:var(--surface-2);border-radius:8px;padding:10px 12px;margin:0 0 14px;line-height:1.5}
+  .rep-off{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+  .rep-h{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+  .rep-medal{font-size:22px;line-height:1.1;flex:none}
+  .rep-name{font-size:15px;font-weight:700;color:var(--ink)}
+  .rep-loc{font-size:12px;color:var(--ink-faint);margin-top:2px}
+  .rep-val{margin-left:auto;text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .rep-verdict{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .rep-verdict.top{background:var(--accent);color:#fff}
+  .rep-verdict.good{background:var(--accent-soft);color:var(--accent-deep)}
+  .rep-verdict.mid{background:#F4E9D6;color:#8A5A2B}
+  .rep-verdict.bad{background:#F6DFDC;color:#A3352C}
+  .rep-verdict.warn{background:#F3EFD8;color:#7A6A2B}
+  @media (prefers-color-scheme:dark){.rep-verdict.mid{background:#3A2E1C;color:#D6A05C}.rep-verdict.bad{background:#3A1F1C;color:#E39A90}.rep-verdict.warn{background:#332E18;color:#D8C87A}}
+  .rep-score{font-size:19px;font-weight:750;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+  .rep-score small{font-size:11px;color:var(--ink-faint);font-weight:500}
+  .rep-lead{font-size:14px;font-style:italic;color:var(--ink);margin:0 0 8px;line-height:1.5}
+  .rep-cb{margin:0 0 8px;padding-left:18px;font-size:13px;color:var(--ink-soft);line-height:1.55}
+  .rep-cb b{color:var(--ink)}
+  .rep-close{font-size:13px;color:var(--ink-soft);border-left:3px solid var(--sand);padding-left:12px;margin:0}
+  .rep-order{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.9}
+  .rep-order h4{font-size:12px;margin:0 0 8px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em}
 </style>
 </head>
 <body>
@@ -514,7 +541,10 @@
   <aside class="cart-panel" role="dialog" aria-label="Koszyk odłożonych ofert">
     <div class="cart-head"><h3>Koszyk <span id="cartHeadN"></span></h3><button class="cart-x" id="cartClose" aria-label="Zamknij">&times;</button></div>
     <div class="cart-list" id="cartList"></div>
-    <div class="cart-foot"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartCopy">Kopiuj</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
+    <div class="cart-foot">
+      <button class="cart-report-btn" id="cartReport">🏆 Raport doradcy — ranking + skrypty</button>
+      <div class="cart-foot-row"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartCopy">Kopiuj</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
+    </div>
   </aside>
 </div>
 
@@ -523,6 +553,15 @@
   <div class="cmp-panel" role="dialog" aria-label="Porównanie ofert">
     <div class="cmp-head"><h3>Porównanie ofert</h3><button class="cart-x" id="cmpClose" aria-label="Zamknij">&times;</button></div>
     <div class="cmp-body" id="cmpBody"></div>
+  </div>
+</div>
+
+<div class="cmp-modal" id="repModal" hidden>
+  <div class="cmp-backdrop" id="repBackdrop"></div>
+  <div class="cmp-panel" role="dialog" aria-label="Raport doradcy">
+    <div class="cmp-head"><h3>🏆 Raport doradcy</h3><button class="cart-x" id="repClose" aria-label="Zamknij">&times;</button></div>
+    <div class="cmp-body" id="repBody"></div>
+    <div class="cart-foot"><button class="cart-foot-btn" id="repPrint">🖨 Drukuj raport dla klienta</button></div>
   </div>
 </div>
 
@@ -738,7 +777,7 @@
   function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart));}catch(e){}}
   function inCart(id){return cart.some(function(x){return x.id===id;});}
   // Zapisujemy lekki snapshot oferty (nie całą kartę) — starczy do listy i zestawienia.
-  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,price:h.price,priceTotal:h.priceTotal||0,stars:h.stars||3,rating:h.rating||0,board:h.board||"",nights:h.nights||0,operator:h.operator||h.source||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
+  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:h.priceTotal||0,stars:h.stars||3,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
   function toggleCart(h){var i=cart.findIndex(function(x){return x.id===h.id;});var added;if(i>-1){cart.splice(i,1);added=false;}else{cart.push(cartSnap(h));added=true;}saveCart();updateCartCount();if(!cartDrawer.hidden)renderCart();return added;}
   function removeCart(id){var i=cart.findIndex(function(x){return x.id===id;});if(i>-1){cart.splice(i,1);saveCart();updateCartCount();renderCart();syncCardButtons();}}
   function updateCartCount(){var n=cart.length;cartCountEl.textContent=n;cartCountEl.classList.toggle("on",n>0);cartHeadN.textContent=n?("("+n+")"):"";}
@@ -796,6 +835,58 @@
     w.document.close();
   }
   document.getElementById("cartPrint").addEventListener("click",printCart);
+
+  /* ---------- Raport doradcy (ETA OS Faza A: ranking value-for-money + werdykt + skrypt) ---------- */
+  // Ocena wartości 0-100 z DANYCH KTÓRE MAMY (cena, opinie ważone wiarygodnością,
+  // standard). Waga jak w ETA SCORE: value for money > reszta. Uczciwie: to WSTĘPNA
+  // ocena — bez jakości plaży/pokoi/jedzenia (te dojdą z Claude/realnych danych).
+  function etaAdj(h){var t=h.trust||0;return (h.rating||0)*t+7.5*(1-t);} // ocena skorygowana o wiarygodność (anty-przekoloryzacja)
+  function etaValue(h){
+    var adj=etaAdj(h);
+    var ratingPart=Math.max(0,Math.min(1,(adj-6)/4));
+    var pricePart=Math.max(0,Math.min(1,1-((h.price||0)-2000)/12000));
+    var starPart=(h.stars||3)/5;
+    var t=h.trust||0;
+    var vfm=Math.max(0,Math.min(1,ratingPart*0.6+pricePart*0.4)); // jakość względem ceny
+    return Math.round((0.40*vfm+0.25*ratingPart+0.15*pricePart+0.10*starPart+0.10*t)*100);
+  }
+  function etaVerdict(h){
+    var s=etaValue(h),t=h.trust||0,adj=etaAdj(h);
+    if(t<0.25)return {t:"⚠️ Mało/starych opinii",c:"warn"};
+    if(s>=82)return {t:"🏆 Najlepszy value",c:"top"};
+    if((h.price||0)>7000&&adj<8)return {t:"❌ Drogo jak na oceny",c:"bad"};
+    if(s>=72)return {t:"✅ Warto",c:"good"};
+    if(s>=62)return {t:"💰 Warto w dobrej cenie",c:"mid"};
+    return {t:"😐 Przeciętny",c:"mid"};
+  }
+  function buildAdvisorReport(){
+    if(!cart.length){toast("Odłóż oferty, żeby zrobić raport");return;}
+    var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
+    var medals=["🥇","🥈","🥉"];
+    var body=ranked.map(function(x,i){
+      var v=etaVerdict(x),sc=buildScript(x,detectAudience(x),0);
+      var cb=(sc.cb||[]).slice(0,3).map(function(c){return '<li><b>'+c.f+'</b> — '+c.b+'</li>';}).join("");
+      return '<div class="rep-off"><div class="rep-h"><span class="rep-medal">'+(medals[i]||("#"+(i+1)))+'</span><div><div class="rep-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="rep-loc">'+x.region+'</div></div><div class="rep-val"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="rep-score">'+etaValue(x)+'<small>/100</small></span></div></div>'+
+        '<p class="rep-lead">'+sc.lead+'</p>'+(cb?'<ul class="rep-cb">'+cb+'</ul>':'')+'<p class="rep-close">'+sc.closer+'</p></div>';
+    }).join("");
+    var order=ranked.map(function(x,i){return (medals[i]||("#"+(i+1)))+' <b>'+x.name+'</b> — '+etaVerdict(x).t.replace(/^[^ ]+ /,"");}).join("<br>");
+    document.getElementById("repBody").innerHTML=
+      '<p class="rep-note"><b>Ranking od najlepszej wartości (value for money).</b> Ocena wstępna — z ceny, opinii (ważonych wiarygodnością) i standardu. Pełna analiza ETA (plaża, pokoje, jedzenie, czerwone flagi) dojdzie po podpięciu realnych danych / Claude.</p>'+
+      body+'<div class="rep-order"><h4>Kolejność prezentacji klientowi</h4>'+order+'</div>';
+    document.getElementById("repModal").hidden=false;
+  }
+  function printReport(){
+    if(!cart.length){toast("Koszyk pusty");return;}
+    if(!document.getElementById("repBody").innerHTML)buildAdvisorReport();
+    var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Raport doradcy — Kompas</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:32px auto;padding:0 24px;color:#13201F}.rep-note{font-size:12px;color:#777;background:#f5f2ea;padding:10px 12px;border-radius:8px;margin-bottom:14px}.rep-off{border:1px solid #e4dfd4;border-radius:12px;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid}.rep-h{display:flex;gap:12px;margin-bottom:8px;align-items:flex-start}.rep-medal{font-size:22px}.rep-name{font-weight:700;font-size:15px}.rep-loc{font-size:12px;color:#777}.rep-val{margin-left:auto;text-align:right}.rep-verdict{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:#eee;white-space:nowrap}.rep-score{font-size:18px;font-weight:bold;display:block;margin-top:4px}.rep-lead{font-style:italic;margin:6px 0}.rep-cb{padding-left:18px;font-size:13px;line-height:1.55}.rep-close{border-left:3px solid #C68A3E;padding-left:12px;color:#555;margin:0}.rep-order{border-top:1px solid #ddd;margin-top:16px;padding-top:12px;line-height:1.9}.rep-order h4{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#0A4F4C;margin:0 0 8px}h2{font-size:22px}</style><h2>🏆 Raport doradcy</h2>'+document.getElementById("repBody").innerHTML+'<scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
+    w.document.close();
+  }
+  document.getElementById("cartReport").addEventListener("click",buildAdvisorReport);
+  document.getElementById("repClose").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
+  document.getElementById("repBackdrop").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
+  document.getElementById("repPrint").addEventListener("click",printReport);
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"){var r=document.getElementById("repModal");if(r&&!r.hidden)r.hidden=true;}});
   document.getElementById("cmpClose").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
   document.getElementById("cmpBackdrop").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"){var cm=document.getElementById("cmpModal");if(cm&&!cm.hidden)cm.hidden=true;}});
