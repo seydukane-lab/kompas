@@ -1071,7 +1071,11 @@
       else{document.getElementById("resSub").textContent="Brak dopasowań — poluzuj kryteria (budżet, ocena lub wyżywienie).";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nic nie pasuje do tych kryteriów</h3><p>Podnieś budżet, obniż minimalną ocenę albo odznacz część filtrów.</p></div>';}
       return;}
     buildOpFilter(list);
-    var shown=activeOperators.length?list.filter(function(h){return activeOperators.indexOf(operOf(h))>-1;}):list;
+    var shown=list.filter(function(h){
+      if(activeOperators.length&&activeOperators.indexOf(operOf(h))===-1)return false;
+      if(beachOnly&&!(typeof h.beach==="number"&&h.beach<=300))return false;
+      return true;
+    });
     document.getElementById("resCount").textContent=shown.length;
     if(!shown.length){summary.hidden=true;cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Brak ofert wybranych operatorów</h3><p>Odznacz operatora u góry, aby zobaczyć pozostałe oferty.</p></div>';document.getElementById("resSub").textContent="Filtr operatora ukrył wszystkie oferty.";return;}
     document.getElementById("resSub").textContent="Termin: "+n+" nocy · "+pax+" "+(pax===1?"osoba":(pax<5?"osoby":"osób"))+" · ceny orientacyjne.";
@@ -1139,19 +1143,22 @@
   document.querySelectorAll("#viewToggle .vt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.view===resultView);});
 
   /* ---------- Filtr operatora (post-search, jak sidebar „Operator" w MerlinX) ---------- */
-  var activeOperators=[];
+  var activeOperators=[],beachOnly=false;
   function operOf(h){return h.operator||h.source||"—";}
   function buildOpFilter(list){
-    var el=document.getElementById("opFilter"),counts={};
-    list.forEach(function(h){var o=operOf(h);counts[o]=(counts[o]||0)+1;});
+    var el=document.getElementById("opFilter"),counts={},beachN=0;
+    list.forEach(function(h){var o=operOf(h);counts[o]=(counts[o]||0)+1;if(typeof h.beach==="number"&&h.beach<=300)beachN++;});
     var ops=Object.keys(counts).sort();
     activeOperators=activeOperators.filter(function(o){return counts[o];}); // usuń martwe zaznaczenia
-    if(ops.length<2){el.hidden=true;el.innerHTML="";return;}
+    var opHtml=ops.length>=2?('<span class="opf-lbl">Operator</span>'+ops.map(function(o){return '<button class="opf-chip'+(activeOperators.indexOf(o)>-1?" active":"")+'" data-op="'+o.replace(/"/g,"&quot;")+'">'+o+' <span class="opf-n">'+counts[o]+'</span></button>';}).join("")):"";
+    var beachHtml=beachN?('<button class="opf-chip opf-beach'+(beachOnly?" active":"")+'" data-beach>🏖 Przy plaży (≤300 m) <span class="opf-n">'+beachN+'</span></button>'):"";
+    if(!opHtml&&!beachHtml){el.hidden=true;el.innerHTML="";return;}
     el.hidden=false;
-    el.innerHTML='<span class="opf-lbl">Operator</span>'+ops.map(function(o){return '<button class="opf-chip'+(activeOperators.indexOf(o)>-1?" active":"")+'" data-op="'+o.replace(/"/g,"&quot;")+'">'+o+' <span class="opf-n">'+counts[o]+'</span></button>';}).join("")+(activeOperators.length?'<button class="opf-clear" data-opclear>× wyczyść</button>':"");
+    el.innerHTML=opHtml+beachHtml+((activeOperators.length||beachOnly)?'<button class="opf-clear" data-opclear>× wyczyść</button>':"");
   }
   document.getElementById("opFilter").addEventListener("click",function(e){
-    if(e.target.closest("[data-opclear]")){activeOperators=[];render(lastList);return;}
+    if(e.target.closest("[data-opclear]")){activeOperators=[];beachOnly=false;render(lastList);return;}
+    if(e.target.closest("[data-beach]")){beachOnly=!beachOnly;render(lastList);return;}
     var c=e.target.closest(".opf-chip");if(!c)return;
     var o=c.dataset.op,i=activeOperators.indexOf(o);
     if(i>-1)activeOperators.splice(i,1);else activeOperators.push(o);
