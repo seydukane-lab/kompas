@@ -388,6 +388,12 @@
   .rep-intel b{color:var(--ink)}
   .rep-order{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.9}
   .rep-order h4{font-size:12px;margin:0 0 8px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em}
+  .rep-note-warn{color:var(--ink);background:rgba(220,140,0,.12);border:1px solid rgba(220,140,0,.35)}
+  .rep-rejected{border-top:1px dashed var(--line);margin-top:16px;padding-top:14px}
+  .rep-rejected h4{font-size:11.5px;margin:0 0 10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em}
+  .rep-rej-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;font-size:13px;color:var(--ink-soft);border-bottom:1px solid var(--line);opacity:.72}
+  .rep-rej-row:last-child{border-bottom:0}
+  .rep-rej-name small{color:var(--ink-faint)}
   .rep-ai{font-size:14px;line-height:1.65;color:var(--ink-soft)}
   .rep-ai h3{font-size:15px;color:var(--ink);margin:16px 0 6px}
   .rep-ai h4{font-size:14px;color:var(--accent-deep);margin:14px 0 4px}
@@ -874,20 +880,33 @@
   function normD(s){return String(s||"").toLowerCase().replace(/ł/g,"l").normalize("NFD").replace(/[̀-ͯ]/g,"");}
   function destIntelClient(region,country){var hay=normD(region)+" "+normD(country);for(var i=0;i<DEST_INTEL.length;i++){var d=DEST_INTEL[i];if((d.keys||[]).some(function(k){return hay.indexOf(normD(k))>-1;}))return d;}return null;}
 
+  // ETA OS: oferta „zajebista" = dobra wartość i wiarygodne opinie (nie drogi przypał, nie ciemna liczba opinii).
+  function etaGreat(h){var v=etaVerdict(h);return etaValue(h)>=70 && v.c!=="bad" && v.c!=="warn";}
   function buildAdvisorReport(){
     if(!cart.length){toast("Odłóż oferty, żeby zrobić raport");return;}
     var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
+    // Krok 1 ETA OS: ELIMINACJA — dzielimy na „zajebiste" (TOP) i odrzucone.
+    var great=ranked.filter(etaGreat), weak=ranked.filter(function(h){return !etaGreat(h);});
+    // Jeśli nic nie łapie się na TOP, i tak pokaż najlepszą dostępną (żeby raport nie był pusty).
+    var forced=false;
+    if(!great.length && ranked.length){great=[ranked[0]];weak=ranked.slice(1);forced=true;}
     var medals=["🥇","🥈","🥉"];
-    var body=ranked.map(function(x,i){
+    function offCard(x,i){
       var v=etaVerdict(x),sc=buildScript(x,detectAudience(x),0),intel=destIntelClient(x.region,x.country);
       var cb=(sc.cb||[]).slice(0,3).map(function(c){return '<li><b>'+c.f+'</b> — '+c.b+'</li>';}).join("");
       return '<div class="rep-off"><div class="rep-h"><span class="rep-medal">'+(medals[i]||("#"+(i+1)))+'</span><div><div class="rep-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="rep-loc">'+x.region+'</div></div><div class="rep-val"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="rep-score">'+etaValue(x)+'<small>/100</small></span></div></div>'+
         '<p class="rep-lead">'+sc.lead+'</p>'+(intel?'<p class="rep-intel">💡 '+intel.vibe+' · <b>dla:</b> '+intel.forWho+' · <b>uwaga:</b> '+intel.watch+'</p>':'')+(cb?'<ul class="rep-cb">'+cb+'</ul>':'')+'<p class="rep-close">'+sc.closer+'</p></div>';
-    }).join("");
-    var order=ranked.map(function(x,i){return (medals[i]||("#"+(i+1)))+' <b>'+x.name+'</b> — '+etaVerdict(x).t.replace(/^[^ ]+ /,"");}).join("<br>");
+    }
+    var body=great.map(offCard).join("");
+    var order=great.map(function(x,i){return (medals[i]||("#"+(i+1)))+' <b>'+x.name+'</b> — '+etaVerdict(x).t.replace(/^[^ ]+ /,"");}).join("<br>");
+    // Krok „odrzucone": co i DLACZEGO odpadło (werdykt = powód).
+    var rejected=weak.length? '<div class="rep-rejected"><h4>Odrzucone ('+weak.length+') — nie pokazujemy klientowi</h4>'+
+      weak.map(function(x){return '<div class="rep-rej-row"><span class="rep-rej-name">'+x.name+' <small>· '+x.region+'</small></span><span class="rep-verdict '+etaVerdict(x).c+'">'+etaVerdict(x).t+'</span></div>';}).join("")+'</div>':"";
+    var headNote=forced
+      ? '<p class="rep-note rep-note-warn"><b>Uwaga:</b> żadna z odłożonych ofert nie łapie się na próg „zajebiste" (value ≥ 70, wiarygodne opinie). Poniżej najlepsza z dostępnych — rozważ dorzucenie mocniejszych ofert do koszyka.</p>'
+      : '<p class="rep-note"><b>TOP '+great.length+' — tylko oferty warte prezentacji.</b> Ranking od najlepszej wartości (value for money): cena vs opinie (ważone wiarygodnością) i standard. Słabe/drogie/z podejrzanymi opiniami zostały odrzucone (niżej). Pełna analiza ETA (plaża, pokoje, jedzenie, czerwone flagi) dojdzie po podpięciu realnych danych / Claude.</p>';
     document.getElementById("repBody").innerHTML=
-      '<p class="rep-note"><b>Ranking od najlepszej wartości (value for money).</b> Ocena wstępna — z ceny, opinii (ważonych wiarygodnością) i standardu. Pełna analiza ETA (plaża, pokoje, jedzenie, czerwone flagi) dojdzie po podpięciu realnych danych / Claude.</p>'+
-      body+'<div class="rep-order"><h4>Kolejność prezentacji klientowi</h4>'+order+'</div>';
+      headNote+body+(order?'<div class="rep-order"><h4>Kolejność prezentacji klientowi</h4>'+order+'</div>':"")+rejected;
     document.getElementById("repModal").hidden=false;
   }
   function printReport(){
