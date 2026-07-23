@@ -391,6 +391,19 @@
   .rep-intel b{color:var(--ink)}
   .card-intel{font-size:11.5px;color:var(--ink-soft);margin-top:9px;line-height:1.45;padding:7px 10px;background:var(--surface-2);border-radius:8px;border-left:2px solid var(--accent)}
   .card-intel b{color:var(--ink)}
+  .det-note{font-size:12px;color:var(--ink-faint);background:var(--surface-2);border-radius:8px;padding:9px 12px;margin:0 0 14px;line-height:1.5}
+  .det-sec{margin:0 0 16px}
+  .det-sec h4{font-size:12px;margin:0 0 9px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .det-row{display:flex;justify-content:space-between;gap:14px;padding:5px 0;font-size:13.5px;border-bottom:1px solid var(--line)}
+  .det-row:last-child{border-bottom:0}
+  .det-k{color:var(--ink-faint);flex:0 0 auto}
+  .det-v{color:var(--ink);text-align:right}
+  .det-intel{font-size:13.5px;line-height:1.55;color:var(--ink-soft)}
+  .det-intel p{margin:0 0 6px}.det-intel b{color:var(--ink)}
+  .det-empty{font-size:13px;color:var(--ink-faint);font-style:italic}
+  .det-links{display:flex;flex-wrap:wrap;gap:8px}
+  .det-link{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:var(--accent-deep);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-decoration:none}
+  .det-link:hover{border-color:var(--accent);background:var(--accent-soft)}
   .rep-order{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.9}
   .rep-order h4{font-size:12px;margin:0 0 8px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em}
   .rep-note-warn{color:var(--ink);background:rgba(220,140,0,.12);border:1px solid rgba(220,140,0,.35)}
@@ -582,6 +595,14 @@
     <div class="cmp-head"><h3>🏆 Raport doradcy</h3><button class="cart-x" id="repClose" aria-label="Zamknij">&times;</button></div>
     <div class="cmp-body" id="repBody"></div>
     <div class="cart-foot"><div class="cart-foot-row"><button class="cart-foot-btn" id="repAI">✨ Analiza ETA (AI)</button><button class="cart-foot-btn" id="repPrint">🖨 Drukuj dla klienta</button></div></div>
+  </div>
+</div>
+
+<div class="cmp-modal" id="detailModal" hidden>
+  <div class="cmp-backdrop" id="detailBackdrop"></div>
+  <div class="cmp-panel" role="dialog" aria-label="Szczegóły oferty">
+    <div class="cmp-head"><h3 id="detailTitle">Szczegóły oferty</h3><button class="cart-x" id="detailClose" aria-label="Zamknij">&times;</button></div>
+    <div class="cmp-body" id="detailBody"></div>
   </div>
 </div>
 
@@ -957,6 +978,54 @@
   document.getElementById("cartReport").addEventListener("click",buildAdvisorReport);
   document.getElementById("repClose").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
   document.getElementById("repBackdrop").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
+
+  /* ---------- Szczegóły oferty (widok à la MerlinX: opis + kierunek + info regionalne + research) ---------- */
+  function researchLinks(h){
+    var q=encodeURIComponent((h.name||"")+" "+(h.region||h.country||""));
+    var links=[
+      ["🗺 Mapa / lokalizacja","https://www.google.com/maps/search/?api=1&query="+q],
+      ["⭐ TripAdvisor","https://www.tripadvisor.com/Search?q="+q],
+      ["🛎 Booking (opinie)","https://www.booking.com/searchresults.html?ss="+q],
+      ["🔎 Opinie w Google","https://www.google.com/search?q="+encodeURIComponent((h.name||"")+" "+(h.region||h.country||"")+" opinie")],
+      ["▶️ YouTube (relacje)","https://www.youtube.com/results?search_query="+encodeURIComponent((h.name||"")+" "+(h.region||h.country||"")+" hotel")]
+    ];
+    return links.map(function(l){return '<a class="det-link" href="'+l[1]+'" target="_blank" rel="noopener">'+l[0]+' ↗</a>';}).join("");
+  }
+  function openDetail(h){
+    var intel=destIntelClient(h.region,h.country);
+    var pract=practGridHtml(h.country);
+    document.getElementById("detailTitle").innerHTML=h.name+' <span class="stars">'+stars(h.stars||3)+'</span>';
+    // Blok „Opis oferty" — strukturalny jak w Merlinie (z tego, co REALNIE mamy z listingu).
+    function row(k,v){return v?('<div class="det-row"><span class="det-k">'+k+'</span><span class="det-v">'+v+'</span></div>'):'';}
+    var opis=
+      row("Kraj",h.country)+
+      row("Region / miejsce",h.region||"—")+
+      row("Kategoria",(h.stars||"?")+"★")+
+      row("Ocena gości",h.rating?(h.rating.toFixed(1).replace(".",",")+"/10"+(h.reviews>0?" ("+fmt(h.reviews)+" opinii)":" — mało/brak danych o opiniach")):"brak danych")+
+      row("Wyżywienie",h.board||"—")+
+      row("Długość pobytu",h.nights?(h.nights+" nocy"):"—")+
+      row("Wylot",h.departureCity||"—")+
+      (typeof h.beach==="number"?row("Odległość od plaży",h.beach+" m"):"")+
+      row("Cena / osoba","<b>"+fmt(h.price)+" zł</b>")+
+      (h.priceTotal>0?row("Razem (orientacyjnie)",fmt(h.priceTotal)+" zł"):"")+
+      row("Operator / źródło",h.operator||h.source||"—")+
+      row("Nr oferty",h.offerNumber||"—")+
+      row("Ocena wartości ETA","<b>"+etaValue(h)+"/100</b> · "+etaVerdict(h).t);
+    // Blok „Kierunek" (Destination Intelligence).
+    var kier=intel
+      ? '<div class="det-intel"><p>🧭 <b>'+intel.vibe+'</b></p><p><b>Dla kogo:</b> '+intel.forWho+'</p><p><b>Na co uważać:</b> '+intel.watch+'</p><p><b>Wskazówka:</b> '+intel.tip+'</p></div>'
+      : '<p class="det-empty">Brak kuratorowanej wiedzy o tym kierunku — sprawdź linki researchowe niżej.</p>';
+    document.getElementById("detailBody").innerHTML=
+      '<div class="det-note">Dane z listingu są orientacyjne. Szczegóły (plaża, pokoje, jedzenie, aktualne opinie) potwierdź researchem — linki niżej otwierają realne źródła, jak w warsztacie doradcy.</div>'+
+      '<div class="det-sec"><h4>Opis oferty</h4>'+opis+'</div>'+
+      '<div class="det-sec"><h4>Kierunek</h4>'+kier+'</div>'+
+      (pract?'<div class="det-sec"><h4>Informacje regionalne / wjazdowe</h4>'+pract+'</div>':'')+
+      '<div class="det-sec"><h4>Research (Mapa · opinie · relacje)</h4><div class="det-links">'+researchLinks(h)+'</div></div>';
+    document.getElementById("detailModal").hidden=false;
+  }
+  document.getElementById("detailClose").addEventListener("click",function(){document.getElementById("detailModal").hidden=true;});
+  document.getElementById("detailBackdrop").addEventListener("click",function(){document.getElementById("detailModal").hidden=true;});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!document.getElementById("detailModal").hidden)document.getElementById("detailModal").hidden=true;});
   document.getElementById("repPrint").addEventListener("click",printReport);
 
   /* ---------- Analiza ETA OS przez Claude API (aktywna tylko gdy jest ANTHROPIC_API_KEY) ---------- */
@@ -1125,7 +1194,7 @@
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
         '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+(offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
-          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored">Przejdź do oferty ↗</a>':'<a class="btn-script btn-ask" href="mailto:seydukane@gmail.com?subject='+encodeURIComponent("Zapytanie o ofertę: "+h.name)+'&body='+encodeURIComponent("Dzień dobry, proszę o dostępność i cenę dla: "+h.name+" ("+(h.region||h.country)+").")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Zapytaj o dostępność</a>')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
+          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored">Przejdź do oferty ↗</a>':'<a class="btn-script btn-ask" href="mailto:seydukane@gmail.com?subject='+encodeURIComponent("Zapytanie o ofertę: "+h.name)+'&body='+encodeURIComponent("Dzień dobry, proszę o dostępność i cenę dla: "+h.name+" ("+(h.region||h.country)+").")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Zapytaj o dostępność</a>')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
         '</div>'+
       '</div>'+
       '<div class="script js-script"><div class="script-inner"></div></div>'+
@@ -1148,6 +1217,7 @@
     }
     fillScript();
     el.querySelector("[data-toggle]").addEventListener("click",function(){sDrawer.classList.toggle("open");if(pDrawer)pDrawer.classList.remove("open");});
+    el.querySelector("[data-detail]").addEventListener("click",function(){openDetail(h);});
     var pBtn=el.querySelector("[data-pract]");if(pBtn)pBtn.addEventListener("click",function(){pDrawer.classList.toggle("open");sDrawer.classList.remove("open");});
     var noBtn=el.querySelector("[data-copyno]");if(noBtn)noBtn.addEventListener("click",function(){var nn=noBtn.getAttribute("data-copyno");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(nn).then(function(){toast("Skopiowano nr oferty: "+nn+" ✓");},function(){fallbackCopy(nn);});else fallbackCopy(nn);});
     var cartBtnCard=el.querySelector("[data-cart]");if(cartBtnCard)cartBtnCard.addEventListener("click",function(){var added=toggleCart(h);syncCardButtons();toast(added?"Dodano do koszyka ✓":"Usunięto z koszyka");});
