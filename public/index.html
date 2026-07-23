@@ -322,6 +322,7 @@
   .tc-total{white-space:nowrap;font-weight:650;color:var(--ink)}
   .tc-act a{color:var(--accent);text-decoration:none;font-weight:700;font-size:15px}
   .tc-act{white-space:nowrap}
+  .tc-eta{text-align:center}.tc-eta .rep-verdict{font-size:12px;padding:2px 8px;font-variant-numeric:tabular-nums}
   .row-det{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:15px;padding:0 6px 0 0}
   .row-det:hover{color:var(--accent)}
 
@@ -1101,6 +1102,7 @@
       if(sk==="region")return String(a.region||a.country).localeCompare(String(b.region||b.country))*sd;
       var av,bv;
       if(sk==="rating"){av=a.rating||0;bv=b.rating||0;}
+      else if(sk==="eta"){av=etaValue(a);bv=etaValue(b);}
       else if(sk==="total"){av=a.priceTotal>0?a.priceTotal:a.price*Math.max(1,pax);bv=b.priceTotal>0?b.priceTotal:b.price*Math.max(1,pax);}
       else{av=a.price;bv=b.price;}
       return (av-bv)*sd;
@@ -1111,12 +1113,13 @@
         '<td class="tc-reg">'+(h.region||h.country)+'</td>'+
         '<td class="tc-name"><b>'+h.name+'</b> <span class="stars">'+stars(h.stars||3)+'</span>'+(h.operator?'<span class="tc-op">'+h.operator+'</span>':'')+'</td>'+
         '<td class="tc-rate"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span></td>'+
+        '<td class="tc-eta"><span class="rep-verdict '+etaVerdict(h).c+'" title="'+etaVerdict(h).t+'">'+etaValue(h)+'</span></td>'+
         '<td class="tc-price">'+fmt(h.price)+'<small>zł/os</small></td>'+
         '<td class="tc-total">'+fmt(total)+'<small>zł</small></td>'+
         '<td class="tc-act"><button class="row-det" data-cid="'+h.id+'" title="Szczegóły oferty">ⓘ</button>'+(h.bookingUrl?'<a href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored" title="Przejdź do oferty">↗</a>':'')+'</td></tr>';
     }).join("");
     function th(key,label){var a="";if(tableSort&&tableSort.key===key)a=tableSort.dir>0?" ▲":" ▼";return '<th class="th-sort" data-sort="'+key+'">'+label+a+'</th>';}
-    cardsEl.innerHTML='<div class="table-wrap"><table class="res-table"><thead><tr><th></th>'+th("region","Region")+'<th>Hotel</th>'+th("rating","Ocena")+th("price","Cena / os.")+th("total","Razem")+'<th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    cardsEl.innerHTML='<div class="table-wrap"><table class="res-table"><thead><tr><th></th>'+th("region","Region")+'<th>Hotel</th>'+th("rating","Ocena")+th("eta","ETA")+th("price","Cena / os.")+th("total","Razem")+'<th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
   // Klik gwiazdki w wierszu tabeli = odłóż/zdejmij z koszyka (delegacja).
   document.getElementById("cards").addEventListener("click",function(e){
