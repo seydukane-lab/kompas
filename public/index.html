@@ -884,7 +884,7 @@
   }
   /* ---------- Destination Intelligence (klient) — wiedza o kierunku w raporcie ---------- */
   var DEST_INTEL=[];
-  fetch("/api/destinations").then(function(r){return r.json();}).then(function(d){DEST_INTEL=d.destinations||[];}).catch(function(){});
+  fetch("/api/destinations").then(function(r){return r.json();}).then(function(d){DEST_INTEL=d.destinations||[];if(lastList&&lastList.length&&typeof render==="function")render(lastList);}).catch(function(){});
   function normD(s){return String(s||"").toLowerCase().replace(/ł/g,"l").normalize("NFD").replace(/[̀-ͯ]/g,"");}
   function destIntelClient(region,country){var hay=normD(region)+" "+normD(country);for(var i=0;i<DEST_INTEL.length;i++){var d=DEST_INTEL[i];if((d.keys||[]).some(function(k){return hay.indexOf(normD(k))>-1;}))return d;}return null;}
 
