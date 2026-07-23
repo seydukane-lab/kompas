@@ -386,6 +386,13 @@
   .rep-close{font-size:13px;color:var(--ink-soft);border-left:3px solid var(--sand);padding-left:12px;margin:0}
   .rep-order{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.9}
   .rep-order h4{font-size:12px;margin:0 0 8px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em}
+  .rep-ai{font-size:14px;line-height:1.65;color:var(--ink-soft)}
+  .rep-ai h3{font-size:15px;color:var(--ink);margin:16px 0 6px}
+  .rep-ai h4{font-size:14px;color:var(--accent-deep);margin:14px 0 4px}
+  .rep-ai b{color:var(--ink)}
+  .rep-ai ul{padding-left:20px;margin:6px 0}
+  .rep-ai li{margin-bottom:4px}
+  .rep-ai p{margin:0 0 10px}
 </style>
 </head>
 <body>
@@ -561,7 +568,7 @@
   <div class="cmp-panel" role="dialog" aria-label="Raport doradcy">
     <div class="cmp-head"><h3>🏆 Raport doradcy</h3><button class="cart-x" id="repClose" aria-label="Zamknij">&times;</button></div>
     <div class="cmp-body" id="repBody"></div>
-    <div class="cart-foot"><button class="cart-foot-btn" id="repPrint">🖨 Drukuj raport dla klienta</button></div>
+    <div class="cart-foot"><div class="cart-foot-row"><button class="cart-foot-btn" id="repAI">✨ Analiza ETA (AI)</button><button class="cart-foot-btn" id="repPrint">🖨 Drukuj dla klienta</button></div></div>
   </div>
 </div>
 
@@ -886,6 +893,31 @@
   document.getElementById("repClose").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
   document.getElementById("repBackdrop").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
   document.getElementById("repPrint").addEventListener("click",printReport);
+
+  /* ---------- Analiza ETA OS przez Claude API (aktywna tylko gdy jest ANTHROPIC_API_KEY) ---------- */
+  var advisorEnabled=false;
+  fetch("/api/advisor/status").then(function(r){return r.json();}).then(function(d){advisorEnabled=!!d.enabled;}).catch(function(){});
+  function mdLite(s){
+    s=String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    s=s.replace(/^#{3,4} (.*)$/gm,"<h4>$1</h4>").replace(/^## (.*)$/gm,"<h3>$1</h3>").replace(/^# (.*)$/gm,"<h3>$1</h3>");
+    s=s.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+    s=s.replace(/(?:^|\n)((?:[ \t]*[-*] .*(?:\n|$))+)/g,function(m,list){var lis=list.trim().split(/\n/).map(function(l){return "<li>"+l.replace(/^[ \t]*[-*] /,"")+"</li>";}).join("");return "\n<ul>"+lis+"</ul>\n";});
+    return s.split(/\n{2,}/).map(function(p){p=p.trim();if(!p)return"";return /^<(h3|h4|ul)/.test(p)?p:"<p>"+p.replace(/\n/g,"<br>")+"</p>";}).join("");
+  }
+  document.getElementById("repAI").addEventListener("click",function(){
+    if(!cart.length){toast("Odłóż oferty do koszyka");return;}
+    if(!advisorEnabled){toast("Analiza AI wyłączona — dodaj ANTHROPIC_API_KEY w .env (lokalnie)");return;}
+    var btn=this,old=btn.textContent;btn.disabled=true;btn.textContent="✨ Analizuję…";
+    var crit={budget:+budget.value,budgetMode:budgetMode,adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value,childAges:childAgesValue().split(",").filter(Boolean),nights:activeNights,departures:activeDeps};
+    fetch("/api/advisor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({offers:cart,criteria:crit})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.report){document.getElementById("repBody").innerHTML='<p class="rep-note">✨ Analiza ETA OS wygenerowana przez AI ('+(d.model||"Claude")+'). Na danych z listingu — ceny orientacyjne, szczegóły do potwierdzenia u organizatora.</p><div class="rep-ai">'+mdLite(d.report)+'</div>';}
+        else toast(d.error||"Błąd analizy AI");
+      })
+      .catch(function(e){toast("Błąd analizy: "+e.message);})
+      .finally(function(){btn.disabled=false;btn.textContent=old;});
+  });
   document.addEventListener("keydown",function(e){if(e.key==="Escape"){var r=document.getElementById("repModal");if(r&&!r.hidden)r.hidden=true;}});
   document.getElementById("cmpClose").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
   document.getElementById("cmpBackdrop").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});

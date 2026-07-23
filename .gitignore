@@ -9,3 +9,7 @@ src/providers/wakacje.js
 
 # Zdjęcia inspiracji (prywatne screeny monitora z pracy) — tylko lokalnie.
 inspiracje/
+
+# Doradca ETA OS — prompt to know-how użytkownika (framework ETA OS™). LOKALNIE.
+src/advisor.js
+src/eta-os-prompt.js

@@ -17,11 +17,38 @@ import { searchAll, providerStatus } from "./src/providers/index.js";
 import { applyFilters, scoreOffer, sortOffers } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 
+// Doradca ETA OS (Claude) — provider LOKALNY (prompt = know-how użytkownika, gitignored).
+// Ładowany OPCJONALNIE: bez pliku (publiczny Render) AI jest po prostu wyłączone.
+let advisor = { isEnabled: () => false };
+try { advisor = await import("./src/advisor.js"); } catch { /* brak lokalnego providera AI */ }
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static(join(__dirname, "public")));
+app.use(express.json({ limit: "256kb" }));
+
+// --- Doradca ETA OS (Claude) — status + generowanie raportu ---
+app.get("/api/advisor/status", (req, res) => {
+  res.json({ enabled: advisor.isEnabled() });
+});
+app.post("/api/advisor", async (req, res) => {
+  if (!advisor.isEnabled()) {
+    return res.status(503).json({ error: "Analiza AI wyłączona — brak ANTHROPIC_API_KEY.", needKey: true });
+  }
+  try {
+    const { offers, criteria } = req.body || {};
+    if (!Array.isArray(offers) || !offers.length) {
+      return res.status(400).json({ error: "Brak ofert do analizy — odłóż oferty do koszyka." });
+    }
+    const r = await advisor.generateReport(offers, criteria);
+    res.json({ report: r.text, model: r.model });
+  } catch (err) {
+    console.error("advisor error:", err);
+    res.status(500).json({ error: "Błąd analizy AI: " + err.message });
+  }
+});
 
 // --- Status dostawców (do baneru w panelu) ---
 app.get("/api/status", (req, res) => {
