@@ -279,6 +279,9 @@
   .ci-body{flex:1;min-width:0}
   .ci-name{font-size:13.5px;font-weight:650;color:var(--ink);line-height:1.3}
   .ci-loc{font-size:11.5px;color:var(--ink-faint);margin-top:2px}
+  .ci-rank{font-size:18px;line-height:1.4;flex:0 0 auto;width:26px;text-align:center}
+  .ci-eta{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+  .ci-score{font-size:11px;font-weight:700;color:var(--ink-soft);font-variant-numeric:tabular-nums}
   .ci-meta{font-size:11.5px;color:var(--ink-soft);margin-top:4px}
   .ci-actions{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
   .ci-price{font-size:14px;font-weight:750;color:var(--accent-deep);white-space:nowrap}
@@ -801,9 +804,12 @@
   function renderCart(){
     updateCartCount();
     if(!cart.length){cartListEl.innerHTML='<div class="cart-empty">Koszyk jest pusty.<br>Na karcie oferty kliknij <b>„Odłóż"</b>, żeby zebrać propozycje dla klienta.</div>';return;}
-    cartListEl.innerHTML=cart.map(function(x){
+    // Ranking od najlepszej wartości (ETA) — spójnie z raportem doradcy.
+    var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
+    cartListEl.innerHTML=ranked.map(function(x,i){
       var t=x.priceTotal>0?(' · razem ~<b>'+fmt(x.priceTotal)+' zł</b>'):'';
-      return '<div class="cart-item"><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+'</div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener sponsored">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
+      var v=etaVerdict(x),medal=["🥇","🥈","🥉"][i]||("#"+(i+1));
+      return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener sponsored">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
     }).join("");
   }
   function cartText(){
