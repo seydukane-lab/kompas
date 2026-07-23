@@ -814,10 +814,30 @@
       return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener sponsored">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
     }).join("");
   }
+  // „Kopiuj oferty" — pełny, rankowany skrypt sprzedażowy (styl ETA OS):
+  // medal + werdykt + hak + korzyści→emocje + uwaga o kierunku + domknięcie.
   function cartText(){
     if(!cart.length)return"";
-    var lines=cart.map(function(x,i){var tot=x.priceTotal>0?(" · razem ok. "+fmt(x.priceTotal)+" zł"):"";return (i+1)+". "+x.name+" ("+x.region+") — "+(x.board||"")+", od "+fmt(x.price)+" zł/os."+tot+(x.bookingUrl?"\n   "+x.bookingUrl:"");});
-    return "Propozycje wyjazdów — Kompas\n\n"+lines.join("\n")+"\n\nCeny orientacyjne, do potwierdzenia u organizatora.";
+    var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
+    var medals=["🥇","🥈","🥉"],sep="────────────────────────────";
+    var blocks=ranked.map(function(x,i){
+      var v=etaVerdict(x),sc=buildScript(x,detectAudience(x),0),intel=destIntelClient(x.region,x.country);
+      var star=x.stars?" "+Array(Math.round(x.stars)+1).join("★"):"";
+      var out=[
+        (medals[i]||("#"+(i+1)))+" "+(i+1)+". "+x.name+star+" — "+x.region,
+        "   "+v.t+" · ETA "+etaValue(x)+"/100 · od "+fmt(x.price)+" zł/os."+(x.priceTotal>0?" (razem ~"+fmt(x.priceTotal)+" zł)":"")+(x.board?" · "+x.board:""),
+        "",
+        "   "+sc.lead
+      ];
+      var cb=(sc.cb||[]).slice(0,3).map(function(c){return "   • "+c.f+" — "+c.b;}).join("\n");
+      if(cb)out.push(cb);
+      if(intel)out.push("   💡 Kierunek: "+intel.watch);
+      out.push("","   → "+sc.closer);
+      if(x.bookingUrl)out.push("   Oferta: "+x.bookingUrl);
+      return out.join("\n");
+    });
+    var order="KOLEJNOŚĆ PREZENTACJI: "+ranked.map(function(x,i){return (medals[i]||("#"+(i+1)))+" "+x.name;}).join("  ·  ");
+    return "🧭 PROPOZYCJE WYJAZDÓW — wyselekcjonowane oferty\n"+sep+"\n\n"+blocks.join("\n\n"+sep+"\n\n")+"\n\n"+sep+"\n"+order+"\nCeny orientacyjne, do potwierdzenia u organizatora. · Kompas";
   }
   document.getElementById("cartBtn").addEventListener("click",function(){renderCart();cartDrawer.hidden=false;});
   document.getElementById("cartClose").addEventListener("click",function(){cartDrawer.hidden=true;});
@@ -851,10 +871,20 @@
   function printCart(){
     if(!cart.length){toast("Koszyk jest pusty");return;}
     var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}
-    var rows=cart.map(function(x,i){
-      return '<div class="off"><div class="n">'+(i+1)+'. '+x.name+' '+stars(x.stars)+'</div><div class="loc">'+x.region+'</div><div class="meta">'+(x.rating?"Ocena "+x.rating.toFixed(1).replace(".",",")+" · ":"")+(x.board||"")+(x.nights?" · "+x.nights+" nocy":"")+(x.operator?" · "+x.operator:"")+'</div><div class="price">od '+fmt(x.price)+' zł/os.'+(x.priceTotal>0?" &nbsp;·&nbsp; razem ok. "+fmt(x.priceTotal)+" zł":"")+'</div></div>';
+    var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
+    var medals=["🥇","🥈","🥉"];
+    var rows=ranked.map(function(x,i){
+      var sc=buildScript(x,detectAudience(x),0),intel=destIntelClient(x.region,x.country);
+      var cb=(sc.cb||[]).slice(0,3).map(function(c){return '<li><b>'+c.f+'</b> — '+c.b+'</li>';}).join("");
+      return '<div class="off"><div class="n">'+(medals[i]||((i+1)+"."))+' '+x.name+' '+stars(x.stars)+'</div><div class="loc">'+x.region+'</div>'+
+        '<div class="meta">'+(x.rating?"Ocena "+x.rating.toFixed(1).replace(".",",")+" · ":"")+(x.board||"")+(x.nights?" · "+x.nights+" nocy":"")+(x.operator?" · "+x.operator:"")+'</div>'+
+        '<p class="lead">'+sc.lead+'</p>'+
+        (cb?'<ul class="cb">'+cb+'</ul>':'')+
+        (intel?'<p class="intel">💡 Warto wiedzieć: '+intel.watch+'</p>':'')+
+        '<p class="close">'+sc.closer+'</p>'+
+        '<div class="price">od '+fmt(x.price)+' zł/os.'+(x.priceTotal>0?" &nbsp;·&nbsp; razem ok. "+fmt(x.priceTotal)+" zł":"")+'</div></div>';
     }).join("");
-    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:15px 18px;margin-bottom:13px;page-break-inside:avoid}.n{font-size:17px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 8px}.meta{font-family:system-ui,sans-serif;font-size:13px;color:#46534F;margin-bottom:6px}.price{font-family:system-ui,sans-serif;font-size:16px;font-weight:bold}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}</style><h1>Propozycje wyjazdów</h1><div class="sub">Przygotowane w systemie Kompas · '+cart.length+' ofert · ceny orientacyjne, do potwierdzenia u organizatora</div>'+rows+'<div class="foot">Kompas — wyszukiwarka i porównywarka ofert wakacyjnych.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}.n{font-size:17px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 8px}.meta{font-family:system-ui,sans-serif;font-size:12.5px;color:#46534F;margin-bottom:8px}.lead{font-style:italic;font-size:15px;margin:8px 0}.cb{font-family:system-ui,sans-serif;font-size:13px;line-height:1.6;padding-left:20px;margin:8px 0}.intel{font-family:system-ui,sans-serif;font-size:12px;color:#6B5A2B;background:#FBF6E9;border-radius:8px;padding:8px 11px;margin:8px 0}.close{border-left:3px solid #C68A3E;padding-left:12px;color:#3A4744;margin:8px 0 10px;font-size:14px}.price{font-family:system-ui,sans-serif;font-size:16px;font-weight:bold}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}</style><h1>Propozycje wyjazdów</h1><div class="sub">Przygotowane w systemie Kompas · '+cart.length+' ofert · ceny orientacyjne, do potwierdzenia u organizatora</div>'+rows+'<div class="foot">Kompas — wyszukiwarka i porównywarka ofert wakacyjnych.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
     w.document.close();
   }
   document.getElementById("cartPrint").addEventListener("click",printCart);
