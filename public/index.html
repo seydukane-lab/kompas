@@ -384,6 +384,8 @@
   .rep-cb{margin:0 0 8px;padding-left:18px;font-size:13px;color:var(--ink-soft);line-height:1.55}
   .rep-cb b{color:var(--ink)}
   .rep-close{font-size:13px;color:var(--ink-soft);border-left:3px solid var(--sand);padding-left:12px;margin:0}
+  .rep-intel{font-size:12.5px;color:var(--ink-soft);background:var(--surface-2);border-radius:8px;padding:8px 11px;margin:0 0 8px;line-height:1.5}
+  .rep-intel b{color:var(--ink)}
   .rep-order{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.9}
   .rep-order h4{font-size:12px;margin:0 0 8px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em}
   .rep-ai{font-size:14px;line-height:1.65;color:var(--ink-soft)}
@@ -866,15 +868,21 @@
     if(s>=62)return {t:"💰 Warto w dobrej cenie",c:"mid"};
     return {t:"😐 Przeciętny",c:"mid"};
   }
+  /* ---------- Destination Intelligence (klient) — wiedza o kierunku w raporcie ---------- */
+  var DEST_INTEL=[];
+  fetch("/api/destinations").then(function(r){return r.json();}).then(function(d){DEST_INTEL=d.destinations||[];}).catch(function(){});
+  function normD(s){return String(s||"").toLowerCase().replace(/ł/g,"l").normalize("NFD").replace(/[̀-ͯ]/g,"");}
+  function destIntelClient(region,country){var hay=normD(region)+" "+normD(country);for(var i=0;i<DEST_INTEL.length;i++){var d=DEST_INTEL[i];if((d.keys||[]).some(function(k){return hay.indexOf(normD(k))>-1;}))return d;}return null;}
+
   function buildAdvisorReport(){
     if(!cart.length){toast("Odłóż oferty, żeby zrobić raport");return;}
     var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
     var medals=["🥇","🥈","🥉"];
     var body=ranked.map(function(x,i){
-      var v=etaVerdict(x),sc=buildScript(x,detectAudience(x),0);
+      var v=etaVerdict(x),sc=buildScript(x,detectAudience(x),0),intel=destIntelClient(x.region,x.country);
       var cb=(sc.cb||[]).slice(0,3).map(function(c){return '<li><b>'+c.f+'</b> — '+c.b+'</li>';}).join("");
       return '<div class="rep-off"><div class="rep-h"><span class="rep-medal">'+(medals[i]||("#"+(i+1)))+'</span><div><div class="rep-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="rep-loc">'+x.region+'</div></div><div class="rep-val"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="rep-score">'+etaValue(x)+'<small>/100</small></span></div></div>'+
-        '<p class="rep-lead">'+sc.lead+'</p>'+(cb?'<ul class="rep-cb">'+cb+'</ul>':'')+'<p class="rep-close">'+sc.closer+'</p></div>';
+        '<p class="rep-lead">'+sc.lead+'</p>'+(intel?'<p class="rep-intel">💡 '+intel.vibe+' · <b>dla:</b> '+intel.forWho+' · <b>uwaga:</b> '+intel.watch+'</p>':'')+(cb?'<ul class="rep-cb">'+cb+'</ul>':'')+'<p class="rep-close">'+sc.closer+'</p></div>';
     }).join("");
     var order=ranked.map(function(x,i){return (medals[i]||("#"+(i+1)))+' <b>'+x.name+'</b> — '+etaVerdict(x).t.replace(/^[^ ]+ /,"");}).join("<br>");
     document.getElementById("repBody").innerHTML=

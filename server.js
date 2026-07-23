@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import { applyFilters, scoreOffer, sortOffers } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
+import { allDestinations } from "./src/destinations.js";
 
 // Doradca ETA OS (Claude) — provider LOKALNY (prompt = know-how użytkownika, gitignored).
 // Ładowany OPCJONALNIE: bez pliku (publiczny Render) AI jest po prostu wyłączone.
@@ -53,6 +54,11 @@ app.post("/api/advisor", async (req, res) => {
 // --- Status dostawców (do baneru w panelu) ---
 app.get("/api/status", (req, res) => {
   res.json({ providers: providerStatus() });
+});
+
+// --- Destination Intelligence: kuratorowana wiedza o kierunkach ---
+app.get("/api/destinations", (req, res) => {
+  res.json({ destinations: allDestinations() });
 });
 
 // --- Kraje: regiony + informacje praktyczne / warunki wjazdowe ---
