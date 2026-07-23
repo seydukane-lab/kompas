@@ -321,6 +321,9 @@
   .tc-price small,.tc-total small{font-weight:500;color:var(--ink-faint);font-size:10.5px;margin-left:2px}
   .tc-total{white-space:nowrap;font-weight:650;color:var(--ink)}
   .tc-act a{color:var(--accent);text-decoration:none;font-weight:700;font-size:15px}
+  .tc-act{white-space:nowrap}
+  .row-det{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:15px;padding:0 6px 0 0}
+  .row-det:hover{color:var(--accent)}
 
   /* ---------- Filtr operatora (post-search) ---------- */
   .op-filter{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 14px}
@@ -1103,7 +1106,7 @@
         '<td class="tc-rate"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span></td>'+
         '<td class="tc-price">'+fmt(h.price)+'<small>zł/os</small></td>'+
         '<td class="tc-total">'+fmt(total)+'<small>zł</small></td>'+
-        '<td class="tc-act">'+(h.bookingUrl?'<a href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored" title="Przejdź do oferty">↗</a>':'')+'</td></tr>';
+        '<td class="tc-act"><button class="row-det" data-cid="'+h.id+'" title="Szczegóły oferty">ⓘ</button>'+(h.bookingUrl?'<a href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored" title="Przejdź do oferty">↗</a>':'')+'</td></tr>';
     }).join("");
     function th(key,label){var a="";if(tableSort&&tableSort.key===key)a=tableSort.dir>0?" ▲":" ▼";return '<th class="th-sort" data-sort="'+key+'">'+label+a+'</th>';}
     cardsEl.innerHTML='<div class="table-wrap"><table class="res-table"><thead><tr><th></th>'+th("region","Region")+'<th>Hotel</th>'+th("rating","Ocena")+th("price","Cena / os.")+th("total","Razem")+'<th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
@@ -1113,6 +1116,12 @@
     var fav=e.target.closest(".row-fav");if(!fav)return;
     var h=lastList.find(function(x){return x.id===fav.getAttribute("data-cid");});
     if(h){var added=toggleCart(h);syncCardButtons();toast(added?"Dodano do koszyka ✓":"Usunięto z koszyka");}
+  });
+  // Klik „ⓘ" w wierszu tabeli = szczegóły oferty.
+  document.getElementById("cards").addEventListener("click",function(e){
+    var b=e.target.closest(".row-det");if(!b)return;
+    var h=lastList.find(function(x){return x.id===b.getAttribute("data-cid");});
+    if(h)openDetail(h);
   });
   // Sortowanie po kliknięciu nagłówka kolumny tabeli (ten sam klucz → odwróć kierunek).
   document.getElementById("cards").addEventListener("click",function(e){
