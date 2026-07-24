@@ -241,7 +241,7 @@ function normalize(h, c, rate, pax) {
     tags: deriveTags(facilities, board),
     beach,                            // realny dystans do plaży (m) lub null
     roomType: prettyRoom(rate.roomName), // typ pokoju z availability
-    airport: distByCode(facilities, 80), // dystans do lotniska (m) — do szczegółów
+    airport: sane(distByCode(facilities, 80), 500), // lotnisko (m); <500 m = błędne dane sandboxa → null
     centre: distByCode(facilities, 10),  // dystans do centrum (m) — do szczegółów
     photo: images[0] || "linear-gradient(135deg,#0F6B68,#3FB0AB)",
     photos: images.slice(0, 8),
@@ -267,6 +267,12 @@ function distByCode(facilities, code) {
 
 function beachDistance(facilities) {
   return distByCode(facilities, 40); // 40/40 = Beach (metry); null gdy brak danych
+}
+
+// Odrzuca ewidentnie błędne dystanse (sandbox potrafi zwrócić 0/kilka metrów
+// do lotniska). Zwraca null, gdy wartość poniżej progu min lub brak.
+function sane(v, min) {
+  return typeof v === "number" && v >= min ? v : null;
 }
 
 function deriveTags(facilities, board) {
