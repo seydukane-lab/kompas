@@ -128,6 +128,24 @@ export function dedupeOffers(list) {
       const withUrl = rest.find((o) => o.bookingUrl);
       if (withUrl) primary.bookingUrl = withUrl.bookingUrl;
     }
+    // Fakty o obiekcie z bogatszego źródła (Hotelbeds): odległość od plaży,
+    // typ pokoju, dystanse. Reprezentant (np. wakacje) ich nie ma — a to
+    // dokładnie dane, których szuka doradca i klient. Nie nadpisujemy tego,
+    // co reprezentant już zna.
+    if (typeof primary.beach !== "number") {
+      const withBeach = rest.find((o) => typeof o.beach === "number");
+      if (withBeach) primary.beach = withBeach.beach;
+    }
+    if (!primary.roomType) {
+      const withRoom = rest.find((o) => o.roomType);
+      if (withRoom) primary.roomType = withRoom.roomType;
+    }
+    for (const k of ["airport", "centre"]) {
+      if (typeof primary[k] !== "number") {
+        const src = rest.find((o) => typeof o[k] === "number");
+        if (src) primary[k] = src[k];
+      }
+    }
     // Ślad, że oferta łączy kilka źródeł (do ewentualnej plakietki na karcie).
     primary.mergedFrom = grp.map((o) => o.source).filter((s, i, a) => s && a.indexOf(s) === i);
     out.push(strip(attachVariants(primary, grp)));
