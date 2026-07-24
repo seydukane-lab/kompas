@@ -1013,6 +1013,8 @@
       row("Długość pobytu",h.nights?(h.nights+" nocy"):"—")+
       row("Wylot",h.departureCity||"—")+
       (typeof h.beach==="number"?row("Odległość od plaży",h.beach+" m"):"")+
+      (h.roomType?row("Typ pokoju",h.roomType):"")+
+      (typeof h.airport==="number"?row("Odległość od lotniska",(h.airport>=1000?(h.airport/1000).toFixed(1).replace(".",",")+" km":h.airport+" m")):"")+
       row("Cena / osoba","<b>"+fmt(h.price)+" zł</b>")+
       (h.priceTotal>0?row("Razem (orientacyjnie)",fmt(h.priceTotal)+" zł"):"")+
       row("Operator / źródło",h.operator||h.source||"—")+
@@ -1210,7 +1212,7 @@
         '<div class="card-body">'+
           '<div class="loc"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.4-7-11a7 7 0 0114 0c0 4.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'+(h.region||h.country)+'</div>'+
           '<h3>'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></h3>'+
-          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">plaża '+h.beach+' m</span>':'')+'</div>'+
+          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">🏖 plaża '+h.beach+' m</span>':'')+(h.roomType?'<span class="tag">🛏 '+h.roomType+'</span>':'')+'</div>'+
           '<div class="rate-row"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span><span class="rate-txt">'+(h.reviews>0?('<b>'+fmt(h.reviews)+'</b> opinii · najśw. '+h.freshDays+' dni temu'):'brak danych o opiniach')+'</span></div>'+
           '<div class="card-trust-row"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span>'+(function(){var v=etaVerdict(h);return '<span class="card-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="card-eta-n" title="Ocena wartości za pieniądze (ETA)">ETA '+etaValue(h)+'/100</span></span>';})()+'</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+

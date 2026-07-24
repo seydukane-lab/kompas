@@ -187,10 +187,22 @@ function cheapestRate(h) {
   for (const room of h.rooms || []) {
     for (const rate of room.rates || []) {
       const net = Number(rate.net);
-      if (!best || net < best.net) best = { net, boardCode: rate.boardCode, boardName: rate.boardName };
+      if (!best || net < best.net) best = { net, boardCode: rate.boardCode, boardName: rate.boardName, roomName: room.name };
     }
   }
-  return best || { net: Number(h.minRate) || 0, boardCode: h.boardCodes?.[0], boardName: "" };
+  return best || { net: Number(h.minRate) || 0, boardCode: h.boardCodes?.[0], boardName: "", roomName: "" };
+}
+
+// Nazwa pokoju z availability przychodzi WIELKIMI LITERAMI ("DOUBLE SEA VIEW
+// WITH BALCONY 2 ADULTS"). Zamieniamy na czytelną formę i usuwamy końcówkę
+// „2 Adults" (skład i tak pokazujemy osobno).
+function prettyRoom(name) {
+  if (!name) return "";
+  return String(name)
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\s*\b\d+\s+Adults?\b.*$/i, "")
+    .trim();
 }
 
 // Zamiana EUR->PLN (orientacyjnie). W produkcji: kurs z API NBP lub ustawiany w panelu.
@@ -227,7 +239,10 @@ function normalize(h, c, rate, pax) {
     board,
     cap: stars >= 4 ? 4 : 3,
     tags: deriveTags(facilities, board),
-    beach,
+    beach,                            // realny dystans do plaży (m) lub null
+    roomType: prettyRoom(rate.roomName), // typ pokoju z availability
+    airport: distByCode(facilities, 80), // dystans do lotniska (m) — do szczegółów
+    centre: distByCode(facilities, 10),  // dystans do centrum (m) — do szczegółów
     photo: images[0] || "linear-gradient(135deg,#0F6B68,#3FB0AB)",
     photos: images.slice(0, 8),
   };
@@ -239,10 +254,19 @@ function countryFromContent(c) {
   return map[c.countryCode] || c.countryCode || "";
 }
 
+// Content API zwraca dystanse jako KODY (nie opis tekstowy). Grupa 40 = dystanse:
+//   40/40 = Beach, 40/80 = Airport, 40/10 = City centre, 40/70 = Harbour.
+// Zweryfikowane na sandboxie przez /types/facilities. Bierzemy dystans po kodzie,
+// a gdy hotel go nie podaje → null (karta ukryje plakietkę zamiast zmyślać).
+function distByCode(facilities, code) {
+  const f = (facilities || []).find(
+    (x) => x.facilityGroupCode === 40 && x.facilityCode === code && x.distance != null
+  );
+  return f ? Number(f.distance) : null;
+}
+
 function beachDistance(facilities) {
-  const beachFac = facilities.find((f) => /beach/i.test(f.description?.content || ""));
-  if (beachFac && beachFac.distance) return Number(beachFac.distance);
-  return 300;
+  return distByCode(facilities, 40); // 40/40 = Beach (metry); null gdy brak danych
 }
 
 function deriveTags(facilities, board) {
