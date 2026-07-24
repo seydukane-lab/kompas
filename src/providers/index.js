@@ -140,10 +140,16 @@ export function dedupeOffers(list) {
       const withRoom = rest.find((o) => o.roomType);
       if (withRoom) primary.roomType = withRoom.roomType;
     }
-    for (const k of ["airport", "centre"]) {
+    for (const k of ["airport", "centre", "yearBuilt", "yearRenov", "ski"]) {
       if (typeof primary[k] !== "number") {
         const src = rest.find((o) => typeof o[k] === "number");
         if (src) primary[k] = src[k];
+      }
+    }
+    for (const k of ["adultsOnly", "newHotel"]) {
+      if (!primary[k]) {
+        const src = rest.find((o) => o[k]);
+        if (src) primary[k] = true;
       }
     }
     // Ślad, że oferta łączy kilka źródeł (do ewentualnej plakietki na karcie).

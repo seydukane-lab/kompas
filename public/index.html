@@ -119,6 +119,7 @@
   .meta-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
   .tag{font-size:12px;font-weight:500;color:var(--ink-soft);background:var(--surface-2);border-radius:7px;padding:4px 9px}
   .tag.board{color:var(--accent-deep);background:var(--accent-soft);font-weight:600}
+  .tag.tag-new{color:#0a7d3c;background:#e3f7ea;font-weight:600}
   .tag.pkg{color:var(--sand);background:var(--sand-soft);font-weight:600}
   .src-badge.op{background:color-mix(in srgb,var(--sand) 84%,#000)}
   .rate-row{display:flex;align-items:center;gap:10px;margin-top:13px;flex-wrap:wrap}
@@ -1015,6 +1016,10 @@
       (typeof h.beach==="number"?row("Odległość od plaży",h.beach+" m"):"")+
       (h.roomType?row("Typ pokoju",h.roomType):"")+
       (typeof h.airport==="number"?row("Odległość od lotniska",(h.airport>=1000?(h.airport/1000).toFixed(1).replace(".",",")+" km":h.airport+" m")):"")+
+      (typeof h.ski==="number"?row("Odległość od stoku",(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m")):"")+
+      (h.yearRenov?row("Ostatnia renowacja",String(h.yearRenov)+(h.newHotel?" ✅ świeżo odnowiony":"")):"")+
+      (h.yearBuilt?row("Rok budowy",String(h.yearBuilt)):"")+
+      (h.adultsOnly?row("Profil obiektu","Tylko dla dorosłych"):"")+
       row("Cena / osoba","<b>"+fmt(h.price)+" zł</b>")+
       (h.priceTotal>0?row("Razem (orientacyjnie)",fmt(h.priceTotal)+" zł"):"")+
       row("Operator / źródło",h.operator||h.source||"—")+
@@ -1080,6 +1085,10 @@
     var shown=list.filter(function(h){
       if(activeOperators.length&&activeOperators.indexOf(operOf(h))===-1)return false;
       if(beachOnly&&!(typeof h.beach==="number"&&h.beach<=300))return false;
+      if(newOnly&&!h.newHotel)return false;
+      if(adultsF&&!h.adultsOnly)return false;
+      if(skiOnly&&typeof h.ski!=="number")return false;
+      if(premiumF&&!((h.stars||0)>=5))return false;
       return true;
     });
     document.getElementById("resCount").textContent=shown.length;
@@ -1151,22 +1160,35 @@
   document.querySelectorAll("#viewToggle .vt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.view===resultView);});
 
   /* ---------- Filtr operatora (post-search, jak sidebar „Operator" w MerlinX) ---------- */
-  var activeOperators=[],beachOnly=false;
+  var activeOperators=[],beachOnly=false,newOnly=false,adultsF=false,skiOnly=false,premiumF=false;
   function operOf(h){return h.operator||h.source||"—";}
   function buildOpFilter(list){
-    var el=document.getElementById("opFilter"),counts={},beachN=0;
-    list.forEach(function(h){var o=operOf(h);counts[o]=(counts[o]||0)+1;if(typeof h.beach==="number"&&h.beach<=300)beachN++;});
+    var el=document.getElementById("opFilter"),counts={},beachN=0,newN=0,adultsN=0,skiN=0,premN=0;
+    list.forEach(function(h){var o=operOf(h);counts[o]=(counts[o]||0)+1;
+      if(typeof h.beach==="number"&&h.beach<=300)beachN++;
+      if(h.newHotel)newN++;if(h.adultsOnly)adultsN++;if(typeof h.ski==="number")skiN++;if((h.stars||0)>=5)premN++;});
     var ops=Object.keys(counts).sort();
     activeOperators=activeOperators.filter(function(o){return counts[o];}); // usuń martwe zaznaczenia
     var opHtml=ops.length>=2?('<span class="opf-lbl">Operator</span>'+ops.map(function(o){return '<button class="opf-chip'+(activeOperators.indexOf(o)>-1?" active":"")+'" data-op="'+o.replace(/"/g,"&quot;")+'">'+o+' <span class="opf-n">'+counts[o]+'</span></button>';}).join("")):"";
-    var beachHtml=beachN?('<button class="opf-chip opf-beach'+(beachOnly?" active":"")+'" data-beach>🏖 Przy plaży (≤300 m) <span class="opf-n">'+beachN+'</span></button>'):"";
-    if(!opHtml&&!beachHtml){el.hidden=true;el.innerHTML="";return;}
+    function qf(active,attr,label,n,extra){return n?('<button class="opf-chip '+(extra||"")+(active?" active":"")+'" '+attr+'>'+label+' <span class="opf-n">'+n+'</span></button>'):"";}
+    var quickHtml=
+      qf(beachOnly,'data-beach','🏖 Przy plaży (≤300 m)',beachN,'opf-beach')+
+      qf(newOnly,'data-new','🆕 Nowy/odnowiony',newN,'')+
+      qf(premiumF,'data-premium','⭐ Premium 5★',premN,'')+
+      qf(adultsF,'data-adults','🔞 Tylko dorośli',adultsN,'')+
+      qf(skiOnly,'data-ski','⛷ Przy stoku',skiN,'');
+    if(!opHtml&&!quickHtml){el.hidden=true;el.innerHTML="";return;}
     el.hidden=false;
-    el.innerHTML=opHtml+beachHtml+((activeOperators.length||beachOnly)?'<button class="opf-clear" data-opclear>× wyczyść</button>':"");
+    var anyActive=activeOperators.length||beachOnly||newOnly||adultsF||skiOnly||premiumF;
+    el.innerHTML=opHtml+quickHtml+(anyActive?'<button class="opf-clear" data-opclear>× wyczyść</button>':"");
   }
   document.getElementById("opFilter").addEventListener("click",function(e){
-    if(e.target.closest("[data-opclear]")){activeOperators=[];beachOnly=false;render(lastList);return;}
+    if(e.target.closest("[data-opclear]")){activeOperators=[];beachOnly=newOnly=adultsF=skiOnly=premiumF=false;render(lastList);return;}
     if(e.target.closest("[data-beach]")){beachOnly=!beachOnly;render(lastList);return;}
+    if(e.target.closest("[data-new]")){newOnly=!newOnly;render(lastList);return;}
+    if(e.target.closest("[data-premium]")){premiumF=!premiumF;render(lastList);return;}
+    if(e.target.closest("[data-adults]")){adultsF=!adultsF;render(lastList);return;}
+    if(e.target.closest("[data-ski]")){skiOnly=!skiOnly;render(lastList);return;}
     var c=e.target.closest(".opf-chip");if(!c)return;
     var o=c.dataset.op,i=activeOperators.indexOf(o);
     if(i>-1)activeOperators.splice(i,1);else activeOperators.push(o);
@@ -1212,7 +1234,7 @@
         '<div class="card-body">'+
           '<div class="loc"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.4-7-11a7 7 0 0114 0c0 4.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'+(h.region||h.country)+'</div>'+
           '<h3>'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></h3>'+
-          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">🏖 plaża '+h.beach+' m</span>':'')+(h.roomType?'<span class="tag">🛏 '+h.roomType+'</span>':'')+'</div>'+
+          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">🏖 plaża '+h.beach+' m</span>':'')+(h.roomType?'<span class="tag">🛏 '+h.roomType+'</span>':'')+(h.newHotel?'<span class="tag tag-new">🆕 nowy/odnowiony</span>':'')+(h.adultsOnly?'<span class="tag">🔞 tylko dorośli</span>':'')+(typeof h.ski==="number"?'<span class="tag">⛷ stok '+(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m")+'</span>':'')+'</div>'+
           '<div class="rate-row"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span><span class="rate-txt">'+(h.reviews>0?('<b>'+fmt(h.reviews)+'</b> opinii · najśw. '+h.freshDays+' dni temu'):'brak danych o opiniach')+'</span></div>'+
           '<div class="card-trust-row"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span>'+(function(){var v=etaVerdict(h);return '<span class="card-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="card-eta-n" title="Ocena wartości za pieniądze (ETA)">ETA '+etaValue(h)+'/100</span></span>';})()+'</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+

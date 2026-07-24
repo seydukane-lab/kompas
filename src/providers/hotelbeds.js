@@ -218,6 +218,13 @@ function normalize(h, c, rate, pax) {
   const region = [c.destinationName?.content, c.city?.content].filter(Boolean).join(", ");
   const facilities = c.facilities || [];
   const beach = beachDistance(facilities);
+  const yearBuilt = numByCode(facilities, 10, 20);   // rok budowy
+  const yearRenov = numByCode(facilities, 10, 30);   // rok ostatniej renowacji
+  const adultsOnly = hasFacility(facilities, 85, 203); // Only Adults
+  const ski = distByCode(facilities, 160);           // 40/160 = odległość od stoku (m)
+  // „Nowy/odnowiony" = zbudowany LUB odnowiony w ciągu ostatnich 3 lat.
+  const freshYear = Math.max(yearBuilt || 0, yearRenov || 0) || null;
+  const newHotel = freshYear ? new Date().getFullYear() - freshYear <= 3 : false;
 
   // rate.net to cena za CAŁY pobyt/pokój (w EUR). Przeliczamy na zł/os.
   const pricePerPerson = Math.round((rate.net * EUR_PLN) / Math.max(1, pax));
@@ -243,6 +250,11 @@ function normalize(h, c, rate, pax) {
     roomType: prettyRoom(rate.roomName), // typ pokoju z availability
     airport: sane(distByCode(facilities, 80), 500), // lotnisko (m); <500 m = błędne dane sandboxa → null
     centre: distByCode(facilities, 10),  // dystans do centrum (m) — do szczegółów
+    yearBuilt,                        // rok budowy (10/20) lub null
+    yearRenov,                        // rok ostatniej renowacji (10/30) lub null
+    newHotel,                         // zbudowany/odnowiony ≤3 lata
+    adultsOnly,                       // tylko dla dorosłych (85/203)
+    ski,                              // odległość od stoku (m, 40/160) lub null
     photo: images[0] || "linear-gradient(135deg,#0F6B68,#3FB0AB)",
     photos: images.slice(0, 8),
   };
@@ -267,6 +279,22 @@ function distByCode(facilities, code) {
 
 function beachDistance(facilities) {
   return distByCode(facilities, 40); // 40/40 = Beach (metry); null gdy brak danych
+}
+
+// Wartość liczbowa facility po kodzie (np. rok budowy/renowacji trzyma pole
+// `number`). Grupa 10 = dane obiektu: 10/20 = rok budowy, 10/30 = rok renowacji.
+function numByCode(facilities, group, code) {
+  const f = (facilities || []).find(
+    (x) => x.facilityGroupCode === group && x.facilityCode === code && x.number != null
+  );
+  return f ? Number(f.number) : null;
+}
+
+// Czy hotel ma dany facility (flaga bez wartości), np. 85/203 = Only Adults.
+function hasFacility(facilities, group, code) {
+  return (facilities || []).some(
+    (x) => x.facilityGroupCode === group && x.facilityCode === code
+  );
 }
 
 // Odrzuca ewidentnie błędne dystanse (sandbox potrafi zwrócić 0/kilka metrów
