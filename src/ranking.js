@@ -41,13 +41,23 @@ export function scoreOffer(offer, crit) {
   const score =
     0.34 * ratingPart + 0.22 * pricePart + 0.2 * tagMatch + 0.1 * starPart + 0.14 * t;
 
-  return { ...offer, score, trust: t, adjRating };
+  // valueScore (0-100) = "jakość za pieniądze". Ten sam wzór co kliencki etaValue,
+  // żeby liczby na karcie i sortowanie się nie rozjeżdżały. Nie zmyśla nic ponad
+  // dane, które już mamy (cena, ocena ważona wiarygodnością, standard).
+  const pricePartV = Math.max(0, Math.min(1, 1 - ((offer.price || 0) - 2000) / 12000));
+  const vfm = Math.max(0, Math.min(1, ratingPart * 0.6 + pricePartV * 0.4));
+  const valueScore = Math.round(
+    (0.4 * vfm + 0.25 * ratingPart + 0.15 * pricePartV + 0.1 * starPart + 0.1 * t) * 100
+  );
+
+  return { ...offer, score, trust: t, adjRating, valueScore };
 }
 
 export function sortOffers(list, mode) {
   const arr = list.slice();
   arr.sort((a, b) => {
     if (mode === "price") return a.price - b.price;
+    if (mode === "value") return (b.valueScore || 0) - (a.valueScore || 0);
     if (mode === "rating") return b.rating - a.rating;
     if (mode === "trust") return b.trust - a.trust;
     return b.score - a.score; // domyślnie: trafność

@@ -400,6 +400,9 @@
   .card-intel{font-size:11.5px;color:var(--ink-soft);margin-top:9px;line-height:1.45;padding:7px 10px;background:var(--surface-2);border-radius:8px;border-left:2px solid var(--accent)}
   .card-intel b{color:var(--ink)}
   .det-note{font-size:12px;color:var(--ink-faint);background:var(--surface-2);border-radius:8px;padding:9px 12px;margin:0 0 14px;line-height:1.5}
+  .send-text{width:100%;box-sizing:border-box;font:14px/1.55 system-ui,sans-serif;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;resize:vertical;min-height:220px}
+  .send-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .send-actions .btn-script{flex:1;min-width:120px;justify-content:center;cursor:pointer}
   .det-sec{margin:0 0 16px}
   .det-sec h4{font-size:12px;margin:0 0 9px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);padding-bottom:6px}
   .det-row{display:flex;justify-content:space-between;gap:14px;padding:5px 0;font-size:13.5px;border-bottom:1px solid var(--line)}
@@ -564,7 +567,7 @@
       <div class="rh-controls">
         <div class="view-toggle" id="viewToggle"><button class="vt-opt active" data-view="cards" type="button">▦ Karty</button><button class="vt-opt" data-view="table" type="button">▤ Tabela</button></div>
         <div class="sortbar"><label for="sort">Sortuj:</label><select id="sort">
-          <option value="score">Trafność (rekomendacja)</option><option value="price">Cena rosnąco</option><option value="rating">Ocena malejąco</option><option value="trust">Wiarygodność opinii</option>
+          <option value="score">Trafność (rekomendacja)</option><option value="value">Jakość / cena (najlepszy deal)</option><option value="price">Cena rosnąco</option><option value="rating">Ocena malejąco</option><option value="trust">Wiarygodność opinii</option>
         </select></div>
       </div>
     </div>
@@ -611,6 +614,22 @@
   <div class="cmp-panel" role="dialog" aria-label="Szczegóły oferty">
     <div class="cmp-head"><h3 id="detailTitle">Szczegóły oferty</h3><button class="cart-x" id="detailClose" aria-label="Zamknij">&times;</button></div>
     <div class="cmp-body" id="detailBody"></div>
+  </div>
+</div>
+
+<div class="cmp-modal" id="sendModal" hidden>
+  <div class="cmp-backdrop" id="sendBackdrop"></div>
+  <div class="cmp-panel" role="dialog" aria-label="Wiadomość dla klienta">
+    <div class="cmp-head"><h3>📤 Do wysłania klientowi</h3><button class="cart-x" id="sendClose" aria-label="Zamknij">&times;</button></div>
+    <div class="cmp-body">
+      <div class="det-note">Czysta, faktowa wiadomość — tylko dane, które mamy (bez zmyślania opinii). Popraw dowolnie i wyślij.</div>
+      <textarea id="sendText" class="send-text" rows="14" spellcheck="false"></textarea>
+      <div class="send-actions">
+        <button class="btn-script btn-book" id="sendCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Kopiuj</button>
+        <a class="btn-script" id="sendWa" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 01-12.6 7.4L3 21l2.2-5.2A8.5 8.5 0 1121 11.5z"/></svg>WhatsApp</a>
+        <a class="btn-script" id="sendMail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Email</a>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -809,6 +828,48 @@
     return {aud:aud,variant:v,lead:leads[v](h),cb:featureBenefits(h),closer:closers[v%closers.length]};
   }
   function scriptText(h,sc){var t="OFERTA: "+h.name+" — "+h.region+"  ["+AUD_META[sc.aud].label+"]\n";t+="Ocena: "+ratingTxt(h)+"  |  "+h.board+"  |  "+h.stars+"*\nCena od "+fmt(h.price)+" zł/os.\n\n"+sc.lead+"\n\nDLACZEGO WARTO:\n";sc.cb.forEach(function(x){t+="• "+x.f+" — "+x.b+"\n";});return t+"\n"+sc.closer+"\n";}
+
+  // Czysta, FAKTOWA wiadomość dla klienta (WhatsApp/mail) — tylko dane, które REALNIE
+  // mamy. Anti-przekoloryzacja: opinie tylko gdy reviews>0; atrybuty tylko gdy znane.
+  function clientOffer(h,n,pax){
+    var dist=function(m){return m>=1000?(m/1000).toFixed(1).replace(".",",")+" km":m+" m";};
+    var hasT=typeof h.priceTotal==="number"&&h.priceTotal>0;
+    var total=hasT?h.priceTotal:h.price*Math.max(1,pax);
+    var L=[];
+    L.push("🏨 "+h.name+" "+stars(h.stars||3));
+    L.push("📍 "+(h.region?h.region+", ":"")+(h.country||""));
+    L.push("");
+    if(h.board)L.push("🍽 Wyżywienie: "+h.board);
+    var nn=h.nights||n;
+    if(h.departDate)L.push("📅 Wylot: "+fmtDate(h.departDate)+" · "+nn+" nocy"+(h.departureCity?" · z "+h.departureCity:""));
+    else L.push("🗓 Pobyt: "+nn+" nocy");
+    if(typeof h.beach==="number")L.push("🏖 Plaża: "+dist(h.beach));
+    if(h.roomType)L.push("🛏 Pokój: "+h.roomType);
+    if(typeof h.airport==="number")L.push("✈️ Lotnisko: "+dist(h.airport));
+    if(typeof h.ski==="number")L.push("⛷ Stok: "+dist(h.ski));
+    if(h.newHotel)L.push("🆕 Obiekt nowy / świeżo odnowiony"+(h.yearRenov?" ("+h.yearRenov+")":""));
+    if(h.adultsOnly)L.push("🔞 Tylko dla dorosłych");
+    if(h.reviews>0)L.push("⭐ Ocena gości: "+h.rating.toFixed(1).replace(".",",")+"/10 ("+fmt(h.reviews)+" opinii)");
+    L.push("");
+    L.push("💰 Cena: od "+fmt(h.price)+" zł/os. · razem ok. "+fmt(total)+" zł");
+    L.push("(cena orientacyjna, do potwierdzenia)");
+    if(h.bookingUrl)L.push("\n🔗 "+h.bookingUrl);
+    return L.join("\n");
+  }
+  var sendCtx="";
+  function openSend(h,n,pax){
+    sendCtx=clientOffer(h,n,pax);
+    document.getElementById("sendText").value=sendCtx;
+    var enc=function(){return encodeURIComponent(document.getElementById("sendText").value);};
+    document.getElementById("sendWa").href="https://wa.me/?text="+enc();
+    document.getElementById("sendMail").href="mailto:?subject="+encodeURIComponent("Oferta: "+h.name)+"&body="+enc();
+    document.getElementById("sendModal").hidden=false;
+  }
+  document.getElementById("sendClose").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
+  document.getElementById("sendBackdrop").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
+  // Kopiuj + odśwież linki po ręcznej edycji tekstu.
+  document.getElementById("sendText").addEventListener("input",function(){var enc=encodeURIComponent(this.value);document.getElementById("sendWa").href="https://wa.me/?text="+enc;document.getElementById("sendMail").href="mailto:?body="+enc;});
+  document.getElementById("sendCopy").addEventListener("click",function(){var txt=document.getElementById("sendText").value;if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano wiadomość ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
 
   function stars(n){return "★★★★★☆☆☆☆☆".slice(5-n,10-n);}
   function rateColor(r){if(r>=9)return"#0F6B68";if(r>=8.3)return"#2F7D57";if(r>=7.5)return"#7A8A2E";return"#B26A1E";}
@@ -1240,7 +1301,7 @@
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
         '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+(offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
-          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored">Przejdź do oferty ↗</a>':'<a class="btn-script btn-ask" href="mailto:seydukane@gmail.com?subject='+encodeURIComponent("Zapytanie o ofertę: "+h.name)+'&body='+encodeURIComponent("Dzień dobry, proszę o dostępność i cenę dla: "+h.name+" ("+(h.region||h.country)+").")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Zapytaj o dostępność</a>')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
+          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener sponsored">Przejdź do oferty ↗</a>':'<a class="btn-script btn-ask" href="mailto:seydukane@gmail.com?subject='+encodeURIComponent("Zapytanie o ofertę: "+h.name)+'&body='+encodeURIComponent("Dzień dobry, proszę o dostępność i cenę dla: "+h.name+" ("+(h.region||h.country)+").")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Zapytaj o dostępność</a>')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-send" data-send><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button>'+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
         '</div>'+
       '</div>'+
       '<div class="script js-script"><div class="script-inner"></div></div>'+
@@ -1264,6 +1325,7 @@
     fillScript();
     el.querySelector("[data-toggle]").addEventListener("click",function(){sDrawer.classList.toggle("open");if(pDrawer)pDrawer.classList.remove("open");});
     el.querySelector("[data-detail]").addEventListener("click",function(){openDetail(h);});
+    el.querySelector("[data-send]").addEventListener("click",function(){openSend(h,n,pax);});
     var pBtn=el.querySelector("[data-pract]");if(pBtn)pBtn.addEventListener("click",function(){pDrawer.classList.toggle("open");sDrawer.classList.remove("open");});
     var noBtn=el.querySelector("[data-copyno]");if(noBtn)noBtn.addEventListener("click",function(){var nn=noBtn.getAttribute("data-copyno");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(nn).then(function(){toast("Skopiowano nr oferty: "+nn+" ✓");},function(){fallbackCopy(nn);});else fallbackCopy(nn);});
     var cartBtnCard=el.querySelector("[data-cart]");if(cartBtnCard)cartBtnCard.addEventListener("click",function(){var added=toggleCart(h);syncCardButtons();toast(added?"Dodano do koszyka ✓":"Usunięto z koszyka");});
