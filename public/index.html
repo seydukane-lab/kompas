@@ -587,7 +587,7 @@
     <div class="cart-list" id="cartList"></div>
     <div class="cart-foot">
       <button class="cart-report-btn" id="cartReport">🏆 Raport doradcy — ranking + skrypty</button>
-      <div class="cart-foot-row"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartCopy">Kopiuj</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
+      <div class="cart-foot-row"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartSend">📤 Wyślij</button><button class="cart-foot-btn" id="cartCopy">Kopiuj</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
     </div>
   </aside>
 </div>
@@ -856,14 +856,22 @@
     if(h.bookingUrl)L.push("\n🔗 "+h.bookingUrl);
     return L.join("\n");
   }
-  var sendCtx="";
-  function openSend(h,n,pax){
-    sendCtx=clientOffer(h,n,pax);
-    document.getElementById("sendText").value=sendCtx;
-    var enc=function(){return encodeURIComponent(document.getElementById("sendText").value);};
-    document.getElementById("sendWa").href="https://wa.me/?text="+enc();
-    document.getElementById("sendMail").href="mailto:?subject="+encodeURIComponent("Oferta: "+h.name)+"&body="+enc();
+  function openSendText(text,subject){
+    document.getElementById("sendText").value=text;
+    var enc=encodeURIComponent(text);
+    document.getElementById("sendWa").href="https://wa.me/?text="+enc;
+    document.getElementById("sendMail").href="mailto:?subject="+encodeURIComponent(subject||"")+"&body="+enc;
     document.getElementById("sendModal").hidden=false;
+  }
+  function openSend(h,n,pax){openSendText(clientOffer(h,n,pax),"Oferta: "+h.name);}
+  // Czysta wiadomość dla klienta z CAŁEGO koszyka (kilka propozycji) — fakty, bez skryptu.
+  function clientCartText(){
+    if(!cart.length)return"";
+    var pax=paxCount();
+    var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
+    var sep="\n\n──────────\n\n";
+    var blocks=ranked.map(function(x,i){return "PROPOZYCJA "+(i+1)+"\n"+clientOffer(x,x.nights||nights(),pax);});
+    return "Dzień dobry,\n\nponiżej wybrane propozycje wyjazdów:\n\n"+blocks.join(sep)+"\n\nCeny orientacyjne, do potwierdzenia. Chętnie doradzę w wyborze. 🙂";
   }
   document.getElementById("sendClose").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
   document.getElementById("sendBackdrop").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
@@ -887,7 +895,7 @@
   function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart));}catch(e){}}
   function inCart(id){return cart.some(function(x){return x.id===id;});}
   // Zapisujemy lekki snapshot oferty (nie całą kartę) — starczy do listy i zestawienia.
-  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:h.priceTotal||0,stars:h.stars||3,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
+  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:h.priceTotal||0,stars:h.stars||3,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
   function toggleCart(h){var i=cart.findIndex(function(x){return x.id===h.id;});var added;if(i>-1){cart.splice(i,1);added=false;}else{cart.push(cartSnap(h));added=true;}saveCart();updateCartCount();if(!cartDrawer.hidden)renderCart();return added;}
   function removeCart(id){var i=cart.findIndex(function(x){return x.id===id;});if(i>-1){cart.splice(i,1);saveCart();updateCartCount();renderCart();syncCardButtons();}}
   function updateCartCount(){var n=cart.length;cartCountEl.textContent=n;cartCountEl.classList.toggle("on",n>0);cartHeadN.textContent=n?("("+n+")"):"";}
@@ -934,6 +942,7 @@
   document.getElementById("cartBackdrop").addEventListener("click",function(){cartDrawer.hidden=true;});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!cartDrawer.hidden)cartDrawer.hidden=true;});
   cartListEl.addEventListener("click",function(e){var rm=e.target.closest("[data-rm]");if(rm)removeCart(rm.getAttribute("data-rm"));});
+  document.getElementById("cartSend").addEventListener("click",function(){if(!cart.length){toast("Koszyk jest pusty");return;}cartDrawer.hidden=true;openSendText(clientCartText(),"Propozycje wyjazdów");});
   document.getElementById("cartCopy").addEventListener("click",function(){var txt=cartText();if(!txt){toast("Koszyk jest pusty");return;}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano zestawienie ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
   document.getElementById("cartClear").addEventListener("click",function(){if(!cart.length)return;cart=[];saveCart();updateCartCount();renderCart();syncCardButtons();toast("Koszyk wyczyszczony");});
   updateCartCount();
@@ -1145,6 +1154,7 @@
     buildOpFilter(list);
     var shown=list.filter(function(h){
       if(activeOperators.length&&activeOperators.indexOf(operOf(h))===-1)return false;
+      if(aiOnly&&!isAI(h))return false;
       if(beachOnly&&!(typeof h.beach==="number"&&h.beach<=300))return false;
       if(newOnly&&!h.newHotel)return false;
       if(adultsF&&!h.adultsOnly)return false;
@@ -1221,18 +1231,21 @@
   document.querySelectorAll("#viewToggle .vt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.view===resultView);});
 
   /* ---------- Filtr operatora (post-search, jak sidebar „Operator" w MerlinX) ---------- */
-  var activeOperators=[],beachOnly=false,newOnly=false,adultsF=false,skiOnly=false,premiumF=false;
+  var activeOperators=[],beachOnly=false,newOnly=false,adultsF=false,skiOnly=false,premiumF=false,aiOnly=false;
+  // All Inclusive (łącznie z Ultra AI). Board bywa "All Inclusive"/"Ultra All Inclusive"/"Ultra Ai".
+  function isAI(h){var b=String(h.board||"").toLowerCase();return b.indexOf("incl")>-1||b.indexOf("ai")>-1;}
   function operOf(h){return h.operator||h.source||"—";}
   function buildOpFilter(list){
-    var el=document.getElementById("opFilter"),counts={},beachN=0,newN=0,adultsN=0,skiN=0,premN=0;
+    var el=document.getElementById("opFilter"),counts={},beachN=0,newN=0,adultsN=0,skiN=0,premN=0,aiN=0;
     list.forEach(function(h){var o=operOf(h);counts[o]=(counts[o]||0)+1;
       if(typeof h.beach==="number"&&h.beach<=300)beachN++;
-      if(h.newHotel)newN++;if(h.adultsOnly)adultsN++;if(typeof h.ski==="number")skiN++;if((h.stars||0)>=5)premN++;});
+      if(h.newHotel)newN++;if(h.adultsOnly)adultsN++;if(typeof h.ski==="number")skiN++;if((h.stars||0)>=5)premN++;if(isAI(h))aiN++;});
     var ops=Object.keys(counts).sort();
     activeOperators=activeOperators.filter(function(o){return counts[o];}); // usuń martwe zaznaczenia
     var opHtml=ops.length>=2?('<span class="opf-lbl">Operator</span>'+ops.map(function(o){return '<button class="opf-chip'+(activeOperators.indexOf(o)>-1?" active":"")+'" data-op="'+o.replace(/"/g,"&quot;")+'">'+o+' <span class="opf-n">'+counts[o]+'</span></button>';}).join("")):"";
     function qf(active,attr,label,n,extra){return n?('<button class="opf-chip '+(extra||"")+(active?" active":"")+'" '+attr+'>'+label+' <span class="opf-n">'+n+'</span></button>'):"";}
     var quickHtml=
+      qf(aiOnly,'data-ai','🍽 All Inclusive',aiN,'')+
       qf(beachOnly,'data-beach','🏖 Przy plaży (≤300 m)',beachN,'opf-beach')+
       qf(newOnly,'data-new','🆕 Nowy/odnowiony',newN,'')+
       qf(premiumF,'data-premium','⭐ Premium 5★',premN,'')+
@@ -1240,11 +1253,12 @@
       qf(skiOnly,'data-ski','⛷ Przy stoku',skiN,'');
     if(!opHtml&&!quickHtml){el.hidden=true;el.innerHTML="";return;}
     el.hidden=false;
-    var anyActive=activeOperators.length||beachOnly||newOnly||adultsF||skiOnly||premiumF;
+    var anyActive=activeOperators.length||beachOnly||newOnly||adultsF||skiOnly||premiumF||aiOnly;
     el.innerHTML=opHtml+quickHtml+(anyActive?'<button class="opf-clear" data-opclear>× wyczyść</button>':"");
   }
   document.getElementById("opFilter").addEventListener("click",function(e){
-    if(e.target.closest("[data-opclear]")){activeOperators=[];beachOnly=newOnly=adultsF=skiOnly=premiumF=false;render(lastList);return;}
+    if(e.target.closest("[data-opclear]")){activeOperators=[];beachOnly=newOnly=adultsF=skiOnly=premiumF=aiOnly=false;render(lastList);return;}
+    if(e.target.closest("[data-ai]")){aiOnly=!aiOnly;render(lastList);return;}
     if(e.target.closest("[data-beach]")){beachOnly=!beachOnly;render(lastList);return;}
     if(e.target.closest("[data-new]")){newOnly=!newOnly;render(lastList);return;}
     if(e.target.closest("[data-premium]")){premiumF=!premiumF;render(lastList);return;}
