@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
+import * as hotelbeds from "./src/providers/hotelbeds.js";
 import { applyFilters, scoreOffer, sortOffers } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
@@ -64,6 +65,34 @@ app.get("/api/destinations", (req, res) => {
 // --- Kraje: regiony + informacje praktyczne / warunki wjazdowe ---
 app.get("/api/countries", (req, res) => {
   res.json({ countries: clientData(), updated: "2026-07" });
+});
+
+// --- Multiroom Finder: kilka pokoi/składów, wspólny hotel+termin ---
+// rooms = JSON: [{adults,children,ages:[]}, ...]. Wynik: hotele dostępne dla
+// WSZYSTKICH pokoi, z rozbiciem ceny per pokój, od najtańszych za grupę.
+app.get("/api/multiroom", async (req, res) => {
+  try {
+    if (!hotelbeds.isEnabled()) {
+      return res.status(503).json({ error: "Multiroom wymaga Hotelbeds (dostępne lokalnie).", offers: [], count: 0 });
+    }
+    const q = req.query;
+    let rooms = [];
+    try { rooms = q.rooms ? JSON.parse(q.rooms) : []; } catch { rooms = []; }
+    const crit = {
+      dest: q.dest || "",
+      countries: q.countries ? String(q.countries).split(",").filter(Boolean) : [],
+      regions: q.regions ? String(q.regions).split(",").filter(Boolean) : [],
+      from: q.from || "",
+      to: q.to || "",
+      rooms,
+    };
+    const offers = await hotelbeds.searchMultiroom(crit);
+    const scored = offers.map((o) => scoreOffer(o, crit)); // dodaj valueScore/trust; kolejność (od najtańszych) zachowana
+    res.json({ offers: scored, count: scored.length });
+  } catch (err) {
+    console.error("multiroom error:", err);
+    res.status(500).json({ error: "Błąd multiroom: " + err.message });
+  }
 });
 
 // --- Wyszukiwanie ofert ---

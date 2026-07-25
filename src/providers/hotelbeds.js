@@ -135,6 +135,112 @@ export async function search(crit) {
   return perDest.flat();
 }
 
+// ============================================================
+//  MULTIROOM FINDER — dostępność na kilka pokoi/składów naraz.
+//  crit.rooms = [{adults, children, ages:[]}, ...] (kilka rodzin/par, wspólny wyjazd).
+//  Dla każdego składu pytamy availability OSOBNO (pewne, przetestowane zachowanie),
+//  a potem bierzemy tylko hotele dostępne dla WSZYSTKICH pokoi (spójne: ten sam
+//  hotel + termin) i sumujemy najtańsze raty. Wynik: oferty z rozbiciem ceny per
+//  pokój, posortowane od najtańszych (suma za grupę). Anti-przekoloryzacja:
+//  pokazujemy tylko realnie dostępne kombinacje — brak przecięcia = brak wyniku.
+// ============================================================
+export async function searchMultiroom(crit) {
+  const rooms = normalizeRoomsInput(crit);
+  const totalPax = rooms.reduce((s, r) => s + r.adults + r.children, 0) || 1;
+  const targets = resolveTargets(crit);
+  const from = crit.from ? isoDate(crit.from) : isoDate(Date.now() + 30 * 864e5);
+  const to = crit.to ? isoDate(crit.to) : isoDate(Date.now() + 37 * 864e5);
+
+  const perDest = await Promise.all(
+    targets.map(async (dest) => {
+      try {
+        // Dla każdego składu pokoju osobne zapytanie -> mapa code -> najtańsza rata.
+        const perRoom = await Promise.all(
+          rooms.map((r) =>
+            availability({ dest, from, to, adults: r.adults, children: r.children })
+              .then((a) => {
+                const map = {};
+                for (const h of a?.hotels?.hotels || []) map[h.code] = cheapestRate(h);
+                return map;
+              })
+              .catch(() => ({}))
+          )
+        );
+        // Hotele dostępne dla WSZYSTKICH pokoi = przecięcie kluczy.
+        let common = Object.keys(perRoom[0] || {});
+        for (let i = 1; i < perRoom.length; i++) {
+          common = common.filter((code) => perRoom[i][code]);
+        }
+        common = common.slice(0, 40);
+        if (!common.length) return [];
+
+        const content = await fetchContent(common);
+        return common.map((code) =>
+          normalizeMultiroom(code, content[code] || {}, perRoom.map((m) => m[code]), rooms, totalPax)
+        );
+      } catch (err) {
+        console.warn(`[hotelbeds][multiroom] błąd dla ${dest}:`, err.message);
+        return [];
+      }
+    })
+  );
+  const offers = perDest.flat();
+  offers.sort((a, b) => a.priceTotal - b.priceTotal); // od najtańszych za grupę
+  return offers;
+}
+
+// Składy pokoi z kryteriów (fallback: jeden pokój z ogólnej liczby gości).
+function normalizeRoomsInput(crit) {
+  if (Array.isArray(crit.rooms) && crit.rooms.length) {
+    return crit.rooms.map((r) => ({
+      adults: Math.max(1, +r.adults || 1),
+      children: Math.max(0, +r.children || 0),
+      ages: r.ages || [],
+    }));
+  }
+  return [{ adults: crit.adults || 2, children: crit.kids || 0, ages: crit.childAges || [] }];
+}
+
+// Cele destynacji: zaznaczone regiony -> ich kody, inaczej kod kraju, inaczej sandbox.
+function resolveTargets(crit) {
+  let targets;
+  if (crit.regions && crit.regions.length) {
+    targets = crit.regions
+      .map((r) => (regionInfo(r) ? regionInfo(r).hbCode : regionCode(crit.dest, r)))
+      .filter(Boolean);
+  } else if (DEST_CODES[crit.dest]) {
+    targets = [DEST_CODES[crit.dest]];
+  } else {
+    targets = SANDBOX_DESTS;
+  }
+  return targets.slice(0, 4);
+}
+
+// Oferta multiroom: bazowe atrybuty hotelu + rozbicie ceny per pokój + suma za grupę.
+function normalizeMultiroom(code, c, rates, rooms, totalPax) {
+  const base = normalize({ code, name: c.name?.content }, c, rates[0], totalPax);
+  const breakdown = rooms.map((r, i) => {
+    const rate = rates[i];
+    const who = r.adults + " dor." + (r.children ? " + " + r.children + " dz." : "");
+    return {
+      label: "Pokój " + (i + 1) + " (" + who + ")",
+      roomName: prettyRoom(rate.roomName),
+      board: mapBoard(rate.boardCode, rate.boardName),
+      price: Math.round(rate.net * EUR_PLN),
+    };
+  });
+  const priceTotal = breakdown.reduce((s, b) => s + b.price, 0);
+  return {
+    ...base,
+    id: "hb-mr-" + code,
+    multiroom: true,
+    roomsCount: rooms.length,
+    roomsBreakdown: breakdown,
+    priceTotal,
+    price: Math.round(priceTotal / Math.max(1, totalPax)),
+  };
+}
+
 // --- Availability API: dostępność + ceny ---
 async function availability({ dest, from, to, adults, children }) {
   const body = {
