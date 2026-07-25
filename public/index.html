@@ -967,23 +967,44 @@
   }
   document.getElementById("cartCompare").addEventListener("click",openCompare);
   // Drukowalna prezentacja koszyka dla klienta (pod „PREZENTACJĘ OFERTY").
+  // ---- WYDRUK DLA KLIENTA (nie skrypt sprzedażowy!) — opis + parametry wyjazdu ----
+  // Skrypt zostaje na ekranie dla doradcy; klient dostaje czyste, faktowe zestawienie.
+  var PRINT_CSS='body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F;line-height:1.5}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}.n{font-size:18px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 10px}table.params{width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:13.5px;margin:6px 0}table.params td{padding:5px 0;vertical-align:top;border-bottom:1px solid #efeae0}table.params .pk{color:#6a746f;width:44%;padding-right:12px}table.params .pv{color:#13201F;font-weight:600}.desc{font-size:14.5px;margin:12px 0 4px;color:#2b3634}.intel{font-family:system-ui,sans-serif;font-size:12.5px;color:#3A4744;background:#F4F1EA;border-radius:8px;padding:9px 12px;margin:10px 0 2px}.price-big{font-family:system-ui,sans-serif;font-size:17px;font-weight:bold;margin-top:10px}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}';
+  // Parametry oferty jako tabela (tylko dane, które REALNIE mamy — anti-przekoloryzacja).
+  function offerParamsHtml(x,n){
+    function r(k,v){return v?'<tr><td class="pk">'+k+'</td><td class="pv">'+v+'</td></tr>':'';}
+    var dist=function(m){return m>=1000?(m/1000).toFixed(1).replace(".",",")+" km":m+" m";};
+    var termin=x.departDate?fmtDate(x.departDate)+(x.departureCity?" · wylot z "+x.departureCity:""):"";
+    return '<table class="params">'+
+      r("Lokalizacja",(x.region?x.region+", ":"")+(x.country||""))+
+      r("Kategoria",(x.stars||"?")+"★")+
+      r("Wyżywienie",x.board)+
+      r("Długość pobytu",(x.nights||n)+" nocy")+
+      r("Termin",termin)+
+      (typeof x.beach==="number"?r("Odległość od plaży",dist(x.beach)):"")+
+      (x.roomType?r("Typ pokoju",x.roomType):"")+
+      (typeof x.airport==="number"?r("Odległość od lotniska",dist(x.airport)):"")+
+      (typeof x.ski==="number"?r("Odległość od stoku",dist(x.ski)):"")+
+      (x.newHotel?r("Standard obiektu","Nowy / świeżo odnowiony"+(x.yearRenov?" ("+x.yearRenov+")":"")):"")+
+      (x.adultsOnly?r("Profil obiektu","Tylko dla dorosłych"):"")+
+      (x.reviews>0?r("Ocena gości",x.rating.toFixed(1).replace(".",",")+"/10 ("+fmt(x.reviews)+" opinii)"):"")+
+      '</table>';
+  }
+  // Blok jednej oferty dla wydruku (parametry + wiedza o kierunku + cena). BEZ skryptu.
+  function offerDocHtml(x,n){
+    var intel=destIntelClient(x.region,x.country);
+    return '<div class="off"><div class="n">'+x.name+' '+stars(x.stars||3)+'</div><div class="loc">'+(x.region||x.country||"")+'</div>'+
+      offerParamsHtml(x,n)+
+      (intel?'<p class="intel">📍 <b>O kierunku:</b> '+intel.vibe+(intel.forWho?' · Dobry dla: '+intel.forWho:'')+'</p>':'')+
+      '<div class="price-big">Cena: od '+fmt(x.price)+' zł/os.'+(x.priceTotal>0?' &nbsp;·&nbsp; razem ok. '+fmt(x.priceTotal)+' zł':'')+'</div></div>';
+  }
   function printCart(){
     if(!cart.length){toast("Koszyk jest pusty");return;}
     var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}
+    var n=nights();
     var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
-    var medals=["🥇","🥈","🥉"];
-    var rows=ranked.map(function(x,i){
-      var sc=buildScript(x,detectAudience(x),0),intel=destIntelClient(x.region,x.country);
-      var cb=(sc.cb||[]).slice(0,3).map(function(c){return '<li><b>'+c.f+'</b> — '+c.b+'</li>';}).join("");
-      return '<div class="off"><div class="n">'+(medals[i]||((i+1)+"."))+' '+x.name+' '+stars(x.stars)+'</div><div class="loc">'+x.region+'</div>'+
-        '<div class="meta">'+(x.rating?"Ocena "+x.rating.toFixed(1).replace(".",",")+" · ":"")+(x.board||"")+(x.nights?" · "+x.nights+" nocy":"")+(x.operator?" · "+x.operator:"")+'</div>'+
-        '<p class="lead">'+sc.lead+'</p>'+
-        (cb?'<ul class="cb">'+cb+'</ul>':'')+
-        (intel?'<p class="intel">💡 Warto wiedzieć: '+intel.watch+'</p>':'')+
-        '<p class="close">'+sc.closer+'</p>'+
-        '<div class="price">od '+fmt(x.price)+' zł/os.'+(x.priceTotal>0?" &nbsp;·&nbsp; razem ok. "+fmt(x.priceTotal)+" zł":"")+'</div></div>';
-    }).join("");
-    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}.n{font-size:17px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 8px}.meta{font-family:system-ui,sans-serif;font-size:12.5px;color:#46534F;margin-bottom:8px}.lead{font-style:italic;font-size:15px;margin:8px 0}.cb{font-family:system-ui,sans-serif;font-size:13px;line-height:1.6;padding-left:20px;margin:8px 0}.intel{font-family:system-ui,sans-serif;font-size:12px;color:#6B5A2B;background:#FBF6E9;border-radius:8px;padding:8px 11px;margin:8px 0}.close{border-left:3px solid #C68A3E;padding-left:12px;color:#3A4744;margin:8px 0 10px;font-size:14px}.price{font-family:system-ui,sans-serif;font-size:16px;font-weight:bold}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}</style><h1>Propozycje wyjazdów</h1><div class="sub">Przygotowane w systemie Kompas · '+cart.length+' ofert · ceny orientacyjne, do potwierdzenia u organizatora</div>'+rows+'<div class="foot">Kompas — wyszukiwarka i porównywarka ofert wakacyjnych.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
+    var rows=ranked.map(function(x){return offerDocHtml(x,n);}).join("");
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>'+PRINT_CSS+'</style><h1>Propozycje wyjazdów</h1><div class="sub">'+cart.length+' ofert do wyboru · ceny orientacyjne, do potwierdzenia u organizatora</div>'+rows+'<div class="foot">Zestawienie przygotowane w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
     w.document.close();
   }
   document.getElementById("cartPrint").addEventListener("click",printCart);
@@ -1046,13 +1067,9 @@
       headNote+body+(order?'<div class="rep-order"><h4>Kolejność prezentacji klientowi</h4>'+order+'</div>':"")+rejected;
     document.getElementById("repModal").hidden=false;
   }
-  function printReport(){
-    if(!cart.length){toast("Koszyk pusty");return;}
-    if(!document.getElementById("repBody").innerHTML)buildAdvisorReport();
-    var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}
-    w.document.write('<!doctype html><meta charset="utf-8"><title>Raport doradcy — Kompas</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:32px auto;padding:0 24px;color:#13201F}.rep-note{font-size:12px;color:#777;background:#f5f2ea;padding:10px 12px;border-radius:8px;margin-bottom:14px}.rep-off{border:1px solid #e4dfd4;border-radius:12px;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid}.rep-h{display:flex;gap:12px;margin-bottom:8px;align-items:flex-start}.rep-medal{font-size:22px}.rep-name{font-weight:700;font-size:15px}.rep-loc{font-size:12px;color:#777}.rep-val{margin-left:auto;text-align:right}.rep-verdict{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:#eee;white-space:nowrap}.rep-score{font-size:18px;font-weight:bold;display:block;margin-top:4px}.rep-lead{font-style:italic;margin:6px 0}.rep-cb{padding-left:18px;font-size:13px;line-height:1.55}.rep-close{border-left:3px solid #C68A3E;padding-left:12px;color:#555;margin:0}.rep-order{border-top:1px solid #ddd;margin-top:16px;padding-top:12px;line-height:1.9}.rep-order h4{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#0A4F4C;margin:0 0 8px}h2{font-size:22px}</style><h2>🏆 Raport doradcy</h2>'+document.getElementById("repBody").innerHTML+'<scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
-    w.document.close();
-  }
+  // „Drukuj dla klienta" z raportu = ta sama prezentacja co w koszyku (opis + parametry,
+  // BEZ skryptów/ocen ETA — te są tylko dla doradcy na ekranie).
+  function printReport(){printCart();}
   document.getElementById("cartReport").addEventListener("click",buildAdvisorReport);
   document.getElementById("repClose").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
   document.getElementById("repBackdrop").addEventListener("click",function(){document.getElementById("repModal").hidden=true;});
@@ -1354,7 +1371,8 @@
     return el;
   }
   function fallbackCopy(txt){var ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Skopiowano ofertę ✓");}catch(e){toast("Nie udało się skopiować");}document.body.removeChild(ta);}
-  function printOffer(h,sc,n,pax){var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}var cb=sc.cb.map(function(x){return"<li><b>"+x.f+"</b> — "+x.b+"</li>";}).join("");w.document.write('<!doctype html><meta charset="utf-8"><title>Oferta — '+h.name+'</title><style>body{font-family:Georgia,serif;max-width:640px;margin:40px auto;padding:0 24px;color:#13201F;line-height:1.55}h1{font-size:24px;margin:0 0 4px}.loc{color:#0A4F4C;font-family:system-ui,sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:16px}.meta{font-family:system-ui,sans-serif;font-size:14px;background:#F4F1EA;padding:12px 16px;border-radius:8px;margin-bottom:20px}.price{font-size:22px;font-weight:bold;font-family:system-ui,sans-serif}.lead{font-size:17px;font-style:italic;margin:18px 0}ul{padding-left:20px}li{margin-bottom:10px}.closer{border-left:3px solid #C68A3E;padding-left:14px;color:#46534F;margin-top:20px}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:30px;border-top:1px solid #ddd;padding-top:12px}</style><h1>'+h.name+' '+stars(h.stars||3)+'</h1><div class="loc">'+h.region+'</div><div class="meta">Ocena: <b>'+ratingTxt(h)+'</b> &nbsp;·&nbsp; '+h.board+' &nbsp;·&nbsp; '+n+' nocy, '+pax+' os.<br><span class="price">od '+fmt(h.price)+' zł / os.</span> &nbsp;(razem '+fmt(h.price*Math.max(1,pax))+' zł)</div><p class="lead">'+sc.lead+'</p><h3 style="font-family:system-ui,sans-serif;font-size:15px">Dlaczego warto:</h3><ul>'+cb+'</ul><p class="closer">'+sc.closer+'</p><div class="foot">Oferta przygotowana w systemie Kompas. Ceny orientacyjne, do potwierdzenia u dostawcy.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');w.document.close();}
+  // Druk pojedynczej oferty — wersja dla KLIENTA (opis + parametry), bez skryptu sprzedażowego.
+  function printOffer(h,sc,n,pax){var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}w.document.write('<!doctype html><meta charset="utf-8"><title>Oferta — '+h.name+'</title><style>'+PRINT_CSS+'</style><h1>Oferta wyjazdu</h1><div class="sub">Ceny orientacyjne, do potwierdzenia u organizatora</div>'+offerDocHtml(h,n)+'<div class="foot">Oferta przygotowana w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');w.document.close();}
 
   /* ---------- Komunikacja z backendem ---------- */
   var searchBtn=document.getElementById("searchBtn");
