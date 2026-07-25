@@ -403,6 +403,30 @@
   .send-text{width:100%;box-sizing:border-box;font:14px/1.55 system-ui,sans-serif;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;resize:vertical;min-height:220px}
   .send-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .send-actions .btn-script{flex:1;min-width:120px;justify-content:center;cursor:pointer}
+  .cmp-panel-wide{max-width:640px}
+  .mr-launch{font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer}
+  .mr-launch:hover{border-color:var(--accent);color:var(--accent)}
+  .mr-room{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+  .mr-room .mr-rn{font-weight:700;font-size:13px;min-width:64px;color:var(--ink)}
+  .mr-occ{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft)}
+  .mr-occ .stp{width:26px;height:26px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer;font-size:15px;line-height:1}
+  .mr-occ .mr-v{min-width:18px;text-align:center;font-weight:600;color:var(--ink)}
+  .mr-rmroom{margin-left:auto;background:none;border:none;color:#C6534B;cursor:pointer;font-size:12px}
+  .mr-addroom{font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px dashed var(--line-strong);background:none;color:var(--ink-soft);cursor:pointer;width:100%;margin-bottom:12px}
+  .mr-addroom:hover{border-color:var(--accent);color:var(--accent)}
+  .mr-search{width:100%;justify-content:center;cursor:pointer;margin-bottom:6px}
+  .mr-results{margin-top:12px}
+  .mr-off{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+  .mr-off .mr-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .mr-off .mr-name{font-weight:700;font-size:14.5px;color:var(--ink)}
+  .mr-off .mr-loc{font-size:12px;color:var(--ink-faint)}
+  .mr-off .mr-tot{text-align:right;white-space:nowrap}
+  .mr-off .mr-tot b{font-size:16px;color:var(--accent)}
+  .mr-off .mr-bd{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-soft)}
+  .mr-off .mr-bd li{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+  .mr-off .mr-send{margin-top:8px;font-size:12px;font-weight:600;padding:6px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer}
+  .mr-off .mr-send:hover{border-color:var(--accent);color:var(--accent)}
+  .mr-empty{font-size:13px;color:var(--ink-faint);padding:12px;text-align:center}
   .det-sec{margin:0 0 16px}
   .det-sec h4{font-size:12px;margin:0 0 9px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);padding-bottom:6px}
   .det-row{display:flex;justify-content:space-between;gap:14px;padding:5px 0;font-size:13.5px;border-bottom:1px solid var(--line)}
@@ -565,6 +589,7 @@
     <div class="results-head">
       <div><h2><span class="count" id="resCount">0</span> ofert w wybranym terminie</h2><p id="resSub">Ustaw kryteria i kliknij „Szukaj ofert".</p></div>
       <div class="rh-controls">
+        <button class="mr-launch" id="mrLaunch" type="button">👨‍👩‍👧 Wspólny wyjazd</button>
         <div class="view-toggle" id="viewToggle"><button class="vt-opt active" data-view="cards" type="button">▦ Karty</button><button class="vt-opt" data-view="table" type="button">▤ Tabela</button></div>
         <div class="sortbar"><label for="sort">Sortuj:</label><select id="sort">
           <option value="score">Trafność (rekomendacja)</option><option value="value">Jakość / cena (najlepszy deal)</option><option value="price">Cena rosnąco</option><option value="rating">Ocena malejąco</option><option value="trust">Wiarygodność opinii</option>
@@ -629,6 +654,20 @@
         <a class="btn-script" id="sendWa" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 01-12.6 7.4L3 21l2.2-5.2A8.5 8.5 0 1121 11.5z"/></svg>WhatsApp</a>
         <a class="btn-script" id="sendMail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Email</a>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="cmp-modal" id="mrModal" hidden>
+  <div class="cmp-backdrop" id="mrBackdrop"></div>
+  <div class="cmp-panel cmp-panel-wide" role="dialog" aria-label="Wspólny wyjazd — multiroom">
+    <div class="cmp-head"><h3>👨‍👩‍👧 Wspólny wyjazd — kilka pokoi</h3><button class="cart-x" id="mrClose" aria-label="Zamknij">&times;</button></div>
+    <div class="cmp-body">
+      <div class="det-note">Szuka hoteli, w których jest dostępność na <b>wszystkie</b> pokoje naraz (ten sam hotel i termin). Kryteria kierunku i dat bierze z formularza wyszukiwania po lewej. Wynik: od najtańszych za grupę, z rozbiciem ceny na pokoje.</div>
+      <div class="mr-rooms" id="mrRooms"></div>
+      <button class="mr-addroom" id="mrAddRoom" type="button">+ Dodaj pokój</button>
+      <button class="btn-script btn-book mr-search" id="mrSearchBtn" type="button">🔎 Szukaj wspólnego wyjazdu</button>
+      <div class="mr-results" id="mrResults"></div>
     </div>
   </div>
 </div>
@@ -878,6 +917,56 @@
   // Kopiuj + odśwież linki po ręcznej edycji tekstu.
   document.getElementById("sendText").addEventListener("input",function(){var enc=encodeURIComponent(this.value);document.getElementById("sendWa").href="https://wa.me/?text="+enc;document.getElementById("sendMail").href="mailto:?body="+enc;});
   document.getElementById("sendCopy").addEventListener("click",function(){var txt=document.getElementById("sendText").value;if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano wiadomość ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
+
+  /* ---------- Multiroom Finder (wspólny wyjazd — kilka pokoi) ---------- */
+  var mrRooms=[{adults:2,children:0},{adults:2,children:0}],mrModal=document.getElementById("mrModal"),mrLast=[];
+  function mrRenderComposer(){
+    document.getElementById("mrRooms").innerHTML=mrRooms.map(function(r,i){
+      function occ(kind,label){return '<div class="mr-occ">'+label+' <button class="stp" data-mr="'+i+'" data-k="'+kind+'" data-d="-1">−</button><span class="mr-v">'+r[kind]+'</span><button class="stp" data-mr="'+i+'" data-k="'+kind+'" data-d="1">+</button></div>';}
+      return '<div class="mr-room"><span class="mr-rn">Pokój '+(i+1)+'</span>'+occ("adults","Dorośli")+occ("children","Dzieci")+(mrRooms.length>1?'<button class="mr-rmroom" data-rmroom="'+i+'">usuń</button>':'')+'</div>';
+    }).join("");
+  }
+  document.getElementById("mrLaunch").addEventListener("click",function(){mrRenderComposer();document.getElementById("mrResults").innerHTML="";mrModal.hidden=false;});
+  document.getElementById("mrClose").addEventListener("click",function(){mrModal.hidden=true;});
+  document.getElementById("mrBackdrop").addEventListener("click",function(){mrModal.hidden=true;});
+  document.getElementById("mrAddRoom").addEventListener("click",function(){if(mrRooms.length>=6){toast("Maks. 6 pokoi");return;}mrRooms.push({adults:2,children:0});mrRenderComposer();});
+  document.getElementById("mrRooms").addEventListener("click",function(e){
+    var rm=e.target.closest("[data-rmroom]");if(rm){mrRooms.splice(+rm.dataset.rmroom,1);mrRenderComposer();return;}
+    var s=e.target.closest("[data-mr]");if(!s)return;
+    var i=+s.dataset.mr,k=s.dataset.k,min=k==="adults"?1:0,max=k==="adults"?6:4;
+    mrRooms[i][k]=Math.max(min,Math.min(max,mrRooms[i][k]+(+s.dataset.d)));mrRenderComposer();
+  });
+  document.getElementById("mrSearchBtn").addEventListener("click",function(){
+    var res=document.getElementById("mrResults");
+    res.innerHTML='<div class="mr-empty">Szukam dostępności na wszystkie pokoje…</div>';
+    var p=new URLSearchParams({countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,rooms:JSON.stringify(mrRooms)});
+    fetch("/api/multiroom?"+p.toString()).then(function(r){return r.json();}).then(function(d){
+      if(d.error&&!(d.offers&&d.offers.length)){res.innerHTML='<div class="mr-empty">'+d.error+'</div>';return;}
+      mrRenderResults(d.offers||[]);
+    }).catch(function(e){res.innerHTML='<div class="mr-empty">Błąd: '+e.message+'</div>';});
+  });
+  function mrRenderResults(offers){
+    var res=document.getElementById("mrResults");mrLast=offers;
+    if(!offers.length){res.innerHTML='<div class="mr-empty">Brak hotelu z dostępnością na wszystkie pokoje w tym terminie. Zmień termin lub skład pokoi.</div>';return;}
+    res.innerHTML='<div class="det-note">'+offers.length+' hoteli z dostępnością na WSZYSTKIE pokoje — od najtańszych za grupę.</div>'+offers.slice(0,20).map(function(h,idx){
+      var bd=(h.roomsBreakdown||[]).map(function(b){return '<li><span>'+b.label+(b.roomName?' · '+b.roomName:'')+(b.board?' · '+b.board:'')+'</span><b>'+fmt(b.price)+' zł</b></li>';}).join("");
+      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+fmt(h.priceTotal)+' zł</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div><ul class="mr-bd">'+bd+'</ul><button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
+    }).join("");
+  }
+  document.getElementById("mrResults").addEventListener("click",function(e){
+    var b=e.target.closest("[data-mrsend]");if(!b)return;
+    var h=mrLast[+b.dataset.mrsend];if(!h)return;
+    mrModal.hidden=true;openSendText(mrClientText(h),"Wspólny wyjazd — "+h.name);
+  });
+  // Wiadomość dla klienta dla oferty multiroom (fakty + rozbicie na pokoje).
+  function mrClientText(h){
+    var L=["🏨 "+h.name+" "+stars(h.stars||3),"📍 "+((h.region?h.region+", ":"")+(h.country||""))];
+    if(typeof h.beach==="number")L.push("🏖 Plaża: "+(h.beach>=1000?(h.beach/1000).toFixed(1).replace(".",",")+" km":h.beach+" m"));
+    L.push("","Pokoje:");
+    (h.roomsBreakdown||[]).forEach(function(b){L.push("• "+b.label+(b.roomName?" — "+b.roomName:"")+(b.board?" ("+b.board+")":"")+": "+fmt(b.price)+" zł");});
+    L.push("","💰 RAZEM za grupę: "+fmt(h.priceTotal)+" zł (od "+fmt(h.price)+" zł/os.)","(cena orientacyjna, do potwierdzenia)");
+    return L.join("\n");
+  }
 
   function stars(n){return "★★★★★☆☆☆☆☆".slice(5-n,10-n);}
   function rateColor(r){if(r>=9)return"#0F6B68";if(r>=8.3)return"#2F7D57";if(r>=7.5)return"#7A8A2E";return"#B26A1E";}
