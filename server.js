@@ -85,6 +85,7 @@ app.get("/api/multiroom", async (req, res) => {
       from: q.from || "",
       to: q.to || "",
       rooms,
+      roomsMode: q.roomsMode === "any" ? "any" : "split",
     };
     const offers = await hotelbeds.searchMultiroom(crit);
     const scored = offers.map((o) => scoreOffer(o, crit)); // dodaj valueScore/trust; kolejność (od najtańszych) zachowana

@@ -414,7 +414,9 @@
   .mr-rmroom{margin-left:auto;background:none;border:none;color:#C6534B;cursor:pointer;font-size:12px}
   .mr-addroom{font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px dashed var(--line-strong);background:none;color:var(--ink-soft);cursor:pointer;width:100%;margin-bottom:12px}
   .mr-addroom:hover{border-color:var(--accent);color:var(--accent)}
+  .mr-any{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;cursor:pointer}
   .mr-search{width:100%;justify-content:center;cursor:pointer;margin-bottom:6px}
+  .mr-badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--surface-2);color:var(--ink-soft);margin-left:6px}
   .mr-results{margin-top:12px}
   .mr-off{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
   .mr-off .mr-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
@@ -666,6 +668,7 @@
       <div class="det-note">Szuka hoteli, w których jest dostępność na <b>wszystkie</b> pokoje naraz (ten sam hotel i termin). Kryteria kierunku i dat bierze z formularza wyszukiwania po lewej. Wynik: od najtańszych za grupę, z rozbiciem ceny na pokoje.</div>
       <div class="mr-rooms" id="mrRooms"></div>
       <button class="mr-addroom" id="mrAddRoom" type="button">+ Dodaj pokój</button>
+      <label class="mr-any"><input type="checkbox" id="mrAny"> Ułożenie obojętne — dobierz najtaniej (osobne pokoje albo jeden duży)</label>
       <button class="btn-script btn-book mr-search" id="mrSearchBtn" type="button">🔎 Szukaj wspólnego wyjazdu</button>
       <div class="mr-results" id="mrResults"></div>
     </div>
@@ -939,7 +942,7 @@
   document.getElementById("mrSearchBtn").addEventListener("click",function(){
     var res=document.getElementById("mrResults");
     res.innerHTML='<div class="mr-empty">Szukam dostępności na wszystkie pokoje…</div>';
-    var p=new URLSearchParams({countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,rooms:JSON.stringify(mrRooms)});
+    var p=new URLSearchParams({countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,rooms:JSON.stringify(mrRooms),roomsMode:document.getElementById("mrAny").checked?"any":"split"});
     fetch("/api/multiroom?"+p.toString()).then(function(r){return r.json();}).then(function(d){
       if(d.error&&!(d.offers&&d.offers.length)){res.innerHTML='<div class="mr-empty">'+d.error+'</div>';return;}
       mrRenderResults(d.offers||[]);
@@ -950,7 +953,8 @@
     if(!offers.length){res.innerHTML='<div class="mr-empty">Brak hotelu z dostępnością na wszystkie pokoje w tym terminie. Zmień termin lub skład pokoi.</div>';return;}
     res.innerHTML='<div class="det-note">'+offers.length+' hoteli z dostępnością na WSZYSTKIE pokoje — od najtańszych za grupę.</div>'+offers.slice(0,20).map(function(h,idx){
       var bd=(h.roomsBreakdown||[]).map(function(b){return '<li><span>'+b.label+(b.roomName?' · '+b.roomName:'')+(b.board?' · '+b.board:'')+'</span><b>'+fmt(b.price)+' zł</b></li>';}).join("");
-      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+fmt(h.priceTotal)+' zł</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div><ul class="mr-bd">'+bd+'</ul><button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
+      var badge=h.layout==="single"?'<span class="mr-badge">1 duży pokój</span>':'<span class="mr-badge">'+h.roomsCount+' osobne pokoje</span>';
+      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span>'+badge+'</div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+fmt(h.priceTotal)+' zł</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div><ul class="mr-bd">'+bd+'</ul><button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
     }).join("");
   }
   document.getElementById("mrResults").addEventListener("click",function(e){

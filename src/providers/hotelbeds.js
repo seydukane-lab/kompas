@@ -146,38 +146,52 @@ export async function search(crit) {
 // ============================================================
 export async function searchMultiroom(crit) {
   const rooms = normalizeRoomsInput(crit);
-  const totalPax = rooms.reduce((s, r) => s + r.adults + r.children, 0) || 1;
+  // Tryb "any" = ułożenie obojętne: dla każdego hotelu wybieramy TANIEJ z dwóch
+  // opcji — osobne spójne pokoje ALBO jeden duży pokój na cały skład.
+  const mode = crit.roomsMode === "any" ? "any" : "split";
+  const totalAdults = rooms.reduce((s, r) => s + r.adults, 0);
+  const totalChildren = rooms.reduce((s, r) => s + r.children, 0);
+  const totalPax = totalAdults + totalChildren || 1;
   const targets = resolveTargets(crit);
   const from = crit.from ? isoDate(crit.from) : isoDate(Date.now() + 30 * 864e5);
   const to = crit.to ? isoDate(crit.to) : isoDate(Date.now() + 37 * 864e5);
 
+  const availMap = (dest, adults, children) =>
+    availability({ dest, from, to, adults, children })
+      .then((a) => {
+        const map = {};
+        for (const h of a?.hotels?.hotels || []) map[h.code] = cheapestRate(h);
+        return map;
+      })
+      .catch(() => ({}));
+
   const perDest = await Promise.all(
     targets.map(async (dest) => {
       try {
-        // Dla każdego składu pokoju osobne zapytanie -> mapa code -> najtańsza rata.
-        const perRoom = await Promise.all(
-          rooms.map((r) =>
-            availability({ dest, from, to, adults: r.adults, children: r.children })
-              .then((a) => {
-                const map = {};
-                for (const h of a?.hotels?.hotels || []) map[h.code] = cheapestRate(h);
-                return map;
-              })
-              .catch(() => ({}))
-          )
-        );
-        // Hotele dostępne dla WSZYSTKICH pokoi = przecięcie kluczy.
+        // Osobne pokoje: zapytanie per skład -> przecięcie hoteli dostępnych dla WSZYSTKICH.
+        const perRoom = await Promise.all(rooms.map((r) => availMap(dest, r.adults, r.children)));
         let common = Object.keys(perRoom[0] || {});
-        for (let i = 1; i < perRoom.length; i++) {
-          common = common.filter((code) => perRoom[i][code]);
-        }
-        common = common.slice(0, 40);
-        if (!common.length) return [];
+        for (let i = 1; i < perRoom.length; i++) common = common.filter((code) => perRoom[i][code]);
+        const splitByCode = {};
+        for (const code of common) splitByCode[code] = perRoom.map((m) => m[code]);
 
-        const content = await fetchContent(common);
-        return common.map((code) =>
-          normalizeMultiroom(code, content[code] || {}, perRoom.map((m) => m[code]), rooms, totalPax)
-        );
+        // Jeden duży pokój na cały skład (tylko w trybie "any").
+        let bigByCode = {};
+        if (mode === "any") bigByCode = await availMap(dest, totalAdults, totalChildren);
+
+        const codes = Array.from(new Set([...Object.keys(splitByCode), ...Object.keys(bigByCode)])).slice(0, 40);
+        if (!codes.length) return [];
+        const content = await fetchContent(codes);
+
+        return codes
+          .map((code) => {
+            const c = content[code] || {};
+            const split = splitByCode[code] ? normalizeMultiroom(code, c, splitByCode[code], rooms, totalPax) : null;
+            const big = bigByCode[code] ? normalizeSingleRoom(code, c, bigByCode[code], totalAdults, totalChildren, totalPax) : null;
+            if (split && big) return big.priceTotal < split.priceTotal ? big : split;
+            return split || big;
+          })
+          .filter(Boolean);
       } catch (err) {
         console.warn(`[hotelbeds][multiroom] błąd dla ${dest}:`, err.message);
         return [];
@@ -234,11 +248,22 @@ function normalizeMultiroom(code, c, rates, rooms, totalPax) {
     ...base,
     id: "hb-mr-" + code,
     multiroom: true,
+    layout: "split", // osobne pokoje
     roomsCount: rooms.length,
     roomsBreakdown: breakdown,
     priceTotal,
     price: Math.round(priceTotal / Math.max(1, totalPax)),
   };
+}
+
+// Jeden duży pokój na cały skład grupy (opcja w trybie "obojętne").
+function normalizeSingleRoom(code, c, rate, adults, children, totalPax) {
+  const off = normalizeMultiroom(code, c, [rate], [{ adults, children }], totalPax);
+  const who = adults + " dor." + (children ? " + " + children + " dz." : "");
+  off.layout = "single";
+  off.roomsCount = 1;
+  off.roomsBreakdown[0].label = "Jeden pokój — wszyscy (" + who + ")";
+  return off;
 }
 
 // --- Availability API: dostępność + ceny ---
