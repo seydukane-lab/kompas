@@ -50,6 +50,26 @@ export function createUser({ email, name = "", password, role = "consultant" }) 
   return getUser(Number(info.lastInsertRowid));
 }
 
+/**
+ * Konto startowe z zmiennych środowiskowych — zakładane tylko wtedy, gdy baza
+ * jest pusta. Bez tego na hostingu bez konsoli (Render free) nie da się wejść
+ * do panelu: skrypt CLI wymaga dostępu do maszyny, a panel wymaga konta.
+ * Zwraca opis tego, co zrobił, albo null gdy nie było czego robić.
+ */
+export function seedAdminFromEnv() {
+  const email = (process.env.ADMIN_EMAIL || "").trim();
+  const password = process.env.ADMIN_PASSWORD || "";
+  if (!email || !password) return null;
+  if (db.prepare("SELECT COUNT(*) AS n FROM users").get().n > 0) return null;
+  const user = createUser({
+    email,
+    name: process.env.ADMIN_NAME || "Administrator",
+    password,
+    role: "admin",
+  });
+  return user;
+}
+
 export function getUser(id) {
   return db.prepare(`SELECT ${PUBLIC_FIELDS} FROM users WHERE id = ?`).get(id) || null;
 }

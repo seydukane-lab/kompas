@@ -149,6 +149,39 @@ test("usunięcie konta zabiera ze sobą sesje i koszyk", () => {
   assert.equal(db.prepare("SELECT COUNT(*) n FROM carts WHERE user_id = ?").get(u.id).n, 0);
 });
 
+test("konto startowe z env zakłada się tylko przy pustej bazie", () => {
+  // Baza ma już konta z wcześniejszych testów — seed musi je zostawić w spokoju.
+  process.env.ADMIN_EMAIL = "seed@test.local";
+  process.env.ADMIN_PASSWORD = "seedowe12345";
+  assert.equal(auth.seedAdminFromEnv(), null, "przy istniejących kontach seed nie może nic robić");
+  assert.equal(auth.findByEmail("seed@test.local"), null);
+
+  // Pusta baza — teraz konto ma powstać, i to z rolą administratora.
+  db.exec("DELETE FROM users");
+  const utworzony = auth.seedAdminFromEnv();
+  assert.ok(utworzony, "przy pustej bazie seed musi założyć konto");
+  assert.equal(utworzony.email, "seed@test.local");
+  assert.equal(utworzony.role, "admin");
+  assert.ok(auth.verifyLogin("seed@test.local", "seedowe12345"));
+
+  // Powtórny start nie może nadpisać hasła zmienionego już w panelu.
+  auth.setPassword(utworzony.id, "zmienioneWpanelu123");
+  assert.equal(auth.seedAdminFromEnv(), null);
+  assert.ok(auth.verifyLogin("seed@test.local", "zmienioneWpanelu123"));
+  assert.equal(auth.verifyLogin("seed@test.local", "seedowe12345"), null);
+
+  delete process.env.ADMIN_EMAIL;
+  delete process.env.ADMIN_PASSWORD;
+});
+
+test("bez zmiennych env seed nie robi nic", () => {
+  db.exec("DELETE FROM users");
+  delete process.env.ADMIN_EMAIL;
+  delete process.env.ADMIN_PASSWORD;
+  assert.equal(auth.seedAdminFromEnv(), null);
+  assert.equal(auth.listUsers().length, 0);
+});
+
 test("lista kont nie zawiera hashy haseł", () => {
   auth.createUser({ email: mail(), password: "haslo12345" });
   for (const u of auth.listUsers()) {

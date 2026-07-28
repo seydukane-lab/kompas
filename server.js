@@ -25,7 +25,7 @@ import {
   verifyLogin, createSession, destroySession, purgeExpiredSessions,
   setSessionCookie, clearSessionCookie,
   listUsers, createUser, setPassword, setActive,
-  getCart, saveCart,
+  getCart, saveCart, seedAdminFromEnv,
 } from "./src/auth.js";
 
 // Doradca ETA OS (Claude) — provider LOKALNY (prompt = know-how użytkownika, gitignored).
@@ -301,6 +301,14 @@ process.on("uncaughtException", (err) => {
 });
 
 purgeExpiredSessions();
+
+// Konto startowe na hostingu bez konsoli (Render): zakładane tylko przy pustej bazie.
+try {
+  const seeded = seedAdminFromEnv();
+  if (seeded) console.log(`  Założono konto startowe z ADMIN_EMAIL: ${seeded.email}`);
+} catch (err) {
+  console.error("  Nie udało się założyć konta startowego:", err.message);
+}
 // Kurs pobieramy od razu przy starcie, żeby pierwsze wyszukiwanie po wdrożeniu
 // nie liczyło cen po wartości awaryjnej.
 refreshRate(true);

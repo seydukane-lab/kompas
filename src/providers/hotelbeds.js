@@ -12,8 +12,17 @@
 
 import crypto from "node:crypto";
 import { regionCode, regionInfo } from "../countries.js";
-import { fetchWithTimeout } from "../http.js";
+import { fetchWithTimeout, createLimiter, withRetry } from "../http.js";
 import { eurToPln } from "../fx.js";
+
+// Wszystkie zapytania do Hotelbeds idą przez wspólną kolejkę. Multiroom pyta
+// osobno o każdy pokój i każdą destynację, więc jedno kliknięcie konsultanta
+// potrafiło wysłać kilkanaście zapytań naraz i dostać serię 429 — a wtedy
+// wyszukiwanie kończyło się pustą listą mimo wolnych miejsc.
+const limit = createLimiter({
+  concurrency: Number(process.env.HOTELBEDS_CONCURRENCY) || 1,
+  minIntervalMs: Number(process.env.HOTELBEDS_MIN_INTERVAL_MS) || 250,
+});
 
 const KEY = process.env.HOTELBEDS_API_KEY || "";
 const SECRET = process.env.HOTELBEDS_SECRET || "";
@@ -158,6 +167,11 @@ export async function searchMultiroom(crit) {
   const from = crit.from ? isoDate(crit.from) : isoDate(Date.now() + 30 * 864e5);
   const to = crit.to ? isoDate(crit.to) : isoDate(Date.now() + 37 * 864e5);
 
+  // Ile zapytań do dostawcy padło. Bez tego licznika awaria API wygląda dla
+  // konsultanta identycznie jak brak wolnych miejsc — a to dwie zupełnie różne
+  // wiadomości dla klienta („nie ma miejsc" vs „system nie odpowiada").
+  let bledy = 0;
+
   const availMap = (dest, adults, children) =>
     availability({ dest, from, to, adults, children })
       .then((a) => {
@@ -165,7 +179,11 @@ export async function searchMultiroom(crit) {
         for (const h of a?.hotels?.hotels || []) map[h.code] = cheapestRate(h);
         return map;
       })
-      .catch(() => ({}));
+      .catch((err) => {
+        bledy++;
+        console.warn(`[hotelbeds][multiroom] ${dest} (${adults} dor. + ${children} dz.):`, err.message);
+        return {};
+      });
 
   const perDest = await Promise.all(
     targets.map(async (dest) => {
@@ -195,12 +213,22 @@ export async function searchMultiroom(crit) {
           })
           .filter(Boolean);
       } catch (err) {
+        bledy++;
         console.warn(`[hotelbeds][multiroom] błąd dla ${dest}:`, err.message);
         return [];
       }
     })
   );
   const offers = perDest.flat();
+
+  // Pusty wynik przy awarii wszystkich zapytań to NIE jest „brak dostępności".
+  // Milczące zero wysyła konsultanta do klienta z błędną informacją.
+  if (!offers.length && bledy > 0) {
+    throw new Error(
+      `dostawca nie odpowiedział na ${bledy} z ${targets.length * (rooms.length + (mode === "any" ? 1 : 0))} zapytań — wynik nie jest wiarygodny`
+    );
+  }
+
   offers.sort((a, b) => a.priceTotal - b.priceTotal); // od najtańszych za grupę
   return offers;
 }
@@ -224,6 +252,11 @@ function resolveTargets(crit) {
     targets = crit.regions
       .map((r) => (regionInfo(r) ? regionInfo(r).hbCode : regionCode(crit.dest, r)))
       .filter(Boolean);
+  } else if (crit.countries && crit.countries.length) {
+    // Panel wysyła zaznaczone kraje w `countries` (wyszukiwarka pozwala wybrać
+    // kilka naraz). Bez tej gałęzi wybór kraju w Multiroomie był po cichu
+    // ignorowany i wpadał w „dowolny kierunek".
+    targets = crit.countries.map((c) => DEST_CODES[c]).filter(Boolean);
   } else if (DEST_CODES[crit.dest]) {
     targets = [DEST_CODES[crit.dest]];
   } else {
@@ -285,13 +318,21 @@ async function availability({ dest, from, to, adults, children }) {
     ],
     destination: { code: dest },
   };
-  const res = await fetchWithTimeout(`${BASE}/hotel-api/1.0/hotels`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`availability HTTP ${res.status}`);
-  return res.json();
+  return limit(() =>
+    withRetry(async () => {
+      const res = await fetchWithTimeout(`${BASE}/hotel-api/1.0/hotels`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = new Error(`availability HTTP ${res.status}`);
+        err.status = res.status; // pozwala odróżnić „za dużo zapytań" od realnego błędu
+        throw err;
+      }
+      return res.json();
+    })
+  );
 }
 
 // --- Content API: nazwy, zdjęcia, kategoria, odległość od plaży ---
@@ -304,12 +345,20 @@ async function fetchContent(codes) {
     to: String(Math.min(codes.length, 50)),
     codes: codes.slice(0, 50).join(","),
   });
-  const res = await fetchWithTimeout(
-    `${BASE}/hotel-content-api/1.0/hotels?${params.toString()}`,
-    { headers: headers() }
+  const data = await limit(() =>
+    withRetry(async () => {
+      const res = await fetchWithTimeout(
+        `${BASE}/hotel-content-api/1.0/hotels?${params.toString()}`,
+        { headers: headers() }
+      );
+      if (!res.ok) {
+        const err = new Error(`content HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    })
   );
-  if (!res.ok) throw new Error(`content HTTP ${res.status}`);
-  const data = await res.json();
   const map = {};
   for (const h of data.hotels || []) map[h.code] = h;
   return map;
