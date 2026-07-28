@@ -255,7 +255,9 @@ test("multiroom bez sensownych pokoi nie wywraca serwera", async () => {
   const cookie = await zaloguj(ADMIN.email, ADMIN.pass);
   for (const rooms of ["nie-json", "{}", "[]", '[{"adults":-5}]']) {
     const r = await fetch(BASE + `/api/multiroom?rooms=${encodeURIComponent(rooms)}`, { headers: { cookie } });
-    assert.ok([200, 500, 503].includes(r.status), `nieoczekiwany status ${r.status} dla rooms=${rooms}`);
+    // 502/429 = awaria albo limit po stronie dostawcy; też akceptowalne,
+    // bo test sprawdza odporność serwera, a nie dostępność Hotelbedsa.
+    assert.ok([200, 429, 500, 502, 503].includes(r.status), `nieoczekiwany status ${r.status} dla rooms=${rooms}`);
   }
   assert.equal((await fetch(BASE + "/healthz")).status, 200);
 });

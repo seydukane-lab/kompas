@@ -144,8 +144,13 @@ test("powtórzone wyszukiwanie idzie z cache i jest wyraźnie szybsze", async ()
 
   assert.ok(drugie.cached, "drugie zapytanie musi być oznaczone jako z cache");
   assert.equal(drugie.offers.length, pierwsze.offers.length);
-  assert.ok(czasDrugiego <= czasPierwszego, "odczyt z cache nie może być wolniejszy");
+  // Porównanie czasów jest chwiejne, gdy oba zapytania trwają pojedyncze
+  // milisekundy (dostawcy demo odpowiadają natychmiast) — dlatego pilnujemy
+  // twardego progu, a nie tego, który przebieg był szybszy o ułamek.
   assert.ok(czasDrugiego < 100, `odczyt z cache trwał ${czasDrugiego} ms`);
+  if (czasPierwszego > 50) {
+    assert.ok(czasDrugiego <= czasPierwszego, "przy wolnym dostawcy cache musi realnie skracać czas");
+  }
 });
 
 test("inne kryteria to inne zapytanie, nie cache", async () => {

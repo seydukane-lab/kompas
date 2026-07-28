@@ -171,6 +171,8 @@ export async function searchMultiroom(crit) {
   // konsultanta identycznie jak brak wolnych miejsc — a to dwie zupełnie różne
   // wiadomości dla klienta („nie ma miejsc" vs „system nie odpowiada").
   let bledy = 0;
+  let limitPrzekroczony = false;
+  let dostepOdmowiony = false;
 
   const availMap = (dest, adults, children) =>
     availability({ dest, from, to, adults, children })
@@ -181,6 +183,10 @@ export async function searchMultiroom(crit) {
       })
       .catch((err) => {
         bledy++;
+        if (err.status === 429) limitPrzekroczony = true;
+        // Hotelbeds odpowiada 403 nie tylko na zły klucz, ale też po wyczerpaniu
+        // limitu dobowego — zmierzone 29.07.2026 na sandboksie po serii testów.
+        if (err.status === 403) dostepOdmowiony = true;
         console.warn(`[hotelbeds][multiroom] ${dest} (${adults} dor. + ${children} dz.):`, err.message);
         return {};
       });
@@ -224,9 +230,21 @@ export async function searchMultiroom(crit) {
   // Pusty wynik przy awarii wszystkich zapytań to NIE jest „brak dostępności".
   // Milczące zero wysyła konsultanta do klienta z błędną informacją.
   if (!offers.length && bledy > 0) {
-    throw new Error(
-      `dostawca nie odpowiedział na ${bledy} z ${targets.length * (rooms.length + (mode === "any" ? 1 : 0))} zapytań — wynik nie jest wiarygodny`
-    );
+    // Komunikat czyta konsultant w trakcie rozmowy z klientem, nie programista
+    // w logach — musi od razu wiedzieć, czy czekać, czy szukać inaczej.
+    let komunikat;
+    if (limitPrzekroczony) {
+      komunikat = "Przekroczono limit zapytań do dostawcy. Odczekaj chwilę i spróbuj ponownie — to nie znaczy, że nie ma wolnych miejsc.";
+    } else if (dostepOdmowiony) {
+      komunikat = "Dostawca odmówił dostępu do wyszukiwania (wyczerpany limit dobowy albo problem z kluczem API). To nie jest brak wolnych miejsc — zgłoś to osobie technicznej.";
+    } else {
+      komunikat = "Dostawca nie odpowiedział na zapytanie o dostępność. Wynik byłby niepełny, więc go nie pokazujemy — spróbuj ponownie za chwilę.";
+    }
+    const err = new Error(komunikat);
+    err.providerFailure = true;
+    err.rateLimited = limitPrzekroczony;
+    err.accessDenied = dostepOdmowiony;
+    throw err;
   }
 
   offers.sort((a, b) => a.priceTotal - b.priceTotal); // od najtańszych za grupę

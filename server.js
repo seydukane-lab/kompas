@@ -238,7 +238,17 @@ app.get("/api/multiroom", async (req, res) => {
     const scored = offers.map((o) => scoreOffer(o, crit)); // dodaj valueScore/trust; kolejność (od najtańszych) zachowana
     res.json({ offers: scored, count: scored.length });
   } catch (err) {
-    console.error("multiroom error:", err);
+    console.error("multiroom error:", err.message);
+    // Awaria dostawcy to nie jest błąd Kompasa — konsultant dostaje gotowy
+    // komunikat i informację, czy ma sens spróbować ponownie za chwilę.
+    if (err.providerFailure) {
+      return res.status(err.rateLimited ? 429 : 502).json({
+        error: err.message,
+        retry: true,
+        offers: [],
+        count: 0,
+      });
+    }
     res.status(500).json({ error: "Błąd multiroom: " + err.message });
   }
 });
