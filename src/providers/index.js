@@ -43,14 +43,71 @@ export function providerStatus() {
 // kolei (dostępność + treści), więc limit jest wyższy niż na pojedynczy fetch.
 const PROVIDER_DEADLINE_MS = Number(process.env.PROVIDER_TIMEOUT_MS) || 25000;
 
+// ---------------------------------------------------------------
+//  Krótki cache wyników wyszukiwania
+//
+//  Konsultanci w jednym biurze pytają o to samo: te same kierunki, te same
+//  terminy, w kółko przez cały dzień. Bez cache'u każde takie pytanie to
+//  ponowne odpytanie wszystkich dostawców — a wąskim gardłem potrafi być
+//  jedno wolne źródło (zmierzone: 8–10 s przy 0,5 s reszty).
+//
+//  TTL jest krótki celowo: ceny i dostępność realnie się zmieniają, a
+//  konsultant nie może podać klientowi ceny sprzed pół godziny.
+// ---------------------------------------------------------------
+const CACHE_TTL_MS = Number(process.env.SEARCH_CACHE_TTL_MS) || 180000; // 3 minuty
+const CACHE_MAX = Number(process.env.SEARCH_CACHE_MAX) || 200;
+const searchCache = new Map();
+
+function cacheKey(crit) {
+  // Stabilny klucz: te same kryteria w innej kolejności pól to ten sam wynik.
+  return JSON.stringify(Object.keys(crit).sort().map((k) => [k, crit[k]]));
+}
+
+function cacheGet(key) {
+  const hit = searchCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > CACHE_TTL_MS) {
+    searchCache.delete(key);
+    return null;
+  }
+  // Odświeżenie pozycji — najdawniej używane wypadają pierwsze.
+  searchCache.delete(key);
+  searchCache.set(key, hit);
+  return hit.data;
+}
+
+function cacheSet(key, data) {
+  searchCache.set(key, { at: Date.now(), data });
+  while (searchCache.size > CACHE_MAX) {
+    searchCache.delete(searchCache.keys().next().value);
+  }
+}
+
+/** Czyści cache — przydatne w testach i po zmianie konfiguracji dostawców. */
+export function clearSearchCache() {
+  searchCache.clear();
+}
+
 // Odpytuje wszystkich aktywnych dostawców równolegle i scala oferty.
 // Wolne źródło nie może opóźniać reszty: każdy dostawca ma własny limit czasu,
 // a wynik składamy z tych, które zdążyły. Lepiej pokazać oferty z trzech źródeł
 // niż kazać konsultantowi czekać na czwarte, które akurat leży.
 export async function searchAll(crit) {
+  const key = cacheKey(crit);
+  const cached = cacheGet(key);
+  if (cached) {
+    console.log("[search] z cache: " + cached.offers.length + " ofert");
+    return { ...cached, cached: true };
+  }
+
   const providers = activeProviders();
+  const timings = providers.map(() => 0);
   const settled = await Promise.allSettled(
-    providers.map((p) => withDeadline(p.search(crit), PROVIDER_DEADLINE_MS, p.meta.id))
+    providers.map((p, i) => {
+      const t0 = Date.now();
+      return withDeadline(p.search(crit), PROVIDER_DEADLINE_MS, p.meta.id)
+        .finally(() => { timings[i] = Date.now() - t0; });
+    })
   );
 
   const offers = [];
@@ -61,14 +118,22 @@ export async function searchAll(crit) {
       // Priorytet dostawcy = pozycja w ALL (niższa = ważniejsza). Przyda się przy scalaniu.
       const prio = ALL.indexOf(prov);
       offers.push(...r.value.map((o) => ({ ...o, __prio: prio })));
-      sources.push({ id: prov.meta.id, label: prov.meta.label, count: r.value.length });
+      sources.push({ id: prov.meta.id, label: prov.meta.label, count: r.value.length, ms: timings[i] });
     } else if (r.status === "rejected") {
       console.warn(`[${prov.meta.id}] search error:`, r.reason?.message || r.reason);
-      sources.push({ id: prov.meta.id, label: prov.meta.label, count: 0, error: true });
+      sources.push({ id: prov.meta.id, label: prov.meta.label, count: 0, error: true, ms: timings[i] });
     }
   });
 
-  return { offers: dedupeOffers(offers), sources };
+  // Czas każdego źródła w logu — bez tego nie da się powiedzieć, które
+  // z nich spowalnia wyszukiwanie, a to jest pytanie, które wróci przy pilotażu.
+  console.log("[search] " + sources.map((s) => `${s.id} ${s.ms}ms/${s.count}`).join("  "));
+
+  const result = { offers: dedupeOffers(offers), sources };
+  // Do cache'u trafia tylko wynik, w którym żadne źródło nie padło — inaczej
+  // chwilowa awaria dostawcy zamroziłaby uboższą listę ofert na kolejne minuty.
+  if (!sources.some((s) => s.error)) cacheSet(key, result);
+  return result;
 }
 
 // ---------------------------------------------------------------
