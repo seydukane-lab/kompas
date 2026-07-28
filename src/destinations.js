@@ -25,7 +25,7 @@ const DEST = [
   { keys: ["kemer"], vibe: "Góry Taurus schodzą do morza, sosny", forWho: "pary, aktywni, miłośnicy widoków", watch: "plaże przeważnie kamieniste (żwir)", tip: "świetne na trekking i naturę" },
   { keys: ["bodrum"], vibe: "Modny, biało-niebieski klimat", forWho: "pary, wyższy standard", watch: "wiele plaż to pomosty — mało piasku", tip: "Turgutreis słynie z zachodów słońca" },
   { keys: ["marmaris"], vibe: "Zielona zatoka, żywe życie nocne", forWho: "młodzież, rodziny", watch: "Bar Street bardzo głośny", tip: "İçmeler obok = znacznie spokojniej" },
-  { keys: ["kusadasi", "kuşadası", "kusadasi"], vibe: "Baza do Efezu, żywe miasteczko", forWho: "rodziny, zwiedzanie", watch: "gwarno w szczycie sezonu", tip: "koniecznie wypad do Efezu / Pamukkale" },
+  { keys: ["kusadasi", "kuşadası"], vibe: "Baza do Efezu, żywe miasteczko", forWho: "rodziny, zwiedzanie", watch: "gwarno w szczycie sezonu", tip: "koniecznie wypad do Efezu / Pamukkale" },
 
   // ---- GRECJA ----
   { keys: ["kreta"], vibe: "Największa wyspa, ogromna różnorodność", forWho: "praktycznie każdy", watch: "zachód (Chania) inny niż wschód (Heraklion/Lasithi) — sprawdź konkretny region", tip: "Elounda = premium, Malia = impreza, Rethymno = złoty środek" },
