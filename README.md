@@ -56,6 +56,31 @@ jeszcze schowany za flagą `--experimental-sqlite`.
    ```
 3. `npm start` — baner w panelu zmieni się na „Dane na żywo", pojawią się prawdziwe zdjęcia.
 
+## Testy
+
+```powershell
+npm test          # cały zestaw
+npm run test:watch  # w trybie ciągłym podczas pracy
+```
+
+Wbudowany runner Node (`node --test`) — zero zależności, zero konfiguracji.
+Testy **nie wymagają żadnych kluczy API ani dostępu do sieci**: kurs NBP jest
+podmieniany, a dostawcy bez kluczy po prostu się nie włączają. Dzięki temu ten
+sam zestaw przechodzi na czystej maszynie i w CI.
+
+| Plik | Czego pilnuje |
+|---|---|
+| `test/ranking.test.js` | anty-przekoloryzacja, scoring, sortowanie, wszystkie filtry |
+| `test/auth.test.js` | hasła, sesje, role, izolacja koszyków między kontami |
+| `test/providers.test.js` | scalanie ofert z wielu źródeł, cache, limity czasu |
+| `test/fx.test.js` | kurs NBP i zachowanie przy awarii NBP |
+| `test/server.test.js` | serwer po HTTP: kto gdzie wchodzi, czego nie widzi |
+
+Najważniejszy test w całym zestawie nazywa się `ANTY-PRZEKOLORYZACJA` i pilnuje,
+żeby hotel z oceną 9,8 wystawioną przez trzy osoby przegrywał z 8,7 z tysięcy
+świeżych opinii. To jest obietnica produktu — musi być weryfikowalna, nie
+deklaratywna.
+
 ## Jak to zbudowane
 
 ```
