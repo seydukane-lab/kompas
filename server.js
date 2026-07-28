@@ -38,6 +38,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "256kb" }));
+
+// Nagłówki bezpieczeństwa. Świadomie BEZ Content-Security-Policy: cały panel to
+// jeden plik z inline'owym stylem i skryptem, więc sensowna polityka wymagałaby
+// najpierw rozbicia frontu na osobne pliki. Poniższe trzy nagłówki nic nie psują,
+// a zamykają najprostsze drogi ataku na panel wystawiony publicznie.
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY"); // panel nie ma prawa działać w cudzej ramce
+  res.setHeader("Referrer-Policy", "same-origin");
+  next();
+});
+
 app.use(attachUser);
 
 // Panel jest narzędziem pracy konsultanta, nie stroną publiczną —

@@ -212,6 +212,54 @@ test("status podaje dostawców i kurs waluty", async () => {
   assert.ok(d.fx && d.fx.eurPln > 0, "panel musi wiedzieć, po jakim kursie liczy ceny");
 });
 
+test("odpowiedzi mają nagłówki bezpieczeństwa", async () => {
+  for (const sciezka of ["/login.html", "/healthz"]) {
+    const r = await fetch(BASE + sciezka);
+    assert.equal(r.headers.get("x-content-type-options"), "nosniff", sciezka);
+    assert.equal(r.headers.get("x-frame-options"), "DENY", `${sciezka} — panel nie może działać w cudzej ramce`);
+    assert.equal(r.headers.get("referrer-policy"), "same-origin", sciezka);
+  }
+});
+
+test("zbyt duży koszyk jest odrzucany, a nie połykany", async () => {
+  const cookie = await zaloguj(ADMIN.email, ADMIN.pass);
+  // Ponad limit 256 kB — ktoś mógłby tak zapychać bazę bez końca.
+  const wielki = { items: Array.from({ length: 4000 }, (_, i) => ({ id: "h" + i, name: "x".repeat(100) })) };
+  const r = await fetch(BASE + "/api/cart", {
+    method: "PUT", headers: { "Content-Type": "application/json", cookie },
+    body: JSON.stringify(wielki),
+  });
+  assert.ok(r.status >= 400, `oczekiwano odmowy, dostałem ${r.status}`);
+  // Serwer musi to przeżyć.
+  assert.equal((await fetch(BASE + "/healthz")).status, 200);
+});
+
+test("uszkodzony JSON nie wywraca serwera", async () => {
+  const cookie = await zaloguj(ADMIN.email, ADMIN.pass);
+  const r = await fetch(BASE + "/api/cart", {
+    method: "PUT", headers: { "Content-Type": "application/json", cookie },
+    body: "{to nie jest json",
+  });
+  assert.ok(r.status >= 400);
+  assert.equal((await fetch(BASE + "/healthz")).status, 200);
+});
+
+test("podrobione ciasteczko sesji nie wpuszcza", async () => {
+  for (const falsywka of ["kompas_sid=zmyslony", "kompas_sid=", "kompas_sid=" + "a".repeat(43)]) {
+    const r = await fetch(BASE + "/api/cart", { headers: { cookie: falsywka } });
+    assert.equal(r.status, 401, `token „${falsywka}" nie może działać`);
+  }
+});
+
+test("multiroom bez sensownych pokoi nie wywraca serwera", async () => {
+  const cookie = await zaloguj(ADMIN.email, ADMIN.pass);
+  for (const rooms of ["nie-json", "{}", "[]", '[{"adults":-5}]']) {
+    const r = await fetch(BASE + `/api/multiroom?rooms=${encodeURIComponent(rooms)}`, { headers: { cookie } });
+    assert.ok([200, 500, 503].includes(r.status), `nieoczekiwany status ${r.status} dla rooms=${rooms}`);
+  }
+  assert.equal((await fetch(BASE + "/healthz")).status, 200);
+});
+
 test("nieznana ścieżka nie wywraca serwera", async () => {
   const r = await fetch(BASE + "/api/nie-ma-takiego-endpointu");
   assert.ok(r.status === 401 || r.status === 404, `nieoczekiwany status ${r.status}`);
