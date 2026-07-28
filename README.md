@@ -77,6 +77,8 @@ sam zestaw przechodzi na czystej maszynie i w CI.
 | `test/http.test.js` | kolejkowanie zapytań do dostawcy i ponawianie po 429 |
 | `test/hotelbeds.test.js` | wybór destynacji z krajów/regionów, skład grupy |
 | `test/destinations.test.js` | kompletność bazy kierunków i danych krajów |
+| `test/oferta-kontrakt.test.js` | wspólny kształt oferty — siatka dla nowych dostawców |
+| `test/front.test.js` | składnia inline-scriptu i pułapki panelu |
 | `test/server.test.js` | serwer po HTTP: kto gdzie wchodzi, czego nie widzi |
 
 Najważniejszy test w całym zestawie nazywa się `ANTY-PRZEKOLORYZACJA` i pilnuje,
