@@ -19,6 +19,7 @@ import { applyFilters, scoreOffer, sortOffers } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
+import { refreshRate, fxStatus } from "./src/fx.js";
 import {
   attachUser, requireAuth, requireAdmin,
   verifyLogin, createSession, destroySession, purgeExpiredSessions,
@@ -188,7 +189,7 @@ app.get("/healthz", (req, res) => {
 
 // --- Status dostawców (do baneru w panelu) ---
 app.get("/api/status", (req, res) => {
-  res.json({ providers: providerStatus() });
+  res.json({ providers: providerStatus(), fx: fxStatus() });
 });
 
 // --- Destination Intelligence: kuratorowana wiedza o kierunkach ---
@@ -265,6 +266,9 @@ app.get("/api/search", async (req, res) => {
       sort: q.sort || "score",
     };
 
+    // Kurs odświeża się w tle; jeśli jest aktualny, to koszt zerowy.
+    refreshRate();
+
     const { offers, sources } = await searchAll(crit);
     const filtered = applyFilters(offers, crit);
     const scored = filtered.map((o) => scoreOffer(o, crit));
@@ -297,6 +301,9 @@ process.on("uncaughtException", (err) => {
 });
 
 purgeExpiredSessions();
+// Kurs pobieramy od razu przy starcie, żeby pierwsze wyszukiwanie po wdrożeniu
+// nie liczyło cen po wartości awaryjnej.
+refreshRate(true);
 
 const server = app.listen(PORT, () => {
   const providers = providerStatus()

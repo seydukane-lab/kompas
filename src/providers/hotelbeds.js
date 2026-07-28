@@ -13,6 +13,7 @@
 import crypto from "node:crypto";
 import { regionCode, regionInfo } from "../countries.js";
 import { fetchWithTimeout } from "../http.js";
+import { eurToPln } from "../fx.js";
 
 const KEY = process.env.HOTELBEDS_API_KEY || "";
 const SECRET = process.env.HOTELBEDS_SECRET || "";
@@ -241,7 +242,7 @@ function normalizeMultiroom(code, c, rates, rooms, totalPax) {
       label: "Pokój " + (i + 1) + " (" + who + ")",
       roomName: prettyRoom(rate.roomName),
       board: mapBoard(rate.boardCode, rate.boardName),
-      price: Math.round(rate.net * EUR_PLN),
+      price: Math.round(eurToPln(rate.net)),
     };
   });
   const priceTotal = breakdown.reduce((s, b) => s + b.price, 0);
@@ -337,8 +338,8 @@ function prettyRoom(name) {
     .trim();
 }
 
-// Zamiana EUR->PLN (orientacyjnie). W produkcji: kurs z API NBP lub ustawiany w panelu.
-const EUR_PLN = 4.3;
+// Zamiana EUR->PLN po kursie NBP (patrz src/fx.js). Kurs jest odświeżany w tle,
+// tutaj tylko odczytujemy aktualną wartość — przeliczanie nie może czekać na sieć.
 
 function normalize(h, c, rate, pax) {
   const images = (c.images || [])
@@ -359,7 +360,7 @@ function normalize(h, c, rate, pax) {
   const newHotel = freshYear ? new Date().getFullYear() - freshYear <= 3 : false;
 
   // rate.net to cena za CAŁY pobyt/pokój (w EUR). Przeliczamy na zł/os.
-  const pricePerPerson = Math.round((rate.net * EUR_PLN) / Math.max(1, pax));
+  const pricePerPerson = Math.round(eurToPln(rate.net) / Math.max(1, pax));
 
   return {
     id: `hb-${h.code}`,

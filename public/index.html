@@ -1844,6 +1844,13 @@
     var pill=document.getElementById("srcPill"),foot=document.getElementById("footnote");
     if(live.length){pill.className="src-pill live";pill.innerHTML='<span class="dot"></span>Dane na żywo: '+live.map(function(p){return p.label;}).join(", ");foot.innerHTML='<b>Tryb produkcyjny.</b> Oferty i zdjęcia pochodzą z API dostawców ('+live.map(function(p){return p.label;}).join(", ")+') na podstawie umowy partnerskiej.';}
     else{pill.className="src-pill demo";pill.innerHTML='<span class="dot"></span>Wersja przedpremierowa';foot.innerHTML='<b>Wersja przedpremierowa.</b> Część prezentowanych ofert to dane demonstracyjne, oznaczone w interfejsie. Ceny mają charakter orientacyjny i wymagają potwierdzenia u organizatora.';}
+    // Po jakim kursie liczone są oferty rozliczane w euro — konsultant podaje te
+    // kwoty klientowi, więc musi wiedzieć, skąd się biorą i jak są świeże.
+    if(d.fx&&d.fx.eurPln){
+      var fxTxt=' Ceny z ofert rozliczanych w euro przeliczono po kursie <b>'+String(d.fx.eurPln).replace(".",",")+' zł/EUR</b>';
+      fxTxt+=d.fx.date?(' ('+d.fx.source+' z '+d.fx.date+').'):' (kurs awaryjny — nie udało się pobrać z NBP).';
+      foot.innerHTML+=fxTxt;
+    }
   }).catch(function(){});
 
   search();
