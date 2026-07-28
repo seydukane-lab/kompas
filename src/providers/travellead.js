@@ -3,6 +3,13 @@
 //  Feed produktowy XML z ofertami pakietowymi (lot+hotel+transfer)
 //  + deep-linki afiliacyjne do rezerwacji na Wakacje.pl.
 //
+//  ⚠️ STATUS 2026-07-28: zgłoszenie do programu ODRZUCONE. Powód z ich maila:
+//  nie współpracują z serwisami będącymi „jedynie agregatami ofert", bo to
+//  rozwiązanie tożsame z ich własnym. Feedu nie ma i w tym modelu nie będzie.
+//  Kod zostaje nietknięty — nic nie kosztuje, bo bez klucza się nie włącza,
+//  a decyzja może się zmienić przy innym ułożeniu współpracy (narzędzie dla
+//  konsultantów zamiast publicznego agregatu). NIE zakładać, że to działa.
+//
 //  Włącza się TYLKO gdy w .env jest TRAVELLEAD_FEED_URL
 //  (dostępny w panelu wydawcy po akceptacji konta).
 //
