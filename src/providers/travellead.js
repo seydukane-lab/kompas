@@ -12,6 +12,7 @@
 // ============================================================
 
 import { XMLParser } from "fast-xml-parser";
+import { fetchWithTimeout } from "../http.js";
 
 const FEED_URL = process.env.TRAVELLEAD_FEED_URL || "";
 const PARTNER_ID = process.env.TRAVELLEAD_PARTNER_ID || "";
@@ -36,7 +37,7 @@ export async function search(crit) {
 }
 
 async function fetchFeed() {
-  const res = await fetch(FEED_URL, { headers: { Accept: "application/xml,text/xml" } });
+  const res = await fetchWithTimeout(FEED_URL, { headers: { Accept: "application/xml,text/xml" } });
   if (!res.ok) throw new Error(`travellead feed HTTP ${res.status}`);
   const xml = await res.text();
 

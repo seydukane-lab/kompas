@@ -16,6 +16,8 @@
 //  Reszta (kształt oferty, mapowanie, ranking) jest już gotowa.
 // ============================================================
 
+import { fetchWithTimeout } from "../http.js";
+
 const URL = process.env.MERLINX_URL || "";
 const LOGIN = process.env.MERLINX_LOGIN || "";
 const PASSWORD = process.env.MERLINX_PASSWORD || "";
@@ -40,7 +42,7 @@ export async function search(crit) {
 
   // TODO(docs): potwierdzić metodę (POST/GET), nagłówki i Content-Type
   // (XML/SOAP: text/xml + SOAPAction; REST: application/json).
-  const res = await fetch(URL, {
+  const res = await fetchWithTimeout(URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

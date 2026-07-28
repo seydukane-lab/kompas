@@ -12,6 +12,7 @@
 
 import crypto from "node:crypto";
 import { regionCode, regionInfo } from "../countries.js";
+import { fetchWithTimeout } from "../http.js";
 
 const KEY = process.env.HOTELBEDS_API_KEY || "";
 const SECRET = process.env.HOTELBEDS_SECRET || "";
@@ -283,7 +284,7 @@ async function availability({ dest, from, to, adults, children }) {
     ],
     destination: { code: dest },
   };
-  const res = await fetch(`${BASE}/hotel-api/1.0/hotels`, {
+  const res = await fetchWithTimeout(`${BASE}/hotel-api/1.0/hotels`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(body),
@@ -302,7 +303,7 @@ async function fetchContent(codes) {
     to: String(Math.min(codes.length, 50)),
     codes: codes.slice(0, 50).join(","),
   });
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `${BASE}/hotel-content-api/1.0/hotels?${params.toString()}`,
     { headers: headers() }
   );

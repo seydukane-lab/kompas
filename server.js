@@ -18,7 +18,7 @@ import * as hotelbeds from "./src/providers/hotelbeds.js";
 import { applyFilters, scoreOffer, sortOffers } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
-import { userCount, DB_PATH } from "./src/db.js";
+import { db, userCount, DB_PATH } from "./src/db.js";
 import {
   attachUser, requireAuth, requireAdmin,
   verifyLogin, createSession, destroySession, purgeExpiredSessions,
@@ -180,6 +180,12 @@ app.post("/api/advisor", async (req, res) => {
   }
 });
 
+// Kontrola życia procesu — dla hostingu i prostego monitoringu.
+// Poza /api, więc nie wymaga sesji: monitoring nie ma się jak zalogować.
+app.get("/healthz", (req, res) => {
+  res.json({ ok: true, uptime: Math.round(process.uptime()), time: new Date().toISOString() });
+});
+
 // --- Status dostawców (do baneru w panelu) ---
 app.get("/api/status", (req, res) => {
   res.json({ providers: providerStatus() });
@@ -271,9 +277,28 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
+// Ostatnia zapora: cokolwiek wyleci z trasy i nie zostanie złapane wyżej,
+// kończy się czytelnym 500 zamiast zerwanego połączenia. Treść błędu zostaje
+// w logu serwera — do przeglądarki idzie komunikat bez szczegółów technicznych.
+app.use((err, req, res, next) => {
+  console.error("nieobsłużony błąd trasy:", req.method, req.originalUrl, err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: "Coś poszło nie tak po stronie serwera. Spróbuj ponownie." });
+});
+
+// Panel ma stać przez całą zmianę w biurze. Pojedynczy błąd w kodzie
+// asynchronicznym nie może kłaść procesu i wyrzucać wszystkich z sesji —
+// logujemy i pracujemy dalej.
+process.on("unhandledRejection", (reason) => {
+  console.error("nieobsłużone odrzucenie obietnicy:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("nieprzechwycony wyjątek:", err);
+});
+
 purgeExpiredSessions();
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   const providers = providerStatus()
     .filter((p) => p.enabled)
     .map((p) => p.label)
@@ -287,3 +312,17 @@ app.listen(PORT, () => {
   }
   console.log("");
 });
+
+// Wdrożenie (Render, systemd, docker) wysyła SIGTERM. Domykamy w porządku:
+// bez tego zapis koszyka trafiony w złym momencie mógłby zostać ucięty.
+for (const sig of ["SIGTERM", "SIGINT"]) {
+  process.on(sig, () => {
+    console.log(`\n  ${sig} — zamykam Kompas…`);
+    server.close(() => {
+      try { db.close(); } catch { /* baza mogła już zostać zamknięta */ }
+      process.exit(0);
+    });
+    // Gdyby otwarte połączenia nie chciały się rozejść — nie wisimy w nieskończoność.
+    setTimeout(() => process.exit(0), 5000).unref();
+  });
+}

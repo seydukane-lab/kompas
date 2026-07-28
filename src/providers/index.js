@@ -10,6 +10,7 @@ import * as merlinx from "./merlinx.js";
 import * as travellead from "./travellead.js";
 import * as plPackages from "./packages.js";
 import { normalizeName } from "../ranking.js";
+import { withDeadline } from "../http.js";
 
 // Provider wakacje.js jest LOKALNY (gitignored) — na publicznym wdrożeniu (Render)
 // tego pliku nie ma. Ładujemy go OPCJONALNIE, żeby build nie padał przy jego braku;
@@ -38,10 +39,19 @@ export function providerStatus() {
   }));
 }
 
+// Ile czasu wolno zająć JEDNEMU dostawcy. Hotelbeds robi kilka wywołań po
+// kolei (dostępność + treści), więc limit jest wyższy niż na pojedynczy fetch.
+const PROVIDER_DEADLINE_MS = Number(process.env.PROVIDER_TIMEOUT_MS) || 25000;
+
 // Odpytuje wszystkich aktywnych dostawców równolegle i scala oferty.
+// Wolne źródło nie może opóźniać reszty: każdy dostawca ma własny limit czasu,
+// a wynik składamy z tych, które zdążyły. Lepiej pokazać oferty z trzech źródeł
+// niż kazać konsultantowi czekać na czwarte, które akurat leży.
 export async function searchAll(crit) {
   const providers = activeProviders();
-  const settled = await Promise.allSettled(providers.map((p) => p.search(crit)));
+  const settled = await Promise.allSettled(
+    providers.map((p) => withDeadline(p.search(crit), PROVIDER_DEADLINE_MS, p.meta.id))
+  );
 
   const offers = [];
   const sources = [];
