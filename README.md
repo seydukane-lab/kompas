@@ -71,9 +71,12 @@ sam zestaw przechodzi na czystej maszynie i w CI.
 | Plik | Czego pilnuje |
 |---|---|
 | `test/ranking.test.js` | anty-przekoloryzacja, scoring, sortowanie, wszystkie filtry |
-| `test/auth.test.js` | hasła, sesje, role, izolacja koszyków między kontami |
+| `test/auth.test.js` | hasła, sesje, role, izolacja koszyków, konto startowe |
 | `test/providers.test.js` | scalanie ofert z wielu źródeł, cache, limity czasu |
 | `test/fx.test.js` | kurs NBP i zachowanie przy awarii NBP |
+| `test/http.test.js` | kolejkowanie zapytań do dostawcy i ponawianie po 429 |
+| `test/hotelbeds.test.js` | wybór destynacji z krajów/regionów, skład grupy |
+| `test/destinations.test.js` | kompletność bazy kierunków i danych krajów |
 | `test/server.test.js` | serwer po HTTP: kto gdzie wchodzi, czego nie widzi |
 
 Najważniejszy test w całym zestawie nazywa się `ANTY-PRZEKOLORYZACJA` i pilnuje,
