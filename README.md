@@ -12,10 +12,37 @@ z API dostawców wraz z licencją na wyświetlanie — **nic nie jest scrapowane
 ```powershell
 cd C:\Users\Wiktor\kompas
 npm install
+npm run user:add -- ty@biuro.pl "Twoje Imię" mocneHaslo123 admin
 npm start
 ```
 
-Otwórz http://localhost:3000 — działa na danych demonstracyjnych.
+Otwórz http://localhost:3000 — zobaczysz ekran logowania, a po zalogowaniu panel
+na danych demonstracyjnych.
+
+## Konta konsultantów
+
+Panel nie jest stroną publiczną — bez zalogowania widać wyłącznie ekran logowania.
+Każdy konsultant ma własne konto, a **koszyk odłożonych ofert jest przypisany do konta**,
+nie do przeglądarki: po przesiadce na inne stanowisko oferty są na miejscu, a dwie osoby
+przy jednym komputerze nie mieszają sobie propozycji.
+
+```powershell
+npm run user:add  -- jan@biuro.pl "Jan Kowalski" haslo1234   # nowy konsultant
+npm run user:add  -- szef@biuro.pl "Anna Nowak" haslo1234 admin
+npm run user:list                                            # kto ma dostęp
+npm run user:pass -- jan@biuro.pl noweHaslo123               # reset hasła
+npm run user:off  -- jan@biuro.pl                            # odcięcie dostępu
+npm run user:on   -- jan@biuro.pl
+```
+
+Role: `consultant` (praca w panelu) i `admin` (dodatkowo `/api/users` — zakładanie kont,
+reset haseł, wyłączanie dostępu). Zmiana hasła i wyłączenie konta natychmiast unieważniają
+otwarte sesje. Hasła są hashowane scryptem, sesja to token w ciasteczku `HttpOnly`.
+
+Konta, sesje i koszyki leżą w SQLite (`data/kompas.db`, katalog jest w `.gitignore`).
+Baza korzysta z wbudowanego modułu `node:sqlite`, więc nie instaluje żadnych dodatkowych
+zależności (i nie wymaga kompilacji), ale **wymaga Node ≥ 24** — na Node 22 moduł jest
+jeszcze schowany za flagą `--experimental-sqlite`.
 
 ## Tryb produkcyjny (prawdziwe hotele + zdjęcia)
 

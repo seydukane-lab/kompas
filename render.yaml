@@ -11,3 +11,14 @@ services:
     startCommand: npm start
     # Klucze API (Hotelbeds itd.) NIE są w repo — w razie potrzeby
     # dodaje się je ręcznie w panelu Render: Environment -> Add Secret.
+    envVars:
+      # Baza kont używa wbudowanego node:sqlite — na Node 22 siedzi jeszcze za
+      # flagą --experimental-sqlite, dlatego wersja jest tu przypięta na sztywno.
+      - key: NODE_VERSION
+        value: "24.18.0"
+      - key: NODE_ENV
+        value: production
+    # ⚠️ Konta konsultantów: na planie free dysk jest efemeryczny, więc baza
+    # (data/kompas.db) znika przy każdym wdrożeniu — do demonstracji to wystarcza,
+    # ale pilotaż w biurze wymaga dysku trwałego (Render Disk lub VPS) i ustawienia
+    # DB_PATH na zamontowaną ścieżkę.

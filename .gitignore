@@ -3,6 +3,9 @@ node_modules/
 *.log
 .DS_Store
 
+# Baza kont konsultantów (hashe haseł, sesje, koszyki) — NIGDY do repo.
+data/
+
 # Provider LOKALNY (nieoficjalny endpoint wakacje.pl) — NIGDY na publiczne repo.
 # Włącza się tylko lokalnie przez WAKACJE_API_URL/KEY w .env.
 src/providers/wakacje.js

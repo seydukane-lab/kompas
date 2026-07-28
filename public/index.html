@@ -40,6 +40,11 @@
   .src-pill.demo{color:var(--warn);background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 25%,transparent)}
   .src-pill.live{color:var(--good);background:var(--good-soft);border-color:color-mix(in srgb,var(--good) 25%,transparent)}
   .src-pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .whoami{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft)}
+  .who-name{font-weight:600;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .who-out{font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft)}
+  .who-out:hover{color:var(--crit);border-color:var(--crit)}
+  @media (max-width:760px){.who-name{display:none}}
   .theme-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);display:grid;place-items:center}
   .theme-btn:hover{color:var(--accent);border-color:var(--accent)}
   .theme-btn svg{width:17px;height:17px}
@@ -467,6 +472,7 @@
     </div>
     <a href="/o-serwisie.html" style="margin-left:auto;font-size:13px;font-weight:600;color:var(--ink-soft);text-decoration:none;padding:6px 10px;border-radius:8px" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink-soft)'">O serwisie</a>
     <span class="src-pill demo" id="srcPill" style="margin-left:0"><span class="dot"></span>Sprawdzam źródła…</span>
+    <span class="whoami" id="whoami" hidden><span class="who-name" id="whoName"></span><button class="who-out" id="logoutBtn" title="Wyloguj się">Wyloguj</button></span>
     <button class="cart-btn" id="cartBtn" aria-label="Koszyk odłożonych ofert" title="Odłożone oferty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 01-8 0"/></svg><span class="cart-count" id="cartCount">0</span></button>
     <button class="theme-btn" id="themeBtn" aria-label="Przełącz motyw" title="Przełącz jasny/ciemny"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg></button>
   </div>
@@ -943,7 +949,7 @@
     var res=document.getElementById("mrResults");
     res.innerHTML='<div class="mr-empty">Szukam dostępności na wszystkie pokoje…</div>';
     var p=new URLSearchParams({countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,rooms:JSON.stringify(mrRooms),roomsMode:document.getElementById("mrAny").checked?"any":"split"});
-    fetch("/api/multiroom?"+p.toString()).then(function(r){return r.json();}).then(function(d){
+    api("/api/multiroom?"+p.toString()).then(function(r){return r.json();}).then(function(d){
       if(d.error&&!(d.offers&&d.offers.length)){res.innerHTML='<div class="mr-empty">'+d.error+'</div>';return;}
       mrRenderResults(d.offers||[]);
     }).catch(function(e){res.innerHTML='<div class="mr-empty">Błąd: '+e.message+'</div>';});
@@ -980,12 +986,57 @@
   var cardsEl=document.getElementById("cards"),toastEl=document.getElementById("toast"),toastT;
   function toast(m){toastEl.textContent=m;toastEl.classList.add("show");clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove("show");},1900);}
 
-  /* ---------- Koszyk (odkładka ofert dla konsultanta) ---------- */
+  /* ---------- Sesja konsultanta ----------
+     Wygaśnięcie sesji w trakcie pracy nie może kończyć się cichym „nic się nie dzieje" —
+     każde 401 z API odsyła wprost na ekran logowania. */
+  function api(url,opts){
+    return fetch(url,opts||{}).then(function(r){
+      if(r.status===401){location.replace("/login.html");throw new Error("Sesja wygasła.");}
+      return r;
+    });
+  }
+  var ME=null;
+  function initSession(){
+    return fetch("/api/auth/me").then(function(r){return r.json();}).then(function(d){
+      ME=d.user||null;
+      if(!ME){location.replace("/login.html");return;}
+      var box=document.getElementById("whoami");
+      document.getElementById("whoName").textContent=ME.name||ME.email;
+      box.hidden=false;
+      // Koszyk z konta jest źródłem prawdy — lokalna kopia to tylko bufor.
+      return api("/api/cart").then(function(r){return r.json();}).then(function(c){
+        if(Array.isArray(c.items)){cart=c.items;try{localStorage.setItem(CART_KEY,JSON.stringify(cart));}catch(e){}}
+        updateCartCount();syncCardButtons();if(cartDrawer&&!cartDrawer.hidden)renderCart();
+      }).catch(function(){});
+    }).catch(function(){});
+  }
+  document.getElementById("logoutBtn").addEventListener("click",function(){
+    fetch("/api/auth/logout",{method:"POST"}).catch(function(){}).then(function(){
+      // Koszyk zostaje na serwerze; czyścimy tylko lokalny bufor, żeby następna
+      // osoba przy tym komputerze nie zobaczyła cudzych ofert.
+      try{localStorage.removeItem(CART_KEY);}catch(e){}
+      location.replace("/login.html");
+    });
+  });
+
+  /* ---------- Koszyk (odkładka ofert dla konsultanta) ----------
+     Koszyk należy do KONTA, nie do przeglądarki: po zalogowaniu na innym
+     stanowisku konsultant ma swoje oferty przy sobie, a dwie osoby przy
+     jednym komputerze nie mieszają sobie odłożonych propozycji.
+     localStorage zostaje jako bufor na czas, gdy zapis na serwer nie przejdzie. */
   var CART_KEY="kompasCart",cart=[];
   try{cart=JSON.parse(localStorage.getItem(CART_KEY))||[];}catch(e){cart=[];}
   if(!Array.isArray(cart))cart=[];
   var cartCountEl=document.getElementById("cartCount"),cartDrawer=document.getElementById("cartDrawer"),cartListEl=document.getElementById("cartList"),cartHeadN=document.getElementById("cartHeadN");
-  function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart));}catch(e){}}
+  var cartPushT=null;
+  function saveCart(){
+    try{localStorage.setItem(CART_KEY,JSON.stringify(cart));}catch(e){}
+    // Zapis na serwer zbiorczo — kilka szybkich kliknięć „Odłóż" to jedno żądanie.
+    clearTimeout(cartPushT);
+    cartPushT=setTimeout(function(){
+      api("/api/cart",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:cart})}).catch(function(){});
+    },400);
+  }
   function inCart(id){return cart.some(function(x){return x.id===id;});}
   // Zapisujemy lekki snapshot oferty (nie całą kartę) — starczy do listy i zestawienia.
   function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:h.priceTotal||0,stars:h.stars||3,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
@@ -1127,7 +1178,7 @@
   }
   /* ---------- Destination Intelligence (klient) — wiedza o kierunku w raporcie ---------- */
   var DEST_INTEL=[];
-  fetch("/api/destinations").then(function(r){return r.json();}).then(function(d){DEST_INTEL=d.destinations||[];if(lastList&&lastList.length&&typeof render==="function")render(lastList);}).catch(function(){});
+  api("/api/destinations").then(function(r){return r.json();}).then(function(d){DEST_INTEL=d.destinations||[];if(lastList&&lastList.length&&typeof render==="function")render(lastList);}).catch(function(){});
   function normD(s){return String(s||"").toLowerCase().replace(/ł/g,"l").normalize("NFD").replace(/[̀-ͯ]/g,"");}
   function destIntelClient(region,country){var hay=normD(region)+" "+normD(country);for(var i=0;i<DEST_INTEL.length;i++){var d=DEST_INTEL[i];if((d.keys||[]).some(function(k){return hay.indexOf(normD(k))>-1;}))return d;}return null;}
 
@@ -1224,7 +1275,7 @@
 
   /* ---------- Analiza ETA OS przez Claude API (aktywna tylko gdy jest ANTHROPIC_API_KEY) ---------- */
   var advisorEnabled=false;
-  fetch("/api/advisor/status").then(function(r){return r.json();}).then(function(d){advisorEnabled=!!d.enabled;}).catch(function(){});
+  api("/api/advisor/status").then(function(r){return r.json();}).then(function(d){advisorEnabled=!!d.enabled;}).catch(function(){});
   function mdLite(s){
     s=String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     s=s.replace(/^#{3,4} (.*)$/gm,"<h4>$1</h4>").replace(/^## (.*)$/gm,"<h3>$1</h3>").replace(/^# (.*)$/gm,"<h3>$1</h3>");
@@ -1237,7 +1288,7 @@
     if(!advisorEnabled){toast("Analiza AI wyłączona — dodaj ANTHROPIC_API_KEY w .env (lokalnie)");return;}
     var btn=this,old=btn.textContent;btn.disabled=true;btn.textContent="✨ Analizuję…";
     var crit={budget:+budget.value,budgetMode:budgetMode,adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value,childAges:childAgesValue().split(",").filter(Boolean),nights:activeNights,departures:activeDeps};
-    fetch("/api/advisor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({offers:cart,criteria:crit})})
+    api("/api/advisor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({offers:cart,criteria:crit})})
       .then(function(r){return r.json();})
       .then(function(d){
         if(d.report){document.getElementById("repBody").innerHTML='<p class="rep-note">✨ Analiza ETA OS wygenerowana przez AI ('+(d.model||"Claude")+'). Na danych z listingu — ceny orientacyjne, szczegóły do potwierdzenia u organizatora.</p><div class="rep-ai">'+mdLite(d.report)+'</div>';}
@@ -1473,7 +1524,7 @@
     searchBtn.disabled=true;
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
     var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
-    fetch("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
+    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
   document.getElementById("sort").addEventListener("change",search);
@@ -1602,7 +1653,7 @@
   }
   document.getElementById("practicalHead").addEventListener("click",function(){practical.classList.toggle("open");});
 
-  fetch("/api/countries").then(function(r){return r.json();}).then(function(d){
+  api("/api/countries").then(function(r){return r.json();}).then(function(d){
     COUNTRY_DATA=d.countries||{};
     // Indeks region → kraj (z danych krajów).
     Object.keys(COUNTRY_DATA).forEach(function(country){(COUNTRY_DATA[country].regions||[]).forEach(function(r){REGION_TO_COUNTRY[r]=country;});});
@@ -1670,8 +1721,10 @@
   document.getElementById("agentInput").addEventListener("keydown",function(e){if(e.key==="Enter")runAgent();});
   document.getElementById("agentExamples").addEventListener("click",function(e){var ex=e.target.closest(".agent-ex");if(!ex)return;document.getElementById("agentInput").value=ex.textContent;runAgent();});
 
+  initSession();
+
   // Status źródeł danych
-  fetch("/api/status").then(function(r){return r.json();}).then(function(d){
+  api("/api/status").then(function(r){return r.json();}).then(function(d){
     var live=(d.providers||[]).filter(function(p){return p.enabled&&p.needsKeys;});
     var pill=document.getElementById("srcPill"),foot=document.getElementById("footnote");
     if(live.length){pill.className="src-pill live";pill.innerHTML='<span class="dot"></span>Dane na żywo: '+live.map(function(p){return p.label;}).join(", ");foot.innerHTML='<b>Tryb produkcyjny.</b> Oferty i zdjęcia pochodzą z API dostawców ('+live.map(function(p){return p.label;}).join(", ")+') na podstawie umowy partnerskiej.';}

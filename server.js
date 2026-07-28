@@ -18,6 +18,14 @@ import * as hotelbeds from "./src/providers/hotelbeds.js";
 import { applyFilters, scoreOffer, sortOffers } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
+import { userCount, DB_PATH } from "./src/db.js";
+import {
+  attachUser, requireAuth, requireAdmin,
+  verifyLogin, createSession, destroySession, purgeExpiredSessions,
+  setSessionCookie, clearSessionCookie,
+  listUsers, createUser, setPassword, setActive,
+  getCart, saveCart,
+} from "./src/auth.js";
 
 // Doradca ETA OS (Claude) — provider LOKALNY (prompt = know-how użytkownika, gitignored).
 // Ładowany OPCJONALNIE: bez pliku (publiczny Render) AI jest po prostu wyłączone.
@@ -28,8 +36,128 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static(join(__dirname, "public")));
 app.use(express.json({ limit: "256kb" }));
+app.use(attachUser);
+
+// Panel jest narzędziem pracy konsultanta, nie stroną publiczną —
+// bez sesji z „/" widać wyłącznie ekran logowania.
+app.get(["/", "/index.html"], (req, res, next) => {
+  if (!req.user) return res.redirect("/login.html");
+  next();
+});
+app.use(express.static(join(__dirname, "public")));
+
+// ============================================================
+//  Logowanie
+// ============================================================
+
+// Prosty hamulec na zgadywanie haseł: po 5 nieudanych próbach z tego
+// samego adresu IP kolejne są odrzucane przez 15 minut. Trzymany w pamięci
+// procesu — przy jednym serwerze pilotażowym to wystarcza.
+const LOGIN_TRIES = new Map();
+const LOGIN_MAX = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function loginBlocked(ip) {
+  const entry = LOGIN_TRIES.get(ip);
+  if (!entry) return false;
+  if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    LOGIN_TRIES.delete(ip);
+    return false;
+  }
+  return entry.count >= LOGIN_MAX;
+}
+
+function noteFailedLogin(ip) {
+  const entry = LOGIN_TRIES.get(ip);
+  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    LOGIN_TRIES.set(ip, { count: 1, first: Date.now() });
+  } else {
+    entry.count += 1;
+  }
+}
+
+app.post("/api/auth/login", (req, res) => {
+  const ip = req.ip || "?";
+  if (loginBlocked(ip)) {
+    return res.status(429).json({ error: "Za dużo nieudanych prób. Spróbuj ponownie za kwadrans." });
+  }
+  const { email, password } = req.body || {};
+  const user = verifyLogin(email, password);
+  if (!user) {
+    noteFailedLogin(ip);
+    return res.status(401).json({ error: "Nieprawidłowy e-mail lub hasło." });
+  }
+  LOGIN_TRIES.delete(ip);
+  setSessionCookie(res, createSession(user.id));
+  res.json({ user });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  destroySession(req.sessionToken);
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+// Bootstrap frontu — jedyny endpoint, który wolno wołać bez sesji.
+app.get("/api/auth/me", (req, res) => {
+  res.json({ user: req.user || null });
+});
+
+// Od tego miejsca całe API wymaga zalogowania.
+app.use("/api", requireAuth);
+
+// ============================================================
+//  Konta konsultantów (tylko administrator)
+// ============================================================
+
+app.get("/api/users", requireAdmin, (req, res) => {
+  res.json({ users: listUsers() });
+});
+
+app.post("/api/users", requireAdmin, (req, res) => {
+  try {
+    const { email, name, password, role } = req.body || {};
+    res.json({ user: createUser({ email, name, password, role }) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/users/:id/password", requireAdmin, (req, res) => {
+  try {
+    setPassword(Number(req.params.id), (req.body || {}).password);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/users/:id/active", requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (id === req.user.id) {
+    return res.status(400).json({ error: "Nie można wyłączyć własnego konta." });
+  }
+  setActive(id, Boolean((req.body || {}).active));
+  res.json({ ok: true });
+});
+
+// ============================================================
+//  Koszyk — przypisany do konta, nie do przeglądarki
+//  Dzięki temu konsultant widzi swoje odłożone oferty także po
+//  przesiadce na inne stanowisko, a dwie osoby przy jednym
+//  komputerze nie mieszają sobie koszyków.
+// ============================================================
+
+app.get("/api/cart", (req, res) => {
+  res.json(getCart(req.user.id));
+});
+
+app.put("/api/cart", (req, res) => {
+  const items = (req.body || {}).items;
+  if (!Array.isArray(items)) return res.status(400).json({ error: "Oczekiwano pola `items` z listą ofert." });
+  res.json(saveCart(req.user.id, items));
+});
 
 // --- Doradca ETA OS (Claude) — status + generowanie raportu ---
 app.get("/api/advisor/status", (req, res) => {
@@ -45,7 +173,7 @@ app.post("/api/advisor", async (req, res) => {
       return res.status(400).json({ error: "Brak ofert do analizy — odłóż oferty do koszyka." });
     }
     const r = await advisor.generateReport(offers, criteria);
-    res.json({ report: r.text, model: r.model });
+    res.json({ report: r.text, model: r.model, cached: Boolean(r.cached) });
   } catch (err) {
     console.error("advisor error:", err);
     res.status(500).json({ error: "Błąd analizy AI: " + err.message });
@@ -143,11 +271,19 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
+purgeExpiredSessions();
+
 app.listen(PORT, () => {
   const providers = providerStatus()
     .filter((p) => p.enabled)
     .map((p) => p.label)
     .join(", ");
   console.log("\n  🧭  Kompas działa:  http://localhost:" + PORT);
-  console.log("  Aktywne źródła danych: " + (providers || "brak") + "\n");
+  console.log("  Aktywne źródła danych: " + (providers || "brak"));
+  console.log("  Baza kont: " + DB_PATH);
+  if (userCount() === 0) {
+    console.log("\n  ⚠️  Brak kont — nikt się nie zaloguje.");
+    console.log("     Załóż konto administratora:  npm run user:add -- admin@example.com \"Imię\" haslo123 admin");
+  }
+  console.log("");
 });

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kompas — logowanie</title>
+<style>
+  :root {
+    --paper:#FBFAF6;--surface:#fff;--surface-2:#F4F1EA;--ink:#13201F;--ink-soft:#46534F;--ink-faint:#7C8783;
+    --line:#E4DFD4;--line-strong:#D2CBBB;--accent:#0F6B68;--accent-deep:#0A4F4C;--accent-soft:#E1EEED;
+    --crit:#B23B3B;--crit-soft:#F7E4E1;
+    --shadow:0 1px 2px rgba(19,32,31,.05),0 8px 24px rgba(19,32,31,.06);
+    --shadow-lg:0 4px 12px rgba(19,32,31,.08),0 24px 48px rgba(19,32,31,.10);
+    --radius:14px;--radius-sm:9px;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#0E1615;--surface:#151F1E;--surface-2:#1B2726;--ink:#EDF1EF;--ink-soft:#AEBAB6;--ink-faint:#7E8B87;
+    --line:#263332;--line-strong:#33413F;--accent:#3FB0AB;--accent-deep:#63C6C1;--accent-soft:#14302E;
+    --crit:#E0736E;--crit-soft:#2E1917;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);--shadow-lg:0 4px 12px rgba(0,0,0,.4),0 24px 48px rgba(0,0,0,.5);
+  }}
+
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;
+       font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.5;font-size:15px;-webkit-font-smoothing:antialiased}
+  .card{width:100%;max-width:392px;background:var(--surface);border:1px solid var(--line);
+        border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:30px 28px 26px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:22px}
+  .mark{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;box-shadow:var(--shadow);
+        background:radial-gradient(120% 120% at 30% 20%,var(--accent) 0%,var(--accent-deep) 100%)}
+  .mark svg{width:20px;height:20px}
+  .brand-name{font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .brand-sub{font-size:11.5px;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase}
+
+  h1{margin:0 0 4px;font-size:19px;font-weight:650;letter-spacing:-.01em}
+  .lead{margin:0 0 20px;font-size:13.5px;color:var(--ink-faint)}
+
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .field label{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+  input{width:100%;padding:10px 12px;font-size:14px;font-family:inherit;border:1px solid var(--line-strong);
+        border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  button{width:100%;margin-top:6px;padding:11px 16px;font-family:inherit;font-size:14.5px;font-weight:650;
+         border:none;border-radius:var(--radius-sm);cursor:pointer;color:#fff;
+         background:linear-gradient(180deg,var(--accent) 0%,var(--accent-deep) 100%)}
+  button:hover{filter:brightness(1.06)}
+  button:disabled{opacity:.6;cursor:default;filter:none}
+
+  .err{display:none;margin:0 0 14px;padding:9px 12px;font-size:13.5px;border-radius:var(--radius-sm);
+       color:var(--crit);background:var(--crit-soft);border:1px solid color-mix(in srgb,var(--crit) 25%,transparent)}
+  .err.on{display:block}
+  .foot{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-faint)}
+  .foot a{color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="7" stroke="#fff" stroke-width="1.6"/><path d="M15 9l-2.2 4.8L8 16l2.2-4.8L15 9z" fill="#fff"/></svg></div>
+    <div><div class="brand-name">Kompas</div><div class="brand-sub">Panel doradcy</div></div>
+  </div>
+
+  <h1>Zaloguj się</h1>
+  <p class="lead">Panel jest dostępny dla konsultantów z założonym kontem.</p>
+
+  <p class="err" id="err" role="alert"></p>
+
+  <form id="form" autocomplete="on">
+    <div class="field">
+      <label for="email">Adres e-mail</label>
+      <input type="email" id="email" name="email" autocomplete="username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Hasło</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+    </div>
+    <button type="submit" id="submit">Wejdź do panelu</button>
+  </form>
+
+  <p class="foot">Nie masz konta albo nie pamiętasz hasła? Zgłoś się do osoby, która zarządza dostępami. <a href="/o-serwisie.html">O serwisie</a></p>
+</main>
+
+<script>
+  const form = document.getElementById("form");
+  const err = document.getElementById("err");
+  const submit = document.getElementById("submit");
+
+  // Kto ma żywą sesję, ten nie powinien oglądać tego ekranu.
+  fetch("/api/auth/me").then(r => r.json()).then(d => { if (d.user) location.replace("/"); }).catch(() => {});
+
+  function showError(msg) {
+    err.textContent = msg;
+    err.classList.add("on");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    err.classList.remove("on");
+    submit.disabled = true;
+    submit.textContent = "Sprawdzam…";
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("email").value,
+          password: document.getElementById("password").value,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Nie udało się zalogować.");
+      location.replace("/");
+    } catch (e2) {
+      showError(e2.message);
+      document.getElementById("password").value = "";
+      document.getElementById("password").focus();
+    } finally {
+      submit.disabled = false;
+      submit.textContent = "Wejdź do panelu";
+    }
+  });
+</script>
+</body>
+</html>

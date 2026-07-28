@@ -6,11 +6,17 @@
   "type": "module",
   "main": "server.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "user": "node scripts/user.js",
+    "user:add": "node scripts/user.js add",
+    "user:list": "node scripts/user.js list",
+    "user:pass": "node scripts/user.js pass",
+    "user:off": "node scripts/user.js off",
+    "user:on": "node scripts/user.js on"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
