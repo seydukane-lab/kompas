@@ -234,7 +234,7 @@ export async function searchMultiroom(crit) {
 }
 
 // Składy pokoi z kryteriów (fallback: jeden pokój z ogólnej liczby gości).
-function normalizeRoomsInput(crit) {
+export function normalizeRoomsInput(crit) {
   if (Array.isArray(crit.rooms) && crit.rooms.length) {
     return crit.rooms.map((r) => ({
       adults: Math.max(1, +r.adults || 1),
@@ -246,7 +246,9 @@ function normalizeRoomsInput(crit) {
 }
 
 // Cele destynacji: zaznaczone regiony -> ich kody, inaczej kod kraju, inaczej sandbox.
-function resolveTargets(crit) {
+// Eksportowane wyłącznie na potrzeby testów — to czysta funkcja, a błąd w niej
+// jest niewidoczny gołym okiem: zapytanie się udaje, tylko pyta o zły kierunek.
+export function resolveTargets(crit) {
   let targets;
   if (crit.regions && crit.regions.length) {
     targets = crit.regions
