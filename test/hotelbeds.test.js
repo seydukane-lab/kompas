@@ -11,7 +11,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveTargets, normalizeRoomsInput } from "../src/providers/hotelbeds.js";
+import { resolveTargets, normalizeRoomsInput, MAX_POKOI } from "../src/providers/hotelbeds.js";
 
 test("wybór jednego kraju trafia w kod jego destynacji", () => {
   assert.deepEqual(resolveTargets({ countries: ["Turcja"] }), ["AYT"]);
@@ -85,6 +85,18 @@ test("brak listy pokoi spada na zwykły skład z formularza", () => {
   assert.equal(rooms[0].adults, 3);
   assert.equal(rooms[0].children, 1);
   assert.deepEqual(rooms[0].ages, [7]);
+});
+
+test("liczba pokoi w jednym wyszukiwaniu jest ograniczona", () => {
+  // Każdy pokój to osobne, płatne zapytanie do dostawcy, mnożone przez liczbę
+  // destynacji — bez limitu jedno kliknięcie wysyła kilkadziesiąt zapytań.
+  const duzo = Array.from({ length: 30 }, () => ({ adults: 2, children: 0 }));
+  assert.equal(normalizeRoomsInput({ rooms: duzo }).length, MAX_POKOI);
+});
+
+test("typowy wspólny wyjazd mieści się w limicie", () => {
+  const trzyRodziny = Array.from({ length: 3 }, () => ({ adults: 2, children: 1, ages: [7] }));
+  assert.equal(normalizeRoomsInput({ rooms: trzyRodziny }).length, 3);
 });
 
 test("domyślnie pytamy o dwie osoby", () => {

@@ -256,9 +256,16 @@ export async function searchMultiroom(crit) {
 }
 
 // Składy pokoi z kryteriów (fallback: jeden pokój z ogólnej liczby gości).
+// Ile pokoi wolno objąć jednym wyszukiwaniem. Każdy pokój to OSOBNE zapytanie
+// do dostawcy, mnożone jeszcze przez liczbę destynacji — bez tego limitu jedno
+// kliknięcie potrafi wysłać kilkadziesiąt płatnych zapytań. Sześć pokoi pokrywa
+// realne wspólne wyjazdy (dwie–trzy rodziny); więcej to już grupa zorganizowana,
+// której i tak nie obsługuje się przez wyszukiwarkę.
+export const MAX_POKOI = Number(process.env.MULTIROOM_MAX_ROOMS) || 6;
+
 export function normalizeRoomsInput(crit) {
   if (Array.isArray(crit.rooms) && crit.rooms.length) {
-    return crit.rooms.map((r) => ({
+    return crit.rooms.slice(0, MAX_POKOI).map((r) => ({
       adults: Math.max(1, +r.adults || 1),
       children: Math.max(0, +r.children || 0),
       ages: r.ages || [],
