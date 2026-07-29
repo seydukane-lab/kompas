@@ -127,7 +127,7 @@ export async function search(crit) {
   const perDest = await Promise.all(
     targets.map(async (dest) => {
       try {
-        const avail = await availability({ dest, from, to, adults, children });
+        const avail = await availability({ dest, from, to, adults, children, ages: crit.childAges });
         // Bierzemy górę listy — sandbox potrafi zwrócić setki hoteli.
         const hotels = (avail?.hotels?.hotels || []).slice(0, 40);
         if (!hotels.length) return [];
@@ -174,8 +174,8 @@ export async function searchMultiroom(crit) {
   let limitPrzekroczony = false;
   let dostepOdmowiony = false;
 
-  const availMap = (dest, adults, children) =>
-    availability({ dest, from, to, adults, children })
+  const availMap = (dest, adults, children, ages) =>
+    availability({ dest, from, to, adults, children, ages })
       .then((a) => {
         const map = {};
         for (const h of a?.hotels?.hotels || []) map[h.code] = cheapestRate(h);
@@ -195,7 +195,7 @@ export async function searchMultiroom(crit) {
     targets.map(async (dest) => {
       try {
         // Osobne pokoje: zapytanie per skład -> przecięcie hoteli dostępnych dla WSZYSTKICH.
-        const perRoom = await Promise.all(rooms.map((r) => availMap(dest, r.adults, r.children)));
+        const perRoom = await Promise.all(rooms.map((r) => availMap(dest, r.adults, r.children, r.ages)));
         let common = Object.keys(perRoom[0] || {});
         for (let i = 1; i < perRoom.length; i++) common = common.filter((code) => perRoom[i][code]);
         const splitByCode = {};
@@ -203,7 +203,11 @@ export async function searchMultiroom(crit) {
 
         // Jeden duży pokój na cały skład (tylko w trybie "any").
         let bigByCode = {};
-        if (mode === "any") bigByCode = await availMap(dest, totalAdults, totalChildren);
+        // Jeden duży pokój: wiek wszystkich dzieci z całej grupy, po kolei.
+        if (mode === "any") {
+          const wszystkieWieki = rooms.flatMap((r) => r.ages || []);
+          bigByCode = await availMap(dest, totalAdults, totalChildren, wszystkieWieki);
+        }
 
         const codes = Array.from(new Set([...Object.keys(splitByCode), ...Object.keys(bigByCode)])).slice(0, 40);
         if (!codes.length) return [];
@@ -322,7 +326,35 @@ function normalizeSingleRoom(code, c, rate, adults, children, totalPax) {
 }
 
 // --- Availability API: dostępność + ceny ---
-async function availability({ dest, from, to, adults, children }) {
+/**
+ * Buduje listę osób dla zapytania o dostępność.
+ *
+ * Wiek dziecka NIE jest szczegółem: decyduje o cenie (progi „dziecko gratis"
+ * i zniżki bywają przy 2, 6, 12 latach) oraz o tym, czy pokój w ogóle jest
+ * dostępny dla takiego składu. Do 29.07.2026 w kodzie siedziała stała 8 lat,
+ * więc system pytał o ośmiolatka niezależnie od tego, czy klient miał
+ * niemowlę, czy nastolatka — a konsultant podawał klientowi cenę dla kogoś
+ * innego niż jego dziecko.
+ *
+ * Gdy wieku nie podano, wracamy do 8 lat jako wartości środkowej — lepsze
+ * niż odrzucenie zapytania, ale to przybliżenie, nie fakt.
+ */
+export function buildPaxes(children, ages = []) {
+  if (!(children > 0)) return undefined;
+  return Array.from({ length: children }, (_, i) => {
+    const surowy = ages?.[i];
+    // Uwaga: Number(null) i Number("") dają 0, więc bez tego sprawdzenia
+    // „nie podano wieku" udawałoby niemowlę — a to inna cena i inny pokój.
+    const podano = surowy !== null && surowy !== undefined && surowy !== "";
+    const wiek = podano ? Number(surowy) : NaN;
+    return {
+      type: "CH",
+      age: Number.isFinite(wiek) && wiek >= 0 && wiek <= 17 ? Math.round(wiek) : 8,
+    };
+  });
+}
+
+async function availability({ dest, from, to, adults, children, ages }) {
   const body = {
     stay: { checkIn: from, checkOut: to },
     occupancies: [
@@ -330,10 +362,7 @@ async function availability({ dest, from, to, adults, children }) {
         rooms: 1,
         adults,
         children,
-        paxes:
-          children > 0
-            ? Array.from({ length: children }, () => ({ type: "CH", age: 8 }))
-            : undefined,
+        paxes: buildPaxes(children, ages),
       },
     ],
     destination: { code: dest },
