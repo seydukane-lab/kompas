@@ -147,6 +147,27 @@
   .card-photo{position:relative;min-height:180px;background-size:cover;background-position:center}
   .card-photo img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
   @media (max-width:680px){.card-photo{min-height:150px}}
+  /* Szerokie ekrany / tryb pelnoekranowy. Bazowe --maxw:1240px sprawia, ze na
+     monitorze 1920 px zostaje ~340 px pustego marginesu z kazdej strony, a na
+     2560 px ponad 650 px — panel z ofertami wyglada wtedy jak waski pasek na
+     srodku. Podnosimy limit stopniowo i RAZEM z nim panel kryteriow oraz zdjecie
+     w karcie, zeby proporcje zostaly te same, tylko w wiekszej skali.
+     UWAGA: te reguly musza stac PO definicjach .shell i .card-main, bo maja
+     te sama specyficznosc — decyduje kolejnosc w pliku. */
+  @media (min-width:1500px){
+    :root{--maxw:1440px}
+    .shell{grid-template-columns:360px 1fr}
+    .card-main{grid-template-columns:240px 1fr auto}
+  }
+  @media (min-width:1900px){
+    :root{--maxw:1660px}
+    .shell{grid-template-columns:380px 1fr}
+    .card-main{grid-template-columns:290px 1fr auto}
+  }
+  @media (min-width:2400px){
+    :root{--maxw:1900px}
+    .card-main{grid-template-columns:330px 1fr auto}
+  }
   .badge-row{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap}
   .rank-badge{font-size:12px;font-weight:700;background:color-mix(in srgb,var(--ink) 78%,transparent);color:#fff;padding:3px 9px;border-radius:999px;backdrop-filter:blur(4px)}
   .src-badge{font-size:11px;font-weight:600;background:color-mix(in srgb,var(--accent-deep) 82%,transparent);color:#fff;padding:3px 8px;border-radius:999px;backdrop-filter:blur(4px)}
@@ -832,6 +853,19 @@
     d.setDate(d.getDate()+dirDays*activeFlex);
     return d.toISOString().slice(0,10);
   }
+
+  // Kalendarz ma sie otwierac po klikniecu w CALE pole, nie tylko w ikonke.
+  // showPicker() robi dokladnie to, ale nie ma go w kazdej przegladarce i rzuca
+  // wyjatkiem, gdy wywolane bez gestu uzytkownika — stad oba zabezpieczenia.
+  // Wpisywanie daty z klawiatury zostaje nietkniete.
+  ["dateFrom","dateTo"].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    el.addEventListener("click",function(){
+      if(typeof el.showPicker!=="function")return;
+      try{el.showPicker();}catch(e){/* brak gestu albo nieobslugiwane — pole dalej dziala normalnie */}
+    });
+  });
 
   // Wiek dzieci — pola pojawiają się wg liczby dzieci. UWAGA: API wakacje.pl
   // (wrapper) liczy cenę dla 2 dorosłych i nie przyjmuje wieku dzieci, więc na
