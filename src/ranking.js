@@ -77,6 +77,34 @@ export function normalizeName(s) {
     .trim();
 }
 
+// Atrybuty oferty pokazywane w 3 kolumnach (wzorem MerlinX): Lokalizacja / Obiekt / Aktywność.
+// Lokalizacja liczy się z realnego dystansu (m), gdy dostawca go poda (patrz hotelbeds.js:
+// beach/centre/airport). Obiekt i Aktywność to jawne flagi w offer.amenities.
+const ATTR_DIST = {
+  plaza: { field: "beach", max: 300 },
+  centrum: { field: "centre", max: 1500 },
+  lotnisko: { field: "airport", max: 5000 },
+};
+const ATTR_AMENITY = new Set([
+  "basen", "spa", "wifi", "niepelnosprawni",
+  "animacje", "sporty-wodne", "klub-dzieci", "silownia",
+]);
+
+// Czy oferta ma dany atrybut: true/false gdy wiadomo, undefined gdy BRAK DANYCH.
+// Brak danych nigdy nie liczy się jako "nie posiada" — to ANTY-PRZEKOLORYZACJA:
+// milczące odsiewanie ofert bez informacji wyglądałoby jak wiedza, której nie mamy.
+export function hasAttribute(offer, key) {
+  const dist = ATTR_DIST[key];
+  if (dist) {
+    const v = offer[dist.field];
+    return v == null ? undefined : v <= dist.max;
+  }
+  if (ATTR_AMENITY.has(key)) {
+    return Array.isArray(offer.amenities) ? offer.amenities.includes(key) : undefined;
+  }
+  return undefined;
+}
+
 // Filtrowanie po kryteriach (wspólne dla wszystkich dostawców).
 export function applyFilters(list, crit) {
   // Wyszukiwanie po NAZWIE hotelu jest dominujące: gdy podano nazwę,
@@ -144,6 +172,16 @@ export function applyFilters(list, crit) {
     if (crit.departures && crit.departures.length && !(h.type === "package" && crit.departures.includes(h.departureCity))) return false;
     else if (crit.departure && !(h.type === "package" && h.departureCity === crit.departure)) return false;
     if (crit.transports && crit.transports.length && !(h.type === "package" && crit.transports.includes(h.transport))) return false;
+    // Atrybuty (Lokalizacja/Obiekt/Aktywność) — wyklucza TYLKO jawne "nie posiada".
+    // Brak danych o atrybucie (hasAttribute === undefined) nie wyklucza oferty.
+    if (crit.attrs && crit.attrs.length && crit.attrs.some((a) => hasAttribute(h, a) === false)) return false;
+    // Dni tygodnia wylotu: filtr twardy jak przy mieście wylotu — dotyczy tylko
+    // pakietów ze znaną datą wylotu (hotel-only i pakiet bez daty nie pasują do wyboru).
+    if (crit.weekdays && crit.weekdays.length) {
+      if (!(h.type === "package" && h.departDate)) return false;
+      const wd = new Date(`${h.departDate}T00:00:00`).getDay();
+      if (!crit.weekdays.includes(wd)) return false;
+    }
     return true;
   });
 }

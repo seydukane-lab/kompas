@@ -285,6 +285,10 @@ app.get("/api/search", async (req, res) => {
       departure: q.departure || "",
       departures: q.departures ? String(q.departures).split(",").filter(Boolean) : [],
       transports: q.transports ? String(q.transports).split(",").filter(Boolean) : [],
+      // Atrybuty z 3 kolumn (Lokalizacja/Obiekt/Aktywność) — patrz ranking.js:hasAttribute.
+      attrs: q.attrs ? String(q.attrs).split(",").filter(Boolean) : [],
+      // Dni tygodnia wylotu (0=nd..6=sob, jak Date#getDay).
+      weekdays: q.weekdays ? String(q.weekdays).split(",").filter((s) => s !== "").map(Number) : [],
       sort: q.sort || "score",
     };
 

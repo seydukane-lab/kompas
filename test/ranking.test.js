@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute,
 } from "../src/ranking.js";
 
 // Oferta wzorcowa — testy zmieniają tylko to, co badają.
@@ -161,4 +161,51 @@ test("oferta bez miejsc dla całego składu odpada", () => {
   const list = [offer({ cap: 3 })];
   assert.equal(applyFilters(list, { pax: 4 }).length, 0);
   assert.equal(applyFilters(list, { pax: 3 }).length, 1);
+});
+
+test("ANTY-PRZEKOLORYZACJA: atrybut lokalizacji bez danych nie jest cicho odsiewany", () => {
+  const znany = offer({ id: "znany", beach: 100 }); // wiadomo: blisko plaży
+  const nieznany = offer({ id: "nieznany" }); // brak danych o dystansie do plaży
+  const daleko = offer({ id: "daleko", beach: 900 }); // wiadomo: NIE przy plaży
+  const out = applyFilters([znany, nieznany, daleko], { attrs: ["plaza"] });
+  assert.deepEqual(out.map((o) => o.id).sort(), ["nieznany", "znany"]);
+});
+
+test("ANTY-PRZEKOLORYZACJA: atrybut obiektu/aktywności bez danych nie jest cicho odsiewany", () => {
+  const ma = offer({ id: "ma", amenities: ["basen", "silownia"] });
+  const jawnyBrak = offer({ id: "jawnyBrak", amenities: ["basen"] }); // wiadomo: bez siłowni
+  const nieznany = offer({ id: "nieznany" }); // brak danych o amenities w ogóle
+  const out = applyFilters([ma, jawnyBrak, nieznany], { attrs: ["silownia"] });
+  assert.deepEqual(out.map((o) => o.id).sort(), ["ma", "nieznany"]);
+});
+
+test("hasAttribute zwraca undefined, gdy nie ma podstawy do oceny", () => {
+  assert.equal(hasAttribute(offer(), "plaza"), undefined);
+  assert.equal(hasAttribute(offer({ beach: 50 }), "plaza"), true);
+  assert.equal(hasAttribute(offer({ beach: 5000 }), "plaza"), false);
+  assert.equal(hasAttribute(offer(), "basen"), undefined);
+  assert.equal(hasAttribute(offer({ amenities: ["basen"] }), "basen"), true);
+  assert.equal(hasAttribute(offer({ amenities: ["spa"] }), "basen"), false);
+});
+
+test("wielokrotne atrybuty działają jak AND, a nieznane dane nie psują wyniku", () => {
+  const pelny = offer({ id: "pelny", beach: 50, amenities: ["basen", "wifi"] });
+  const czesciowy = offer({ id: "czesciowy", beach: 50, amenities: ["basen"] }); // brak wifi
+  const bezWiedzy = offer({ id: "bezWiedzy", beach: 50 }); // amenities nieznane
+  const out = applyFilters([pelny, czesciowy, bezWiedzy], { attrs: ["plaza", "basen", "wifi"] });
+  assert.deepEqual(out.map((o) => o.id).sort(), ["bezWiedzy", "pelny"]);
+});
+
+test("filtr dni tygodnia wylotu odrzuca pakiety w złe dni i oferty bez znanej daty", () => {
+  const poniedzialek = offer({ id: "pon", type: "package", departDate: "2026-08-03" }); // pon
+  const piatek = offer({ id: "pt", type: "package", departDate: "2026-08-07" }); // pt
+  const hotelOnly = offer({ id: "hotel", type: "hotel", departDate: undefined });
+  const bezDaty = offer({ id: "bezDaty", type: "package", departDate: undefined });
+  const out = applyFilters([poniedzialek, piatek, hotelOnly, bezDaty], { weekdays: [1] });
+  assert.deepEqual(out.map((o) => o.id), ["pon"]);
+});
+
+test("filtr dni tygodnia wylotu: brak wyboru nic nie odrzuca", () => {
+  const list = [offer({ type: "hotel", departDate: undefined })];
+  assert.equal(applyFilters(list, { weekdays: [] }).length, 1);
 });

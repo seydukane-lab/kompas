@@ -100,6 +100,16 @@
   .chip{font-size:12.5px;font-weight:550;padding:6px 11px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);transition:all .12s}
   .chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
   .chip:hover{border-color:var(--accent)}
+  /* Trzy kolumny atrybutów (wzorem MerlinX). minmax(0,1fr) jest KONIECZNE —
+     samo 1fr nie kurczy się poniżej szerokości treści i trzecia kolumna
+     wypada za kontener panelu. */
+  .attr-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .attr-col{min-width:0}
+  .attr-col-h{font-size:10px;font-weight:750;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;overflow-wrap:break-word}
+  .attr-col .chips{flex-direction:column;align-items:stretch;gap:5px}
+  .attr-col .chip{text-align:left;white-space:normal;line-height:1.2;padding:6px 7px;font-size:10.5px;overflow-wrap:break-word}
+  /* Plakietka z liczbą aktywnych filtrów przy nagłówku panelu. */
+  .filter-count{display:inline-block;margin-left:7px;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;text-align:center;vertical-align:middle;font-variant-numeric:tabular-nums}
   .range-val{font-size:13px;font-weight:650;color:var(--accent-deep);font-variant-numeric:tabular-nums}
   .budget-toggle{display:inline-flex;gap:0;margin:5px 0 8px;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;background:var(--surface)}
   .bt-opt{cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:4px 13px;border:0;background:transparent;color:var(--ink-soft);transition:background .12s,color .12s}
@@ -503,7 +513,7 @@
 
 <div class="shell">
   <aside class="panel" aria-label="Kryteria wyszukiwania">
-    <div class="panel-head"><h2>Kryteria wyjazdu</h2><p>Ustaw parametry — system dobierze i uszereguje hotele.</p></div>
+    <div class="panel-head"><h2>Kryteria wyjazdu <span class="filter-count" id="filterCount" hidden>0</span></h2><p>Ustaw parametry — system dobierze i uszereguje hotele.</p></div>
     <div class="panel-body">
       <div class="sec-head">Kierunek i hotel</div>
       <div class="field"><label for="hotelName">Nazwa hotelu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— znajdź konkretny obiekt</span></label>
@@ -539,8 +549,24 @@
         <button class="chip" data-trans="Autokar" aria-pressed="false">🚌 Autokar</button>
         <button class="chip" data-trans="Własny dojazd" aria-pressed="false">🚗 Własny</button>
       </div></div>
+      <div class="field"><label>Dni tygodnia wylotu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— można kilka</span></label><div class="chips" id="weekdayChips">
+        <button class="chip" data-wd="1" aria-pressed="false">Pon</button>
+        <button class="chip" data-wd="2" aria-pressed="false">Wt</button>
+        <button class="chip" data-wd="3" aria-pressed="false">Śr</button>
+        <button class="chip" data-wd="4" aria-pressed="false">Czw</button>
+        <button class="chip" data-wd="5" aria-pressed="false">Pt</button>
+        <button class="chip" data-wd="6" aria-pressed="false">Sob</button>
+        <button class="chip" data-wd="0" aria-pressed="false">Nd</button>
+      </div></div>
       <div class="sec-head">Termin i długość</div>
-      <div class="field"><label>Termin</label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div></div>
+      <div class="field"><label>Termin</label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div>
+        <div class="chips" id="dateFlexChips" style="margin-top:7px">
+          <button class="chip" data-flex="0" aria-pressed="true">Dokładny termin</button>
+          <button class="chip" data-flex="1" aria-pressed="false">±1 dzień</button>
+          <button class="chip" data-flex="3" aria-pressed="false">±3 dni</button>
+          <button class="chip" data-flex="7" aria-pressed="false">±7 dni</button>
+        </div>
+      </div>
       <div class="field"><label>Długość pobytu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— liczba nocy</span></label><div class="chips" id="nightsChips">
         <button class="chip" data-nights="0" aria-pressed="true">Dowolna</button>
         <button class="chip" data-nights="7" aria-pressed="false">7 nocy</button>
@@ -576,6 +602,27 @@
         <button class="chip" data-tag="plaza" aria-pressed="false">Przy plaży</button>
         <button class="chip" data-tag="spa" aria-pressed="false">Spa / relaks</button>
       </div></div>
+      <div class="field"><label>Atrybuty obiektu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— tylko jawne dane, bez zgadywania</span></label>
+        <div class="attr-cols">
+          <div class="attr-col"><div class="attr-col-h">Lokalizacja</div><div class="chips" id="locAttrChips">
+            <button class="chip" data-attr="plaza" aria-pressed="false">🏖 Przy plaży</button>
+            <button class="chip" data-attr="centrum" aria-pressed="false">🏙 Blisko centrum</button>
+            <button class="chip" data-attr="lotnisko" aria-pressed="false">✈️ Blisko lotniska</button>
+          </div></div>
+          <div class="attr-col"><div class="attr-col-h">Obiekt</div><div class="chips" id="facAttrChips">
+            <button class="chip" data-attr="basen" aria-pressed="false">🏊 Basen</button>
+            <button class="chip" data-attr="spa" aria-pressed="false">💆 Spa</button>
+            <button class="chip" data-attr="wifi" aria-pressed="false">📶 Wi-Fi</button>
+            <button class="chip" data-attr="niepelnosprawni" aria-pressed="false">♿ Dla niepełnosprawnych</button>
+          </div></div>
+          <div class="attr-col"><div class="attr-col-h">Aktywność</div><div class="chips" id="actAttrChips">
+            <button class="chip" data-attr="animacje" aria-pressed="false">🎉 Animacje</button>
+            <button class="chip" data-attr="sporty-wodne" aria-pressed="false">🏄 Sporty wodne</button>
+            <button class="chip" data-attr="klub-dzieci" aria-pressed="false">🧒 Klub dla dzieci</button>
+            <button class="chip" data-attr="silownia" aria-pressed="false">🏋 Siłownia</button>
+          </div></div>
+        </div>
+      </div>
       <div class="field"><label>Min. kategoria <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— gwiazdki</span></label><div class="chips" id="starChips">
         <button class="chip" data-stars="0" aria-pressed="true">Dowolna</button>
         <button class="chip" data-stars="3" aria-pressed="false">3★+</button>
@@ -738,12 +785,32 @@
   function nights(){var f=document.getElementById("dateFrom").value,t=document.getElementById("dateTo").value;if(!f||!t)return 7;var d=Math.round((new Date(t)-new Date(f))/864e5);return d>0?d:7;}
   function paxCount(){return (+document.getElementById("adults").value||0)+(+document.getElementById("kids").value||0);}
 
-  var activeBoards=[],activeTags=[],activeRegions=[],activeTrans=[],activeCountries=[],activeDeps=[];
-  function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag||b.dataset.trans||b.dataset.dep,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
+  var activeBoards=[],activeTags=[],activeRegions=[],activeTrans=[],activeCountries=[],activeDeps=[],activeAttrs=[],activeWeekdays=[];
+  function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag||b.dataset.trans||b.dataset.dep||b.dataset.attr||b.dataset.wd,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
   wireChips(document.getElementById("boardChips"),activeBoards);
   wireChips(document.getElementById("tagChips"),activeTags);
   wireChips(document.getElementById("transChips"),activeTrans);
   wireChips(document.getElementById("depChips"),activeDeps);
+  wireChips(document.getElementById("weekdayChips"),activeWeekdays);
+  wireChips(document.getElementById("locAttrChips"),activeAttrs);
+  wireChips(document.getElementById("facAttrChips"),activeAttrs);
+  wireChips(document.getElementById("actAttrChips"),activeAttrs);
+
+  // Licznik aktywnych filtrów przy nagłówku panelu — konsultant w rozmowie z klientem
+  // od razu widzi, ile kryteriów zawęża wynik, bez przewijania całego panelu.
+  var filterCountEl=document.getElementById("filterCount");
+  function updateFilterCount(){
+    var chips=document.querySelectorAll(".panel-body .chip[aria-pressed=true]"),n=0;
+    chips.forEach(function(c){
+      if(c.dataset.nights==="0"||c.dataset.stars==="0"||c.dataset.flex==="0")return; // stan "dowolny" się nie liczy
+      n++;
+    });
+    if(document.getElementById("hotelName").value.trim())n++;
+    filterCountEl.textContent=n;
+    filterCountEl.hidden=!n;
+  }
+  document.querySelector(".panel-body").addEventListener("click",updateFilterCount);
+  document.getElementById("hotelName").addEventListener("input",updateFilterCount);
 
   // Długość pobytu — wybór POJEDYNCZY (0 = dowolna). Wysyłane jako `nights`.
   var activeNights=0,nightsChips=document.getElementById("nightsChips");
@@ -751,6 +818,20 @@
     activeNights=+b.dataset.nights;
     nightsChips.querySelectorAll(".chip").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});
   });
+
+  // ±dni wokół wybranego terminu — wybór POJEDYNCZY (0 = dokładny termin).
+  // Poszerza zakres from/to wysyłany do backendu (patrz widenDate w search()).
+  var activeFlex=0,dateFlexChips=document.getElementById("dateFlexChips");
+  dateFlexChips.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;
+    activeFlex=+b.dataset.flex;
+    dateFlexChips.querySelectorAll(".chip").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});
+  });
+  function widenDate(dateStr,dirDays){
+    if(!dateStr||!activeFlex)return dateStr;
+    var d=new Date(dateStr+"T00:00:00");
+    d.setDate(d.getDate()+dirDays*activeFlex);
+    return d.toISOString().slice(0,10);
+  }
 
   // Wiek dzieci — pola pojawiają się wg liczby dzieci. UWAGA: API wakacje.pl
   // (wrapper) liczy cenę dla 2 dorosłych i nie przyjmuje wieku dzieci, więc na
@@ -1638,7 +1719,7 @@
   function search(){
     searchBtn.disabled=true;
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
-    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
+    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
     api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
@@ -1648,7 +1729,7 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
 
   (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);})();
 
