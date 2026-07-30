@@ -11,7 +11,11 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveTargets, normalizeRoomsInput, MAX_POKOI } from "../src/providers/hotelbeds.js";
+import { resolveTargets, normalizeRoomsInput, MAX_POKOI, mapAmenities } from "../src/providers/hotelbeds.js";
+
+function facility(text, extra = {}) {
+  return { description: { content: text }, ...extra };
+}
 
 test("wybór jednego kraju trafia w kod jego destynacji", () => {
   assert.deepEqual(resolveTargets({ countries: ["Turcja"] }), ["AYT"]);
@@ -102,4 +106,42 @@ test("typowy wspólny wyjazd mieści się w limicie", () => {
 test("domyślnie pytamy o dwie osoby", () => {
   const rooms = normalizeRoomsInput({});
   assert.deepEqual(rooms, [{ adults: 2, children: 0, ages: [] }]);
+});
+
+// Test regresyjny do błędu z 30.07.2026: filtry "Obiekt"/"Aktywność" były
+// zbudowane, ale amenities nigdzie się nie liczyło — 241 ofert przed filtrem
+// i 241 po. Ten zestaw testów pilnuje, żeby mapAmenities() naprawdę rozpoznawało
+// udogodnienia z opisu facility, ORAZ żeby brak danych nigdy nie stawał się
+// milczącą pustą tablicą (ANTY-PRZEKOLORYZACJA).
+
+test("brak facilities w ogóle daje undefined, nie pustą tablicę", () => {
+  assert.equal(mapAmenities(undefined), undefined);
+  assert.equal(mapAmenities([]), undefined);
+});
+
+test("facilities bez trafień to legalna pusta tablica — sprawdziliśmy, nic nie pasuje", () => {
+  const out = mapAmenities([facility("Free parking on site")]);
+  assert.deepEqual(out, []);
+});
+
+test("mapAmenities rozpoznaje realne udogodnienia z opisu", () => {
+  const out = mapAmenities([
+    facility("Outdoor swimming pool"),
+    facility("Wellness & Spa centre"),
+    facility("Free WiFi in lobby"),
+    facility("Fully accessible for wheelchair users"),
+    facility("Daily animation programme"),
+    facility("Water sports centre nearby"),
+    facility("Kids' club for 4-12 years"),
+    facility("Fitness / gym room"),
+  ]);
+  assert.deepEqual(out.sort(), [
+    "animacje", "basen", "klub-dzieci", "niepelnosprawni",
+    "silownia", "sporty-wodne", "spa", "wifi",
+  ].sort());
+});
+
+test("mapAmenities nie zgaduje udogodnień, których opis nie wspomina", () => {
+  const out = mapAmenities([facility("Outdoor swimming pool")]);
+  assert.deepEqual(out, ["basen"]);
 });

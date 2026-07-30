@@ -227,6 +227,14 @@ export function dedupeOffers(list) {
         if (src) primary[k] = true;
       }
     }
+    // Amenities (basen/spa/wifi/...): jeśli reprezentant w ogóle nie ma o nich
+    // wiedzy (undefined), bierzemy je z innego źródła, które je ma. Reprezentanta
+    // z JUŻ znaną tablicą (nawet pustą — to legalne "sprawdziliśmy, nic nie pasuje")
+    // nie nadpisujemy, żeby nie zgubić jego własnej odpowiedzi.
+    if (!Array.isArray(primary.amenities)) {
+      const withAmenities = rest.find((o) => Array.isArray(o.amenities));
+      if (withAmenities) primary.amenities = withAmenities.amenities;
+    }
     // Ślad, że oferta łączy kilka źródeł (do ewentualnej plakietki na karcie).
     primary.mergedFrom = grp.map((o) => o.source).filter((s, i, a) => s && a.indexOf(s) === i);
     out.push(strip(attachVariants(primary, grp)));

@@ -10,6 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { dedupeOffers, searchAll, clearSearchCache, providerStatus } from "../src/providers/index.js";
 import { withDeadline } from "../src/http.js";
+import { search as searchPackages } from "../src/providers/packages.js";
 
 function offer(over = {}) {
   return {
@@ -108,6 +109,51 @@ test("oferty bez nazwy nie są scalane ze sobą", () => {
 test("pole techniczne __prio nie wychodzi na zewnątrz", () => {
   const out = dedupeOffers([offer()]);
   assert.ok(!("__prio" in out[0]));
+});
+
+// Amenities przy scalaniu: analogicznie do beach/roomType — reprezentant bez
+// wiedzy o amenities dostaje ją z bogatszego źródła, ale własnej (nawet pustej)
+// tablicy nie tracimy. Regresja do błędu z 30.07.2026 (filtry Obiekt/Aktywność
+// nic nie robiły) — nie może się powtórzyć na etapie scalania duplikatów.
+test("amenities dobierane są z bogatszego źródła, gdy reprezentant ich nie zna", () => {
+  const out = dedupeOffers([
+    offer({ __prio: 1 }), // reprezentant bez amenities
+    offer({ __prio: 5, amenities: ["basen", "wifi"] }),
+  ]);
+  assert.deepEqual(out[0].amenities, ["basen", "wifi"]);
+});
+
+test("pusta (ale znana) tablica amenities reprezentanta nie jest nadpisywana", () => {
+  const out = dedupeOffers([
+    offer({ __prio: 1, amenities: [] }), // sprawdzone: reprezentant nic nie ma
+    offer({ __prio: 5, amenities: ["basen"] }),
+  ]);
+  assert.deepEqual(out[0].amenities, [], "wiedza reprezentanta 'sprawdzone, brak' nie może zniknąć");
+});
+
+test("gdy żadne źródło nie zna amenities, wynik zostaje undefined, nie []", () => {
+  const out = dedupeOffers([offer({ __prio: 1 }), offer({ __prio: 5 })]);
+  assert.equal(out[0].amenities, undefined, "brak danych nie może cicho zamienić się w pustą tablicę");
+});
+
+// Seed demo (packages.js) musi też realnie zasilać filtr Obiekt/Aktywność —
+// inaczej konsultant bez klucza API do Hotelbeds w ogóle nie zobaczy, że działa.
+test("oferty demo z packages.js mają amenities i realną wariancję między hotelami", async () => {
+  const oferty = await searchPackages({});
+  assert.ok(oferty.length > 10, "za mało ofert demo, żeby cokolwiek zweryfikować");
+  assert.ok(oferty.every((o) => Array.isArray(o.amenities)), "każda oferta demo powinna mieć znane amenities");
+  const zBasenem = oferty.filter((o) => o.amenities.includes("basen"));
+  const zeSpa = oferty.filter((o) => o.amenities.includes("spa"));
+  assert.ok(zBasenem.length > 0 && zBasenem.length < oferty.length, "basen musi różnicować ofertę, nie być stały dla wszystkich");
+  assert.ok(zeSpa.length > 0 && zeSpa.length < oferty.length, "spa musi różnicować ofertę, nie być stały dla wszystkich");
+});
+
+test("demo nigdy nie zgaduje dostępności dla niepełnosprawnych — tej informacji tu po prostu nie ma", async () => {
+  const oferty = await searchPackages({});
+  assert.ok(
+    oferty.every((o) => !o.amenities.includes("niepelnosprawni")),
+    "seed demo nie zawiera realnej informacji o dostępności — nie wolno jej zmyślać"
+  );
 });
 
 test("withDeadline przepuszcza to, co zdąży", async () => {

@@ -168,11 +168,37 @@ const DATA = [
 
 export const meta = { id: "pl-packages", label: "Oferty PL (demo)", needsKeys: false };
 
+// Amenities demo: ten provider nie ma per-hotelowego pliku faktów (basen/wifi/...),
+// więc heurystyka wynika WYŁĄCZNIE z pól, które hotel już ma (tags, board, stars) —
+// nie zgadujemy pojedynczych hoteli. "niepelnosprawni" NIGDY się tu nie pojawia:
+// ten seed po prostu nie zawiera takiej informacji o żadnym hotelu (ANTY-PRZEKOLORYZACJA:
+// brak danych, nie pusta/pełna tablica narzucona wszystkim ofertom naraz). Dzięki temu
+// filtr "Niepełnosprawni" uczciwie nie pokaże nic w trybie demo — to poprawne zachowanie,
+// nie usterka.
+function deriveAmenities(h) {
+  const a = [];
+  if (h.tags.includes("spa")) a.push("spa");
+  if (h.tags.includes("rodzina")) a.push("klub-dzieci");
+  if (h.tags.includes("rodzina") || h.tags.includes("impreza")) a.push("animacje");
+  if (h.tags.includes("plaza") && h.beach <= 150) a.push("sporty-wodne");
+  if (h.board !== "BB") a.push("basen"); // obiekty all-inclusive/HB niemal zawsze mają basen
+  if (h.stars >= 4) a.push("wifi");
+  if (h.stars >= 5) a.push("silownia");
+  return a.length ? a : undefined;
+}
+
 // eslint-disable-next-line no-unused-vars
 export async function search(crit) {
   // Provider zwraca pełną listę pakietów; filtrowanie/ranking robi warstwa wspólna.
   // source = touroperator, żeby na karcie widać było, kto organizuje wyjazd.
-  return DATA.map((h) => ({ ...h, type: "package", source: h.operator, demo: true, photos: [h.photo] }));
+  return DATA.map((h) => ({
+    ...h,
+    type: "package",
+    source: h.operator,
+    demo: true,
+    photos: [h.photo],
+    amenities: deriveAmenities(h),
+  }));
 }
 
 export function isEnabled() {

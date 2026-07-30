@@ -493,6 +493,7 @@ function normalize(h, c, rate, pax) {
     newHotel,                         // zbudowany/odnowiony ≤3 lata
     adultsOnly,                       // tylko dla dorosłych (85/203)
     ski,                              // odległość od stoku (m, 40/160) lub null
+    amenities: mapAmenities(facilities), // basen/spa/wifi/... lub undefined (brak danych)
     photo: images[0] || "linear-gradient(135deg,#0F6B68,#3FB0AB)",
     photos: images.slice(0, 8),
   };
@@ -539,6 +540,38 @@ function hasFacility(facilities, group, code) {
 // do lotniska). Zwraca null, gdy wartość poniżej progu min lub brak.
 function sane(v, min) {
   return typeof v === "number" && v >= min ? v : null;
+}
+
+// Osiem atrybutów kolumn "Obiekt"/"Aktywność" z ranking.js (ATTR_AMENITY):
+// basen, spa, wifi, niepelnosprawni, animacje, sporty-wodne, klub-dzieci, silownia.
+// APItude NIE dokumentuje publicznie facilityGroupCode/facilityCode akurat dla tej
+// ósemki (w przeciwieństwie do grup 10/40/85/160 użytych wyżej, które są
+// zweryfikowane na sandboksie) — a bez klucza produkcyjnego nie da się ich
+// zgadnąć i zweryfikować przez /types/facilities. Dlatego, tak jak deriveTags()
+// niżej, czytamy tekst opisu facility (description.content), który Content API
+// i tak zwraca dla każdej pozycji. To bezpieczniejsze niż wpisanie niesprawdzonych
+// numerów kodów, które po cichu nie dopasowałyby niczego — dokładnie ten sam
+// błąd, który już raz uśpił te filtry.
+const AMENITY_PATTERNS = {
+  basen: /\bpool\b/,
+  spa: /\bspa\b|wellness|massage/,
+  wifi: /wi-?fi|internet (access|connection)/,
+  niepelnosprawni: /disabled|wheelchair|handicap|accessib/,
+  animacje: /animation|entertainment|evening show/,
+  "sporty-wodne": /water sport|diving|snorkel|jet ski|windsurf/,
+  "klub-dzieci": /kids?['’]? ?club|children'?s club|mini ?club/,
+  silownia: /\bgym\b|fitness/,
+};
+
+// Zwraca tablicę pasujących kluczy, albo undefined gdy Content API nie dało w ogóle
+// żadnych danych o obiekcie. ANTY-PRZEKOLORYZACJA: brak danych to NIE to samo, co
+// pusta tablica — pusta tablica znaczy "sprawdziliśmy, hotel nie ma żadnego z ośmiu",
+// a przy braku facilities w ogóle nie sprawdziliśmy niczego. Pomylenie tych dwóch
+// przypadków odsiałoby po cichu każdy hotel bez treści ze WSZYSTKICH ośmiu filtrów.
+export function mapAmenities(facilities) {
+  if (!facilities || !facilities.length) return undefined;
+  const txt = facilities.map((f) => (f.description?.content || "").toLowerCase()).join(" ");
+  return Object.keys(AMENITY_PATTERNS).filter((key) => AMENITY_PATTERNS[key].test(txt));
 }
 
 function deriveTags(facilities, board) {
