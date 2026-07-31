@@ -1,5 +1,9 @@
 node_modules/
-.env
+# Wszystkie warianty .env — sam ".env" NIE łapie kopii typu .env.bak czy .env.local,
+# a takie pliki powstają przy podmianie kluczy i zawierają dokładnie te same sekrety.
+# Wyjątkiem jest .env.example, który jest szablonem bez wartości i ma zostać w repo.
+.env*
+!.env.example
 *.log
 .DS_Store
 
