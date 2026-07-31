@@ -88,11 +88,28 @@ export function clearSearchCache() {
   searchCache.clear();
 }
 
+// Krótki, czytelny dla konsultanta powód awarii źródła. Bez tego "dostawca
+// nie odpowiedział" i "nic nie ma w tym terminie" wyglądają identycznie —
+// a to dwie zupełnie różne wiadomości do przekazania klientowi.
+function reasonFor(err) {
+  const status = err?.status;
+  if (status === 429) return "przekroczono limit zapytań (429) — spróbuj ponownie za chwilę";
+  if (status === 403) return "odmowa dostępu (403) — wyczerpany limit dobowy albo problem z kluczem API";
+  if (typeof status === "number" && status >= 500) return `błąd serwera dostawcy (${status})`;
+  if (typeof status === "number") return `dostawca odpowiedział błędem HTTP ${status}`;
+  if (/przekroczono limit \d+ ms/.test(err?.message || "")) return "przekroczono limit czasu odpowiedzi";
+  return "dostawca nie odpowiedział";
+}
+
 // Odpytuje wszystkich aktywnych dostawców równolegle i scala oferty.
 // Wolne źródło nie może opóźniać reszty: każdy dostawca ma własny limit czasu,
 // a wynik składamy z tych, które zdążyły. Lepiej pokazać oferty z trzech źródeł
 // niż kazać konsultantowi czekać na czwarte, które akurat leży.
-export async function searchAll(crit) {
+//
+// `providers` jest parametrem (domyślnie aktywni dostawcy) głównie dla testów —
+// pozwala podstawić atrapę dostawcy, żeby sprawdzić rozróżnienie
+// odpowiedziało/odpowiedziało zerem/padło bez prawdziwej sieci.
+export async function searchAll(crit, providers = activeProviders()) {
   const key = cacheKey(crit);
   const cached = cacheGet(key);
   if (cached) {
@@ -100,7 +117,6 @@ export async function searchAll(crit) {
     return { ...cached, cached: true };
   }
 
-  const providers = activeProviders();
   const timings = providers.map(() => 0);
   const settled = await Promise.allSettled(
     providers.map((p, i) => {
@@ -118,10 +134,12 @@ export async function searchAll(crit) {
       // Priorytet dostawcy = pozycja w ALL (niższa = ważniejsza). Przyda się przy scalaniu.
       const prio = ALL.indexOf(prov);
       offers.push(...r.value.map((o) => ({ ...o, __prio: prio })));
-      sources.push({ id: prov.meta.id, label: prov.meta.label, count: r.value.length, ms: timings[i] });
+      // ok:true niezależnie od count — uczciwe zero (dostawca odpytany, nic nie ma)
+      // to inna sytuacja niż padnięcie, choć obie dają count:0.
+      sources.push({ id: prov.meta.id, label: prov.meta.label, count: r.value.length, ok: true, ms: timings[i] });
     } else if (r.status === "rejected") {
       console.warn(`[${prov.meta.id}] search error:`, r.reason?.message || r.reason);
-      sources.push({ id: prov.meta.id, label: prov.meta.label, count: 0, error: true, ms: timings[i] });
+      sources.push({ id: prov.meta.id, label: prov.meta.label, count: 0, ok: false, reason: reasonFor(r.reason), ms: timings[i] });
     }
   });
 
@@ -132,7 +150,7 @@ export async function searchAll(crit) {
   const result = { offers: dedupeOffers(offers), sources };
   // Do cache'u trafia tylko wynik, w którym żadne źródło nie padło — inaczej
   // chwilowa awaria dostawcy zamroziłaby uboższą listę ofert na kolejne minuty.
-  if (!sources.some((s) => s.error)) cacheSet(key, result);
+  if (!sources.some((s) => !s.ok)) cacheSet(key, result);
   return result;
 }
 

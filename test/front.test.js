@@ -101,3 +101,51 @@ test("strona „O serwisie” nie obiecuje prowizji ani afiliacji", () => {
   const html = wczytaj("public/o-serwisie.html");
   assert.ok(!/prowizj/i.test(html), "strona nadal deklaruje prowizję za polecenie");
 });
+
+test("czekanie na analizę ETA AI ma czytelny stan w miejscu raportu, nie tylko na przycisku", () => {
+  // Zmierzone 30.07.2026: jedno wywołanie ETA trwa ~104 s (research każdego
+  // hotelu w sieci). Sam zmieniony tekst przycisku łatwo przeoczyć — stan
+  // musi być widoczny w #repBody, z rosnącym licznikiem czasu (uczciwym —
+  // bez udawania procentów, których backend nie zna).
+  const html = wczytaj("public/index.html");
+  assert.match(html, /rep-ai-wait/, "brak widocznego bloku oczekiwania w treści raportu");
+  assert.match(html, /repAiClock/, "brak rosnącego licznika czasu podczas analizy AI");
+  const blokOczekiwania = html.match(/repBody\.innerHTML=[\s\S]{0,600}?rep-ai-wait[\s\S]{0,600}/)?.[0] || "";
+  assert.ok(!/\d+\s?%/.test(blokOczekiwania),
+    "pasek oczekiwania nie może udawać fałszywego procentu postępu");
+});
+
+test("błąd analizy ETA AI zostaje na ekranie, nie tylko w znikającym toaście", () => {
+  // Po ~2 minutach czekania doradca łatwo przegapi toast, który znika po ~2 s
+  // (patrz `toast()`) — błąd musi trafić do #repBody i tam zostać.
+  const html = wczytaj("public/index.html");
+  assert.match(html, /showAdvisorError/, "brak funkcji renderującej trwały błąd analizy AI w treści raportu");
+  assert.match(html, /rep-ai-err/, "brak stylu/bloku błędu w treści raportu");
+});
+
+test("szczegóły oferty mają zakładki (wzorem MerlinX) i zakładka bez danych się nie renderuje", () => {
+  const html = wczytaj("public/index.html");
+  for (const etykieta of ["Opis obiektu", "Pokoje", "Położenie i dojazd", "Wyżywienie"]) {
+    assert.ok(html.includes(etykieta), `brak zakładki „${etykieta}” w openDetail()`);
+  }
+  // Pusta zakładka sugerowałaby brak informacji tam, gdzie jej po prostu nie
+  // pobraliśmy — TABS musi być filtrowane po tym, czy ma choć jeden wiersz.
+  assert.match(html, /TABS\s*=\s*\[[\s\S]*?\]\.filter\(function\(t\)\{return t\.html;\}\)/,
+    "lista zakładek nie jest filtrowana po obecności danych");
+});
+
+test("etykiety udogodnień w szczegółach oferty pokrywają dokładnie te same kody co mapAmenities", () => {
+  // Rozjazd tutaj = kod udogodnienia bez etykiety renderuje się jako surowy
+  // klucz (np. "sporty-wodne" zamiast "🏄 Sporty wodne") albo znika po cichu.
+  const hbSrc = readFileSync(join(ROOT, "src/providers/hotelbeds.js"), "utf8");
+  const wzorzec = hbSrc.match(/AMENITY_PATTERNS\s*=\s*\{([\s\S]*?)\n\};/)?.[1] || "";
+  const kodyBackend = [...wzorzec.matchAll(/(?:^|\n)\s*(?:"([a-z-]+)"|([a-z-]+)):/g)].map((m) => m[1] || m[2]).sort();
+  assert.ok(kodyBackend.length >= 8, "nie udało się wyciągnąć kodów z AMENITY_PATTERNS — zmieniła się struktura?");
+
+  const html = wczytaj("public/index.html");
+  const etykiety = html.match(/AMENITY_LABELS\s*=\s*\{([\s\S]*?)\};/)?.[1] || "";
+  const kodyFrontu = [...etykiety.matchAll(/(?:^|,)\s*(?:"([a-z-]+)"|([a-z-]+)):/g)].map((m) => m[1] || m[2]).sort();
+
+  assert.deepEqual(kodyFrontu, kodyBackend,
+    "AMENITY_LABELS we froncie musi mieć dokładnie te same kody co AMENITY_PATTERNS w hotelbeds.js");
+});

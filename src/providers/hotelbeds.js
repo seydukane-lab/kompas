@@ -124,6 +124,8 @@ export async function search(crit) {
 
   // Destynacje odpytujemy RÓWNOLEGLE (nie zwiększa liczby zapytań — ten sam
   // limit dzienny — a wyraźnie skraca czas odpowiedzi przy kilku regionach).
+  let bledy = 0;
+  let lastErr = null;
   const perDest = await Promise.all(
     targets.map(async (dest) => {
       try {
@@ -138,11 +140,19 @@ export async function search(crit) {
 
         return hotels.map((h) => normalize(h, content[h.code] || {}, cheapestRate(h), pax));
       } catch (err) {
+        bledy++;
+        lastErr = err;
         console.warn(`[hotelbeds] błąd dla destynacji ${dest}:`, err.message);
         return [];
       }
     })
   );
+  // Jeśli KAŻDA odpytana destynacja padła, to nie jest uczciwe zero wyników —
+  // to awaria dostawcy (np. wyczerpany limit dobowy sandboxa: HTTP 403 na
+  // wszystkie zapytania, zaobserwowane 31.07.2026). Rzucamy dalej, żeby
+  // warstwa wyżej (providers/index.js) mogła odróżnić to od "nic nie ma"
+  // zamiast po cichu zwracać pustą listę.
+  if (bledy > 0 && bledy === targets.length) throw lastErr;
   return perDest.flat();
 }
 
@@ -159,7 +169,10 @@ export async function searchMultiroom(crit) {
   const rooms = normalizeRoomsInput(crit);
   // Tryb "any" = ułożenie obojętne: dla każdego hotelu wybieramy TANIEJ z dwóch
   // opcji — osobne spójne pokoje ALBO jeden duży pokój na cały skład.
-  const mode = crit.roomsMode === "any" ? "any" : "split";
+  // Tryb "compare" liczy DOKŁADNIE te same dwie opcje, ale nie wybiera za
+  // konsultanta — zwraca obie obok siebie (dwa pokoje 2-os. kontra jeden
+  // 4-osobowy to realne pytanie klienta, nie coś do cichego rozstrzygnięcia).
+  const mode = crit.roomsMode === "any" ? "any" : crit.roomsMode === "compare" ? "compare" : "split";
   const totalAdults = rooms.reduce((s, r) => s + r.adults, 0);
   const totalChildren = rooms.reduce((s, r) => s + r.children, 0);
   const totalPax = totalAdults + totalChildren || 1;
@@ -201,10 +214,11 @@ export async function searchMultiroom(crit) {
         const splitByCode = {};
         for (const code of common) splitByCode[code] = perRoom.map((m) => m[code]);
 
-        // Jeden duży pokój na cały skład (tylko w trybie "any").
+        // Jeden duży pokój na cały skład (trybu "any" i "compare" — obu
+        // potrzebna jest ta sama druga opcja, różni je tylko to, co robimy z nią później).
         let bigByCode = {};
         // Jeden duży pokój: wiek wszystkich dzieci z całej grupy, po kolei.
-        if (mode === "any") {
+        if (mode === "any" || mode === "compare") {
           const wszystkieWieki = rooms.flatMap((r) => r.ages || []);
           bigByCode = await availMap(dest, totalAdults, totalChildren, wszystkieWieki);
         }
@@ -218,6 +232,14 @@ export async function searchMultiroom(crit) {
             const c = content[code] || {};
             const split = splitByCode[code] ? normalizeMultiroom(code, c, splitByCode[code], rooms, totalPax) : null;
             const big = bigByCode[code] ? normalizeSingleRoom(code, c, bigByCode[code], totalAdults, totalChildren, totalPax) : null;
+            if (mode === "compare") {
+              const configs = [split, big].filter(Boolean);
+              if (!configs.length) return null;
+              // Reprezentant do sortowania/wyświetlenia karty = tańsza z opcji;
+              // obie zostają dostępne w `compareConfigs` dla widoku obok siebie.
+              const cheapest = configs.reduce((a, b) => (b.priceTotal < a.priceTotal ? b : a));
+              return { ...cheapest, id: "hb-mr-cmp-" + code, compareConfigs: configs };
+            }
             if (split && big) return big.priceTotal < split.priceTotal ? big : split;
             return split || big;
           })

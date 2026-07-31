@@ -134,6 +134,12 @@
 
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0 20px}
   @media (max-width:620px){.summary{grid-template-columns:repeat(2,1fr)}}
+
+  .source-warn{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:11px 14px;border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:var(--radius-sm);background:var(--warn-soft);color:var(--warn);font-size:13px;line-height:1.45}
+  .source-warn svg{flex:none;margin-top:1px}
+  .source-warn b{color:inherit}
+  .source-warn .sw-retry{margin-left:auto;flex:none;background:none;border:1px solid currentColor;color:inherit;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer}
+  .source-warn .sw-retry:hover{background:color-mix(in srgb,var(--warn) 14%,transparent)}
   .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:13px 15px}
   .stat .k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
   .stat .v{font-size:22px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
@@ -473,7 +479,13 @@
   .mr-rmroom{margin-left:auto;background:none;border:none;color:#C6534B;cursor:pointer;font-size:12px}
   .mr-addroom{font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px dashed var(--line-strong);background:none;color:var(--ink-soft);cursor:pointer;width:100%;margin-bottom:12px}
   .mr-addroom:hover{border-color:var(--accent);color:var(--accent)}
-  .mr-any{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;cursor:pointer}
+  .mr-mode{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--ink-soft);margin-bottom:12px}
+  .mr-mode label{display:flex;align-items:center;gap:8px;cursor:pointer}
+  .mr-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
+  @media (max-width:620px){.mr-compare{grid-template-columns:minmax(0,1fr)}}
+  .mr-cfg{min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface-2)}
+  .mr-cfg-h{font-size:12.5px;font-weight:700;color:var(--ink);display:flex;justify-content:space-between;gap:8px}
+  .mr-cfg-h b{color:var(--accent)}
   .mr-search{width:100%;justify-content:center;cursor:pointer;margin-bottom:6px}
   .mr-badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--surface-2);color:var(--ink-soft);margin-left:6px}
   .mr-results{margin-top:12px}
@@ -500,6 +512,14 @@
   .det-links{display:flex;flex-wrap:wrap;gap:8px}
   .det-link{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:var(--accent-deep);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-decoration:none}
   .det-link:hover{border-color:var(--accent);background:var(--accent-soft)}
+  /* Zakładki szczegółów oferty (wzorem MerlinX) — zamiast jednej długiej portianki. */
+  .det-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .det-tab-btn{font-size:12.5px;font-weight:650;padding:7px 13px;border-radius:20px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer}
+  .det-tab-btn[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
+  .det-tab-panel{display:none}
+  .det-tab-panel.active{display:block}
+  .det-amen{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+  .det-amen span{font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:20px;background:var(--surface-2);color:var(--ink-soft)}
   .rep-order{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.9}
   .rep-order h4{font-size:12px;margin:0 0 8px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em}
   .rep-note-warn{color:var(--ink);background:rgba(220,140,0,.12);border:1px solid rgba(220,140,0,.35)}
@@ -515,6 +535,12 @@
   .rep-ai ul{padding-left:20px;margin:6px 0}
   .rep-ai li{margin-bottom:4px}
   .rep-ai p{margin:0 0 10px}
+  .rep-ai-wait{text-align:center;padding:40px 24px}
+  .rep-ai-wait p{margin:4px 0;color:var(--ink-soft);font-size:13.5px}
+  .rep-ai-wait .rep-ai-clock{font-variant-numeric:tabular-nums;font-weight:650;color:var(--ink)}
+  .rep-ai-err{padding:16px;border:1px solid color-mix(in srgb,var(--crit) 35%,transparent);background:var(--crit-soft);border-radius:var(--radius-sm);color:var(--crit)}
+  .rep-ai-err h4{margin:0 0 6px;font-size:14px;color:inherit}
+  .rep-ai-err p{margin:0 0 4px;font-size:13px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -695,6 +721,7 @@
         </select></div>
       </div>
     </div>
+    <div class="source-warn" id="sourceWarn" hidden></div>
     <div class="op-filter" id="opFilter" hidden></div>
     <div class="summary" id="summary" hidden></div>
     <div class="cards" id="cards"></div>
@@ -788,7 +815,11 @@
       <div class="det-note">Szuka hoteli, w których jest dostępność na <b>wszystkie</b> pokoje naraz (ten sam hotel i termin). Kryteria kierunku i dat bierze z formularza wyszukiwania po lewej. Wynik: od najtańszych za grupę, z rozbiciem ceny na pokoje.</div>
       <div class="mr-rooms" id="mrRooms"></div>
       <button class="mr-addroom" id="mrAddRoom" type="button">+ Dodaj pokój</button>
-      <label class="mr-any"><input type="checkbox" id="mrAny"> Ułożenie obojętne — dobierz najtaniej (osobne pokoje albo jeden duży)</label>
+      <div class="mr-mode" id="mrMode" role="radiogroup" aria-label="Układ pokoi">
+        <label><input type="radio" name="mrMode" value="split" checked> Osobne pokoje (jak wyżej)</label>
+        <label><input type="radio" name="mrMode" value="any"> Obojętne — dobierz najtaniej</label>
+        <label><input type="radio" name="mrMode" value="compare"> Porównaj obie opcje obok siebie</label>
+      </div>
       <button class="btn-script btn-book mr-search" id="mrSearchBtn" type="button">🔎 Szukaj wspólnego wyjazdu</button>
       <div class="mr-results" id="mrResults"></div>
     </div>
@@ -1109,19 +1140,35 @@
   document.getElementById("mrSearchBtn").addEventListener("click",function(){
     var res=document.getElementById("mrResults");
     res.innerHTML='<div class="mr-empty">Szukam dostępności na wszystkie pokoje…</div>';
-    var p=new URLSearchParams({countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,rooms:JSON.stringify(mrRooms),roomsMode:document.getElementById("mrAny").checked?"any":"split"});
+    var mrModeChecked=document.querySelector('input[name="mrMode"]:checked');
+    var p=new URLSearchParams({countries:activeCountries.join(","),regions:activeRegions.join(","),from:document.getElementById("dateFrom").value,to:document.getElementById("dateTo").value,rooms:JSON.stringify(mrRooms),roomsMode:mrModeChecked?mrModeChecked.value:"split"});
     api("/api/multiroom?"+p.toString()).then(function(r){return r.json();}).then(function(d){
       if(d.error&&!(d.offers&&d.offers.length)){res.innerHTML='<div class="mr-empty">'+d.error+'</div>';return;}
       mrRenderResults(d.offers||[]);
     }).catch(function(e){res.innerHTML='<div class="mr-empty">Błąd: '+e.message+'</div>';});
   });
+  function mrRoomsBreakdownHtml(bd){
+    return (bd||[]).map(function(b){return '<li><span>'+b.label+(b.roomName?' · '+b.roomName:'')+(b.board?' · '+b.board:'')+'</span><b>'+fmt(b.price)+' zł</b></li>';}).join("");
+  }
   function mrRenderResults(offers){
     var res=document.getElementById("mrResults");mrLast=offers;
     if(!offers.length){res.innerHTML='<div class="mr-empty">Brak hotelu z dostępnością na wszystkie pokoje w tym terminie. Zmień termin lub skład pokoi.</div>';return;}
-    res.innerHTML='<div class="det-note">'+offers.length+' hoteli z dostępnością na WSZYSTKIE pokoje — od najtańszych za grupę.</div>'+offers.slice(0,20).map(function(h,idx){
-      var bd=(h.roomsBreakdown||[]).map(function(b){return '<li><span>'+b.label+(b.roomName?' · '+b.roomName:'')+(b.board?' · '+b.board:'')+'</span><b>'+fmt(b.price)+' zł</b></li>';}).join("");
+    var cmp=offers.some(function(h){return h.compareConfigs;});
+    res.innerHTML='<div class="det-note">'+offers.length+' hoteli z dostępnością na WSZYSTKIE pokoje — od najtańszych za grupę.'+(cmp?' Dla każdego hotelu — obie opcje układu obok siebie.':'')+'</div>'+offers.slice(0,20).map(function(h,idx){
       var badge=h.layout==="single"?'<span class="mr-badge">1 duży pokój</span>':'<span class="mr-badge">'+h.roomsCount+' osobne pokoje</span>';
-      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span>'+badge+'</div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+fmt(h.priceTotal)+' zł</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div><ul class="mr-bd">'+bd+'</ul><button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
+      var body;
+      if(h.compareConfigs&&h.compareConfigs.length){
+        // Konsultant dostaje obie opcje obok siebie — decyzja układu pokoi zostaje
+        // przy nim/kliencie, nie jest po cichu podjęta przez system (jak w trybie "any").
+        body='<div class="mr-compare">'+h.compareConfigs.map(function(c){
+          var lbl=c.layout==="single"?"1 duży pokój":c.roomsCount+" osobne pokoje";
+          return '<div class="mr-cfg"><div class="mr-cfg-h"><span>'+lbl+'</span><b>'+fmt(c.priceTotal)+' zł</b></div><ul class="mr-bd">'+mrRoomsBreakdownHtml(c.roomsBreakdown)+'</ul></div>';
+        }).join("")+'</div>';
+      } else {
+        body='<ul class="mr-bd">'+mrRoomsBreakdownHtml(h.roomsBreakdown)+'</ul>';
+      }
+      var totLabel=h.compareConfigs?'od '+fmt(h.priceTotal)+' zł':fmt(h.priceTotal)+' zł';
+      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span>'+(h.compareConfigs?'':badge)+'</div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+totLabel+'</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div>'+body+'<button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
     }).join("");
   }
   document.getElementById("mrResults").addEventListener("click",function(e){
@@ -1133,9 +1180,19 @@
   function mrClientText(h){
     var L=["🏨 "+h.name+" "+stars(h.stars||3),"📍 "+((h.region?h.region+", ":"")+(h.country||""))];
     if(typeof h.beach==="number")L.push("🏖 Plaża: "+(h.beach>=1000?(h.beach/1000).toFixed(1).replace(".",",")+" km":h.beach+" m"));
-    L.push("","Pokoje:");
-    (h.roomsBreakdown||[]).forEach(function(b){L.push("• "+b.label+(b.roomName?" — "+b.roomName:"")+(b.board?" ("+b.board+")":"")+": "+fmt(b.price)+" zł");});
-    L.push("","💰 RAZEM za grupę: "+fmt(h.priceTotal)+" zł (od "+fmt(h.price)+" zł/os.)","(cena orientacyjna, do potwierdzenia)");
+    if(h.compareConfigs&&h.compareConfigs.length){
+      h.compareConfigs.forEach(function(c){
+        var lbl=c.layout==="single"?"1 duży pokój":c.roomsCount+" osobne pokoje";
+        L.push("","Opcja — "+lbl+":");
+        (c.roomsBreakdown||[]).forEach(function(b){L.push("• "+b.label+(b.roomName?" — "+b.roomName:"")+(b.board?" ("+b.board+")":"")+": "+fmt(b.price)+" zł");});
+        L.push("Razem: "+fmt(c.priceTotal)+" zł");
+      });
+    } else {
+      L.push("","Pokoje:");
+      (h.roomsBreakdown||[]).forEach(function(b){L.push("• "+b.label+(b.roomName?" — "+b.roomName:"")+(b.board?" ("+b.board+")":"")+": "+fmt(b.price)+" zł");});
+      L.push("","💰 RAZEM za grupę: "+fmt(h.priceTotal)+" zł (od "+fmt(h.price)+" zł/os.)");
+    }
+    L.push("(cena orientacyjna, do potwierdzenia)");
     return L.join("\n");
   }
 
@@ -1146,6 +1203,24 @@
 
   var cardsEl=document.getElementById("cards"),toastEl=document.getElementById("toast"),toastT;
   function toast(m){toastEl.textContent=m;toastEl.classList.add("show");clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove("show");},1900);}
+
+  // Pasek nad wynikami: widoczne ostrzeżenie, gdy któreś źródło PADŁO (nie
+  // odpowiedziało), a nie uczciwie zwróciło zero. Bez tego konsultant widzi
+  // po prostu mniej ofert i nie wie, że połowa źródeł nie odpowiedziała —
+  // ciche kłamstwo o stanie rynku wobec klienta.
+  var sourceWarnEl=document.getElementById("sourceWarn");
+  function renderSourceWarn(sources){
+    var padle=(sources||[]).filter(function(s){return s.ok===false;});
+    if(!padle.length){sourceWarnEl.hidden=true;sourceWarnEl.innerHTML="";return;}
+    var etykiety=padle.map(function(s){return s.label||s.id;}).join(", ");
+    sourceWarnEl.innerHTML=
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+
+      '<span><b>Uwaga: '+etykiety+' nie odpowiedział'+(padle.length>1?"y":"")+'.</b> Wyniki są niepełne — to nie znaczy, że w tym terminie nic nie ma.</span>'+
+      '<button type="button" class="sw-retry" id="sourceWarnRetry">Spróbuj ponownie</button>';
+    sourceWarnEl.hidden=false;
+    var rb=document.getElementById("sourceWarnRetry");
+    if(rb)rb.addEventListener("click",function(){search();});
+  }
 
   /* ---------- Sesja konsultanta ----------
      Wygaśnięcie sesji w trakcie pracy nie może kończyć się cichym „nic się nie dzieje" —
@@ -1460,44 +1535,81 @@
     ];
     return links.map(function(l){return '<a class="det-link" href="'+l[1]+'" target="_blank" rel="noopener">'+l[0]+' ↗</a>';}).join("");
   }
+  // Etykiety udogodnień (offer.amenities) — te same 8 kodów co filtr "Obiekt/Aktywność",
+  // żeby w karcie i w szczegółach oferty konsultant widział identyczne nazwy.
+  var AMENITY_LABELS={basen:"🏊 Basen",spa:"💆 Spa",wifi:"📶 Wi-Fi",niepelnosprawni:"♿ Dla niepełnosprawnych",animacje:"🎉 Animacje","sporty-wodne":"🏄 Sporty wodne","klub-dzieci":"🧒 Klub dla dzieci",silownia:"🏋 Siłownia"};
+  // Szczegóły oferty w zakładkach (wzorem MerlinX) zamiast jednej długiej portianki.
+  // Zakładka bez ŻADNEGO wiersza się nie pokazuje — pusta zakładka "Pokoje" sugerowałaby
+  // brak informacji tam, gdzie jej po prostu nie pobraliśmy z tego źródła.
+  function row(k,v){return v?('<div class="det-row"><span class="det-k">'+k+'</span><span class="det-v">'+v+'</span></div>'):'';}
   function openDetail(h){
     var intel=destIntelClient(h.region,h.country);
     var pract=practGridHtml(h.country);
     document.getElementById("detailTitle").innerHTML=h.name+' <span class="stars">'+stars(h.stars||3)+'</span>';
-    // Blok „Opis oferty" — strukturalny jak w Merlinie (z tego, co REALNIE mamy z listingu).
-    function row(k,v){return v?('<div class="det-row"><span class="det-k">'+k+'</span><span class="det-v">'+v+'</span></div>'):'';}
-    var opis=
-      row("Kraj",h.country)+
-      row("Region / miejsce",h.region||"—")+
-      row("Kategoria",(h.stars||"?")+"★")+
-      row("Ocena gości",h.rating?(h.rating.toFixed(1).replace(".",",")+"/10"+(h.reviews>0?" ("+fmt(h.reviews)+" opinii)":" — mało/brak danych o opiniach")):"brak danych")+
-      row("Wyżywienie",h.board||"—")+
-      row("Długość pobytu",h.nights?(h.nights+" nocy"):"—")+
-      row("Wylot",h.departureCity||"—")+
-      (typeof h.beach==="number"?row("Odległość od plaży",h.beach+" m"):"")+
-      (h.roomType?row("Typ pokoju",h.roomType):"")+
-      (typeof h.airport==="number"?row("Odległość od lotniska",(h.airport>=1000?(h.airport/1000).toFixed(1).replace(".",",")+" km":h.airport+" m")):"")+
-      (typeof h.ski==="number"?row("Odległość od stoku",(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m")):"")+
-      (h.yearRenov?row("Ostatnia renowacja",String(h.yearRenov)+(h.newHotel?" ✅ świeżo odnowiony":"")):"")+
-      (h.yearBuilt?row("Rok budowy",String(h.yearBuilt)):"")+
-      (h.adultsOnly?row("Profil obiektu","Tylko dla dorosłych"):"")+
+
+    var naglowek=
       row("Cena / osoba","<b>"+fmt(h.price)+" zł</b>")+
       (h.priceTotal>0?row("Razem (orientacyjnie)",fmt(h.priceTotal)+" zł"):"")+
+      (h.nights?row("Długość pobytu",h.nights+" nocy"):"")+
+      row("Ocena wartości ETA","<b>"+etaValue(h)+"/100</b> · "+etaVerdict(h).t)+
       row("Operator / źródło",h.operator||h.source||"—")+
-      row("Nr oferty",h.offerNumber||"—")+
-      row("Ocena wartości ETA","<b>"+etaValue(h)+"/100</b> · "+etaVerdict(h).t);
+      row("Nr oferty",h.offerNumber||"—");
+
+    var amenityChips=Array.isArray(h.amenities)&&h.amenities.length
+      ? '<div class="det-amen">'+h.amenities.map(function(a){return '<span>'+(AMENITY_LABELS[a]||a)+'</span>';}).join("")+'</div>' : "";
+    var tabOpis=
+      row("Kraj",h.country)+
+      row("Region / miejsce",h.region)+
+      row("Kategoria",h.stars?(h.stars+"★"):"")+
+      row("Ocena gości",h.rating?(h.rating.toFixed(1).replace(".",",")+"/10"+(h.reviews>0?" ("+fmt(h.reviews)+" opinii)":" — mało/brak danych o opiniach")):"Brak danych o opiniach")+
+      row("Rok budowy",h.yearBuilt?String(h.yearBuilt):"")+
+      row("Ostatnia renowacja",h.yearRenov?(String(h.yearRenov)+(h.newHotel?" ✅ świeżo odnowiony":"")):"")+
+      row("Profil obiektu",h.adultsOnly?"Tylko dla dorosłych":"")+
+      (amenityChips?'<div class="det-row"><span class="det-k">Udogodnienia</span></div>'+amenityChips:"");
+
+    var tabPokoje=
+      row("Typ pokoju",h.roomType)+
+      row("Pojemność",(h.cap&&!h.capUnknown)?("do "+h.cap+" os."):"");
+
+    var tabLokalizacja=
+      row("Region / miejsce",h.region)+
+      row("Odległość od plaży",typeof h.beach==="number"?(h.beach+" m"):"")+
+      row("Odległość od lotniska",typeof h.airport==="number"?(h.airport>=1000?(h.airport/1000).toFixed(1).replace(".",",")+" km":h.airport+" m"):"")+
+      row("Odległość od stoku",typeof h.ski==="number"?(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m"):"")+
+      row("Wylot",h.departureCity)+
+      row("Transport",h.transport);
+
+    var tabWyzywienie=row("Wyżywienie",h.board);
+
+    var TABS=[
+      {key:"opis",label:"Opis obiektu",html:tabOpis},
+      {key:"pokoje",label:"Pokoje",html:tabPokoje},
+      {key:"lokalizacja",label:"Położenie i dojazd",html:tabLokalizacja},
+      {key:"wyzywienie",label:"Wyżywienie",html:tabWyzywienie},
+    ].filter(function(t){return t.html;}); // zakładka bez ani jednego wiersza po prostu nie istnieje
+
+    var tabsNav=TABS.length>1?('<div class="det-tabs" role="tablist">'+TABS.map(function(t,i){return '<button type="button" class="det-tab-btn" role="tab" aria-selected="'+(i===0?"true":"false")+'" data-dtab="'+t.key+'">'+t.label+'</button>';}).join("")+'</div>'):"";
+    var tabsPanels=TABS.map(function(t,i){return '<div class="det-tab-panel'+(i===0?" active":"")+'" data-dpanel="'+t.key+'">'+t.html+'</div>';}).join("");
+
     // Blok „Kierunek" (Destination Intelligence).
     var kier=intel
       ? '<div class="det-intel"><p>🧭 <b>'+intel.vibe+'</b></p><p><b>Dla kogo:</b> '+intel.forWho+'</p><p><b>Na co uważać:</b> '+intel.watch+'</p><p><b>Wskazówka:</b> '+intel.tip+'</p></div>'
       : '<p class="det-empty">Brak kuratorowanej wiedzy o tym kierunku — sprawdź linki researchowe niżej.</p>';
     document.getElementById("detailBody").innerHTML=
       '<div class="det-note">Dane z listingu są orientacyjne. Szczegóły (plaża, pokoje, jedzenie, aktualne opinie) potwierdź researchem — linki niżej otwierają realne źródła, jak w warsztacie doradcy.</div>'+
-      '<div class="det-sec"><h4>Opis oferty</h4>'+opis+'</div>'+
+      '<div class="det-sec">'+naglowek+'</div>'+
+      tabsNav+tabsPanels+
       '<div class="det-sec"><h4>Kierunek</h4>'+kier+'</div>'+
       (pract?'<div class="det-sec"><h4>Informacje regionalne / wjazdowe</h4>'+pract+'</div>':'')+
       '<div class="det-sec"><h4>Research (Mapa · opinie · relacje)</h4><div class="det-links">'+researchLinks(h)+'</div></div>';
     document.getElementById("detailModal").hidden=false;
   }
+  document.getElementById("detailBody").addEventListener("click",function(e){
+    var b=e.target.closest("[data-dtab]");if(!b)return;
+    var key=b.getAttribute("data-dtab");
+    document.querySelectorAll(".det-tab-btn").forEach(function(x){x.setAttribute("aria-selected",String(x===b));});
+    document.querySelectorAll(".det-tab-panel").forEach(function(p){p.classList.toggle("active",p.getAttribute("data-dpanel")===key);});
+  });
   document.getElementById("detailClose").addEventListener("click",function(){document.getElementById("detailModal").hidden=true;});
   document.getElementById("detailBackdrop").addEventListener("click",function(){document.getElementById("detailModal").hidden=true;});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!document.getElementById("detailModal").hidden)document.getElementById("detailModal").hidden=true;});
@@ -1517,16 +1629,44 @@
     if(!cart.length){toast("Odłóż oferty do koszyka");return;}
     if(!advisorEnabled){toast("Analiza AI wyłączona — dodaj ANTHROPIC_API_KEY w .env (lokalnie)");return;}
     var btn=this,old=btn.textContent;btn.disabled=true;btn.textContent="✨ Analizuję…";
+    var repBody=document.getElementById("repBody");
+    // Model sprawdza każdy hotel w sieci — zmierzone 30.07.2026: ~104 s na jedno
+    // wywołanie. Bez tego stanu okno wygląda przez dwie minuty jak zawieszone,
+    // a doradca siedzący z klientem klika gdzie indziej, zabijając funkcję.
+    var t0=Date.now(),clockEl=null;
+    repBody.innerHTML=
+      '<div class="rep-ai-wait"><div class="spinner"></div>'+
+      '<p><b>Analizuję oferty przez ETA OS…</b></p>'+
+      '<p>Model sprawdza w sieci każdy odłożony hotel — to potrwa <b>około dwóch minut</b>.</p>'+
+      '<p>Trwa: <span class="rep-ai-clock" id="repAiClock">0 s</span></p>'+
+      '<p>Okno można spokojnie zamknąć — analiza nie przerwie się w tle, ale wynik zobaczysz dopiero po ponownym otwarciu raportu.</p></div>';
+    clockEl=document.getElementById("repAiClock");
+    var timer=setInterval(function(){
+      if(clockEl)clockEl.textContent=Math.round((Date.now()-t0)/1000)+" s";
+    },1000);
     var crit={budget:+budget.value,budgetMode:budgetMode,adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value,childAges:childAgesValue().split(",").filter(Boolean),nights:activeNights,departures:activeDeps};
     api("/api/advisor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({offers:cart,criteria:crit})})
       .then(function(r){return r.json();})
       .then(function(d){
-        if(d.report){document.getElementById("repBody").innerHTML='<p class="rep-note">✨ Analiza ETA OS wygenerowana przez AI ('+(d.model||"Claude")+'). Na danych z listingu — ceny orientacyjne, szczegóły do potwierdzenia u organizatora.</p><div class="rep-ai">'+mdLite(d.report)+'</div>';}
-        else toast(d.error||"Błąd analizy AI");
+        if(d.report){repBody.innerHTML='<p class="rep-note">✨ Analiza ETA OS wygenerowana przez AI ('+(d.model||"Claude")+'). Na danych z listingu — ceny orientacyjne, szczegóły do potwierdzenia u organizatora.</p><div class="rep-ai">'+mdLite(d.report)+'</div>';}
+        else showAdvisorError(repBody,d.error||"Dostawca analizy AI nie zwrócił raportu.");
       })
-      .catch(function(e){toast("Błąd analizy: "+e.message);})
-      .finally(function(){btn.disabled=false;btn.textContent=old;});
+      .catch(function(e){showAdvisorError(repBody,e.message);})
+      .finally(function(){clearInterval(timer);btn.disabled=false;btn.textContent=old;});
   });
+  // Błąd zostaje NA EKRANIE (nie w toastcie, który znika po ~2 s) — po dwóch
+  // minutach czekania doradca łatwo go przegapi i zostaje z pustym oknem.
+  function showAdvisorError(repBody,msg){
+    repBody.innerHTML=
+      '<div class="rep-ai-err"><h4>⚠ Analiza AI się nie powiodła</h4>'+
+      '<p>'+String(msg||"Nieznany błąd").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</p>'+
+      '<p>Spróbuj ponownie przyciskiem „✨ Analiza ETA (AI)" poniżej.</p></div>';
+    var back=document.createElement("button");
+    back.type="button";back.className="tool-btn";back.style.marginTop="10px";
+    back.textContent="← Wróć do statycznego rankingu";
+    back.addEventListener("click",buildAdvisorReport);
+    repBody.appendChild(back);
+  }
   document.addEventListener("keydown",function(e){if(e.key==="Escape"){var r=document.getElementById("repModal");if(r&&!r.hidden)r.hidden=true;}});
   document.getElementById("cmpClose").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
   document.getElementById("cmpBackdrop").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
@@ -1752,9 +1892,10 @@
   var searchBtn=document.getElementById("searchBtn");
   function search(){
     searchBtn.disabled=true;
+    sourceWarnEl.hidden=true;
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
     var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
-    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
+    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
   document.getElementById("sort").addEventListener("change",search);

@@ -212,3 +212,60 @@ test("kolejność pól w kryteriach nie tworzy osobnego wpisu w cache", async ()
   const drugie = await searchAll({ nights: 7, adults: 2, dest: "Egipt" });
   assert.ok(drugie.cached, "te same kryteria zapisane w innej kolejności to to samo pytanie");
 });
+
+// ------------------------------------------------------------------
+//  Trzy stany źródła: odpowiedziało (z ofertami), odpowiedziało zerem
+//  (uczciwe "nic nie ma"), padło (wyjątek/timeout/HTTP 4xx-5xx).
+//  Bez tego rozróżnienia awaria dostawcy i realny brak ofert wyglądają
+//  dla konsultanta identycznie: count: 0.
+// ------------------------------------------------------------------
+function atrapa(id, impl) {
+  return { meta: { id, label: id }, isEnabled: () => true, search: impl };
+}
+
+test("dostawca, który rzuca wyjątkiem, jest oznaczony jako ok:false z powodem", async () => {
+  clearSearchCache();
+  const padajacy = atrapa("padajacy", async () => {
+    const err = new Error("availability HTTP 403");
+    err.status = 403;
+    throw err;
+  });
+  const { sources } = await searchAll({ dest: "test-padajacy" }, [padajacy]);
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].ok, false);
+  assert.equal(sources[0].count, 0);
+  assert.match(sources[0].reason, /403/);
+});
+
+test("dostawca, który uczciwie nie znalazł nic, jest oznaczony jako ok:true", async () => {
+  clearSearchCache();
+  const pusty = atrapa("pusty", async () => []);
+  const { sources } = await searchAll({ dest: "test-pusty" }, [pusty]);
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].ok, true);
+  assert.equal(sources[0].count, 0);
+  assert.equal(sources[0].reason, undefined);
+});
+
+test("dostawca z ofertami jest oznaczony jako ok:true z niezerowym count", async () => {
+  clearSearchCache();
+  const zOfertami = atrapa("zofertami", async () => [offer(), offer({ name: "Drugi Hotel" })]);
+  const { sources } = await searchAll({ dest: "test-zofertami" }, [zOfertami]);
+  assert.equal(sources[0].ok, true);
+  assert.equal(sources[0].count, 2);
+});
+
+test("awaria jednego źródła nie trafia do cache — kolejne zapytanie próbuje ponownie", async () => {
+  clearSearchCache();
+  let wywolania = 0;
+  const padajacy = atrapa("padajacy2", async () => {
+    wywolania++;
+    throw new Error("padlo");
+  });
+  const crit = { dest: "test-nocache" };
+  const pierwsze = await searchAll(crit, [padajacy]);
+  assert.equal(pierwsze.cached, undefined);
+  const drugie = await searchAll(crit, [padajacy]);
+  assert.equal(drugie.cached, undefined);
+  assert.equal(wywolania, 2, "awaria nie może zostać zamrożona w cache");
+});

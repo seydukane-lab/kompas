@@ -11,7 +11,30 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveTargets, normalizeRoomsInput, MAX_POKOI, mapAmenities } from "../src/providers/hotelbeds.js";
+import { resolveTargets, normalizeRoomsInput, MAX_POKOI, mapAmenities, search as hbSearch, searchMultiroom } from "../src/providers/hotelbeds.js";
+
+// Atrapa API Hotelbeds: jeden hotel (kod 100) dostępny dla każdego zapytania
+// o dostępność (osobne pokoje i jeden duży pokój na cały skład), z prostą
+// wyceną — wystarcza do sprawdzenia LOGIKI trybów multiroom bez sieci.
+function mockHotelbedsFetch() {
+  return async (url) => {
+    const u = String(url);
+    if (u.includes("/hotel-api/1.0/hotels")) {
+      return new Response(JSON.stringify({
+        hotels: { hotels: [
+          { code: 100, name: "Test Hotel", categoryCode: "4EST",
+            rooms: [{ name: "DOUBLE ROOM", rates: [{ net: "50", boardCode: "BB", boardName: "Bed & Breakfast" }] }] },
+        ] },
+      }), { status: 200 });
+    }
+    if (u.includes("/hotel-content-api/1.0/hotels")) {
+      return new Response(JSON.stringify({
+        hotels: [{ code: 100, name: { content: "Test Hotel" }, categoryCode: "4EST" }],
+      }), { status: 200 });
+    }
+    return new Response("", { status: 404 });
+  };
+}
 
 function facility(text, extra = {}) {
   return { description: { content: text }, ...extra };
@@ -144,4 +167,108 @@ test("mapAmenities rozpoznaje realne udogodnienia z opisu", () => {
 test("mapAmenities nie zgaduje udogodnień, których opis nie wspomina", () => {
   const out = mapAmenities([facility("Outdoor swimming pool")]);
   assert.deepEqual(out, ["basen"]);
+});
+
+// ------------------------------------------------------------------
+//  Zaobserwowane 31.07.2026: Hotelbeds zaczął zwracać HTTP 403 na WSZYSTKIE
+//  destynacje (wyczerpana pula dobowa sandboxa). search() łapał ten błąd
+//  per-destynacja i cicho zwracał [] — dla warstwy wyżej wyglądało to
+//  identycznie jak uczciwy brak ofert. search() musi rzucić dalej, gdy
+//  KAŻDE zapytanie padło, żeby providers/index.js mogło to odróżnić.
+// ------------------------------------------------------------------
+test("search() rzuca, gdy WSZYSTKIE odpytane destynacje padły", async () => {
+  const oryginalny = globalThis.fetch;
+  globalThis.fetch = async () => new Response("", { status: 403 });
+  try {
+    await assert.rejects(
+      () => hbSearch({ dest: "Hiszpania", adults: 2 }),
+      /403/
+    );
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});
+
+test("search() nie rzuca, gdy choć jedna destynacja odpowiedziała (nawet pusto)", async () => {
+  const oryginalny = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (body.destination.code === "PMI") return new Response("", { status: 403 });
+    return new Response(JSON.stringify({ hotels: { hotels: [] } }), { status: 200 });
+  };
+  try {
+    // Brak `dest`/`regions` -> SANDBOX_DESTS (PMI, BCN, AGP) — kilka celów naraz.
+    const wynik = await hbSearch({ adults: 2 });
+    assert.deepEqual(wynik, [], "PMI pada, ale BCN/AGP odpowiadają uczciwym zerem — to nie jest awaria");
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});
+
+// ------------------------------------------------------------------
+//  Multiroom — tryb "compare": dwa pokoje 2-osobowe kontra jeden 4-osobowy
+//  to realne pytanie klienta, dziś wymagające dwóch osobnych wyszukiwań.
+//  Tryb "any" już wybierał automatycznie tańszą opcję — "compare" ma
+//  zwrócić OBIE, żeby konsultant (albo klient) mógł wybrać świadomie.
+// ------------------------------------------------------------------
+test("tryb compare zwraca obie konfiguracje (osobne pokoje i jeden duży) obok siebie", async () => {
+  const oryginalny = globalThis.fetch;
+  globalThis.fetch = mockHotelbedsFetch();
+  try {
+    const offers = await searchMultiroom({
+      dest: "Hiszpania", // -> jedna destynacja (PMI), żeby uniknąć duplikatów z atrapy
+      rooms: [{ adults: 2, children: 0 }, { adults: 2, children: 0 }],
+      roomsMode: "compare",
+    });
+    assert.equal(offers.length, 1);
+    const h = offers[0];
+    assert.ok(Array.isArray(h.compareConfigs), "brak compareConfigs w trybie compare");
+    assert.equal(h.compareConfigs.length, 2, "oczekiwano obu opcji: osobne pokoje i jeden duży");
+    assert.deepEqual(h.compareConfigs.map((c) => c.layout).sort(), ["single", "split"]);
+    const min = Math.min(...h.compareConfigs.map((c) => c.priceTotal));
+    assert.equal(h.priceTotal, min, "cena reprezentanta musi być tańszą z dwóch opcji (do sortowania listy)");
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});
+
+test("tryb any nadal wybiera automatycznie tańszą opcję, bez compareConfigs", async () => {
+  const oryginalny = globalThis.fetch;
+  globalThis.fetch = mockHotelbedsFetch();
+  try {
+    const offers = await searchMultiroom({
+      dest: "Hiszpania",
+      rooms: [{ adults: 2, children: 0 }, { adults: 2, children: 0 }],
+      roomsMode: "any",
+    });
+    assert.equal(offers.length, 1);
+    assert.equal(offers[0].compareConfigs, undefined, "tryb any nie powinien zwracać compareConfigs");
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});
+
+test("tryb split (domyślny) liczy tylko osobne pokoje, bez zapytania o jeden duży", async () => {
+  const oryginalny = globalThis.fetch;
+  let zapytaniaDostepnosci = 0;
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    if (u.includes("/hotel-api/1.0/hotels")) {
+      zapytaniaDostepnosci++;
+      return mockHotelbedsFetch()(url, init);
+    }
+    return mockHotelbedsFetch()(url, init);
+  };
+  try {
+    await searchMultiroom({
+      dest: "Hiszpania",
+      rooms: [{ adults: 2, children: 0 }, { adults: 2, children: 0 }],
+      roomsMode: "split",
+    });
+    // 1 destynacja x 2 pokoje = 2 zapytania o dostępność; tryb split NIE dokłada
+    // trzeciego zapytania o "jeden duży pokój" (to koszt tylko any/compare).
+    assert.equal(zapytaniaDostepnosci, 2);
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
 });

@@ -51,7 +51,11 @@ export async function search(crit) {
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`merlinx HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`merlinx HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
 
   const raw = await res.json(); // TODO(docs): jeśli XML — sparsować przez parser XML
   const offers = parseResponse(raw);

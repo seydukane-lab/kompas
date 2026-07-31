@@ -45,7 +45,11 @@ export async function search(crit) {
 
 async function fetchFeed() {
   const res = await fetchWithTimeout(FEED_URL, { headers: { Accept: "application/xml,text/xml" } });
-  if (!res.ok) throw new Error(`travellead feed HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`travellead feed HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   const xml = await res.text();
 
   const parser = new XMLParser({
