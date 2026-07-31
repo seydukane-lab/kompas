@@ -187,6 +187,21 @@ function deriveAmenities(h) {
   return a.length ? a : undefined;
 }
 
+// Typ pokoju dla danych demo. Cały ten provider to seed poglądowy (`demo: true`) —
+// ceny, oceny i dystanse też są wymyślone — więc nazwa pokoju jest tu spójną częścią
+// tej samej atrapy, a NIE zmyśloną informacją o realnym hotelu. Wyprowadzamy ją
+// wyłącznie z pojemności i profilu, które oferta już ma.
+// Po co: bez `roomType` w demo filtr „układ pokoju" byłby niewidoczny dla każdego,
+// kto nie ma klucza Hotelbeds — dokładnie ta pułapka, przez którą kolumny
+// Obiekt/Aktywność przez dwa dni nic nie filtrowały (commit bcbfa10).
+function deriveRoomType(h) {
+  if (h.cap >= 5) return "Apartament z 2 sypialniami";
+  if (h.cap === 4 && h.tags.includes("rodzina")) return "Pokój rodzinny (2 sypialnie)";
+  if (h.cap === 4) return "Pokój czteroosobowy";
+  if (h.cap === 3) return "Pokój trzyosobowy";
+  return "Pokój dwuosobowy";
+}
+
 // eslint-disable-next-line no-unused-vars
 export async function search(crit) {
   // Provider zwraca pełną listę pakietów; filtrowanie/ranking robi warstwa wspólna.
@@ -198,6 +213,7 @@ export async function search(crit) {
     demo: true,
     photos: [h.photo],
     amenities: deriveAmenities(h),
+    roomType: deriveRoomType(h),
   }));
 }
 

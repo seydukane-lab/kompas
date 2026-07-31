@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute, isDividedRoom,
 } from "../src/ranking.js";
 
 // Oferta wzorcowa — testy zmieniają tylko to, co badają.
@@ -208,4 +208,54 @@ test("filtr dni tygodnia wylotu odrzuca pakiety w złe dni i oferty bez znanej d
 test("filtr dni tygodnia wylotu: brak wyboru nic nie odrzuca", () => {
   const list = [offer({ type: "hotel", departDate: undefined })];
   assert.equal(applyFilters(list, { weekdays: [] }).length, 1);
+});
+
+// ------------------------------------------------------------------
+//  UKŁAD POKOJU — „jeden pokój, dwa pomieszczenia".
+//  Realna potrzeba przy stole: rodzice chcą spać w tym samym pokoju
+//  co dzieci, ale z przegrodą. To CO INNEGO niż dwa pokoje połączone
+//  drzwiami (inny klucz, inna łazienka, inna cena), więc filtry są dwa.
+// ------------------------------------------------------------------
+
+test("osobna sypialnia rozpoznawana po nazwie pokoju, po polsku i po angielsku", () => {
+  assert.equal(isDividedRoom("Pokój rodzinny (2 sypialnie)"), true);
+  assert.equal(isDividedRoom("FAMILY ROOM"), true);
+  assert.equal(isDividedRoom("TWO BEDROOM APARTMENT"), true);
+  assert.equal(isDividedRoom("Apartament z 2 sypialniami"), true);
+  assert.equal(isDividedRoom("DUPLEX SUPERIOR"), true);
+  assert.equal(isDividedRoom("DOUBLE ROOM"), false);
+  assert.equal(isDividedRoom("Pokój dwuosobowy"), false);
+});
+
+test("Junior Suite NIE jest pokojem z osobną sypialnią, zwykły Suite jest", () => {
+  // Junior Suite to najczęściej jeden pokój z wnęką. Uznanie go za osobną
+  // sypialnię kończy się awanturą na miejscu — klient zapłacił za przegrodę,
+  // której nie ma.
+  assert.equal(isDividedRoom("JUNIOR SUITE SEA VIEW"), false);
+  assert.equal(isDividedRoom("SUITE SEA VIEW"), true);
+});
+
+test("ANTY-PRZEKOLORYZACJA: oferta bez nazwy pokoju nie jest odsiewana", () => {
+  assert.equal(isDividedRoom(undefined), undefined);
+  assert.equal(isDividedRoom(""), undefined);
+  assert.equal(hasAttribute(offer(), "pokoj-dzielony"), undefined);
+
+  const rodzinny = offer({ id: "rodzinny", roomType: "Pokój rodzinny (2 sypialnie)" });
+  const dwuosobowy = offer({ id: "dwuosobowy", roomType: "Pokój dwuosobowy" });
+  const bezDanych = offer({ id: "bezDanych" }); // dostawca nie podał typu pokoju
+  const out = applyFilters([rodzinny, dwuosobowy, bezDanych], { attrs: ["pokoj-dzielony"] });
+  assert.deepEqual(out.map((o) => o.id).sort(), ["bezDanych", "rodzinny"],
+    "brak nazwy pokoju to brak wiedzy — nie wolno tego czytać jako „nie ma sypialni”");
+});
+
+test("pokoje połączone to osobny filtr, nie synonim osobnej sypialni", () => {
+  const polaczone = offer({ id: "polaczone", roomType: "CONNECTING ROOMS" });
+  const rodzinny = offer({ id: "rodzinny", roomType: "FAMILY ROOM" });
+
+  const filtrPolaczone = applyFilters([polaczone, rodzinny], { attrs: ["pokoje-polaczone"] });
+  assert.deepEqual(filtrPolaczone.map((o) => o.id), ["polaczone"],
+    "pokój rodzinny to jeden klucz — nie może wpaść pod „pokoje połączone”");
+
+  const filtrSypialnia = applyFilters([polaczone, rodzinny], { attrs: ["pokoj-dzielony"] });
+  assert.deepEqual(filtrSypialnia.map((o) => o.id), ["rodzinny"]);
 });

@@ -90,6 +90,34 @@ const ATTR_AMENITY = new Set([
   "animacje", "sporty-wodne", "klub-dzieci", "silownia",
 ]);
 
+// Układ pokoju — czytany z `offer.roomType` (Hotelbeds: rooms[].name z availability).
+// ŚWIADOMIE DWA OSOBNE ATRYBUTY, nie jeden wspólny „dzielony":
+//   pokoj-dzielony    = JEDNA jednostka z osobną sypialnią (rodzinny, apartament,
+//                       duplex) — jeden klucz, jedna łazienka, dzieci za ścianą;
+//   pokoje-polaczone  = DWA pokoje z drzwiami między nimi (connecting) — dwa klucze,
+//                       zwykle dwie łazienki i wyraźnie wyższa cena.
+// Konsultant sprzedaje te dwie rzeczy inaczej i klient płaci za nie inaczej, więc
+// wrzucenie ich do wspólnego worka wprowadzałoby w błąd przy rozmowie o cenie.
+const ATTR_ROOM = new Set(["pokoj-dzielony", "pokoje-polaczone"]);
+
+// Nazwy pokoi przychodzą po angielsku (Hotelbeds), po hiszpańsku (sandbox) i po
+// polsku (dane demo) — dlatego dopasowujemy na tekście znormalizowanym.
+const ROOM_DIVIDED = /\bfamily\b|rodzinn|bedroom|sypialni|duplex|dwupokojow|apartment|apartament|maisonette/;
+// „Suite" liczy się jako osobna sypialnia, ale „Junior Suite" NIE — to zwykle jeden
+// pokój z wnęką, a nie oddzielne pomieszczenie do spania. Mylenie tych dwóch to
+// dokładnie ten rodzaj przekoloryzacji, przez który klient czuje się oszukany na miejscu.
+const ROOM_SUITE = /\bsuite\b/;
+const ROOM_JUNIOR_SUITE = /junior\s*suite/;
+const ROOM_CONNECTING = /connecting|interconnect|comunicad|polaczon/;
+
+/** Czy nazwa pokoju opisuje jednostkę z wydzielonym miejscem do spania. */
+export function isDividedRoom(roomType) {
+  const t = normalizeName(roomType);
+  if (!t) return undefined; // brak nazwy pokoju = nie wiemy, a nie „nie ma"
+  if (ROOM_DIVIDED.test(t)) return true;
+  return ROOM_SUITE.test(t) && !ROOM_JUNIOR_SUITE.test(t);
+}
+
 // Czy oferta ma dany atrybut: true/false gdy wiadomo, undefined gdy BRAK DANYCH.
 // Brak danych nigdy nie liczy się jako "nie posiada" — to ANTY-PRZEKOLORYZACJA:
 // milczące odsiewanie ofert bez informacji wyglądałoby jak wiedza, której nie mamy.
@@ -101,6 +129,15 @@ export function hasAttribute(offer, key) {
   }
   if (ATTR_AMENITY.has(key)) {
     return Array.isArray(offer.amenities) ? offer.amenities.includes(key) : undefined;
+  }
+  if (ATTR_ROOM.has(key)) {
+    // Uwaga: availability zwraca nazwę TEGO wariantu pokoju, o który zapytaliśmy.
+    // Brak dopasowania znaczy więc „ten wariant nie jest dzielony", a NIE „hotel
+    // nie ma pokoi rodzinnych" — dlatego filtr wycina tylko jawne dopasowanie
+    // negatywne, a oferty bez nazwy pokoju zostawia w wynikach.
+    const t = normalizeName(offer.roomType);
+    if (!t) return undefined;
+    return key === "pokoj-dzielony" ? isDividedRoom(t) : ROOM_CONNECTING.test(t);
   }
   return undefined;
 }

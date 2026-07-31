@@ -670,6 +670,10 @@
           </div></div>
         </div>
       </div>
+      <div class="field"><label>Układ pokoju <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— gdy dzieci mają spać osobno</span></label><div class="chips" id="roomAttrChips">
+        <button class="chip" data-attr="pokoj-dzielony" aria-pressed="false">🛏 Osobna sypialnia</button>
+        <button class="chip" data-attr="pokoje-polaczone" aria-pressed="false">🚪 Pokoje połączone</button>
+      </div></div>
       <div class="field"><label>Min. kategoria <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— gwiazdki</span></label><div class="chips" id="starChips">
         <button class="chip" data-stars="0" aria-pressed="true">Dowolna</button>
         <button class="chip" data-stars="3" aria-pressed="false">3★+</button>
@@ -847,6 +851,7 @@
   wireChips(document.getElementById("locAttrChips"),activeAttrs);
   wireChips(document.getElementById("facAttrChips"),activeAttrs);
   wireChips(document.getElementById("actAttrChips"),activeAttrs);
+  wireChips(document.getElementById("roomAttrChips"),activeAttrs);
 
   // Licznik aktywnych filtrów przy nagłówku panelu — konsultant w rozmowie z klientem
   // od razu widzi, ile kryteriów zawęża wynik, bez przewijania całego panelu.
