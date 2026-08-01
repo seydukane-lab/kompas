@@ -477,6 +477,7 @@
   .mr-occ .stp{width:26px;height:26px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer;font-size:15px;line-height:1}
   .mr-occ .mr-v{min-width:18px;text-align:center;font-weight:600;color:var(--ink)}
   .mr-rmroom{margin-left:auto;background:none;border:none;color:#C6534B;cursor:pointer;font-size:12px}
+  .mr-ages{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px}
   .mr-addroom{font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:8px;border:1px dashed var(--line-strong);background:none;color:var(--ink-soft);cursor:pointer;width:100%;margin-bottom:12px}
   .mr-addroom:hover{border-color:var(--accent);color:var(--accent)}
   .mr-mode{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--ink-soft);margin-bottom:12px}
@@ -1125,24 +1126,53 @@
   document.getElementById("sendCopy").addEventListener("click",function(){var txt=document.getElementById("sendText").value;if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano wiadomość ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
 
   /* ---------- Multiroom Finder (wspólny wyjazd — kilka pokoi) ---------- */
-  var mrRooms=[{adults:2,children:0},{adults:2,children:0}],mrModal=document.getElementById("mrModal"),mrLast=[];
+  var mrRooms=[{adults:2,children:0,ages:[]},{adults:2,children:0,ages:[]}],mrModal=document.getElementById("mrModal"),mrLast=[];
+  // Wiek dzieci decyduje o cenie (progi "gratis"/zniżka) i o tym, czy pokój w
+  // ogóle przyjmie taki skład — bez niego wycena wspólnego wyjazdu potrafi się
+  // rozjechać o setki złotych. Pola wieku są opcjonalne: brak wyboru leci do
+  // dostawcy jako brak wieku, nie jako awaria zapytania (patrz buildPaxes).
+  function mrAgeSelectHtml(roomIdx,childIdx,selected){
+    var opts='<option value="0">niemowlę &lt;2</option>';
+    for(var a=2;a<=17;a++)opts+='<option value="'+a+'"'+(selected==String(a)?" selected":"")+'>'+a+' lat</option>';
+    return '<select class="child-age" data-mr="'+roomIdx+'" data-ageidx="'+childIdx+'" aria-label="Wiek dziecka '+(childIdx+1)+' w pokoju '+(roomIdx+1)+'">'+opts+'</select>';
+  }
+  // Zanim przebudujemy listę pokoi (dodanie/usunięcie pokoju, zmiana liczby
+  // osób w INNYM pokoju), zgraj z DOM to, co konsultant już wybrał — inaczej
+  // każda taka zmiana kasowałaby wpisany wcześniej wiek dzieci.
+  function mrSyncAges(){
+    [].forEach.call(document.querySelectorAll("#mrRooms .child-age"),function(s){
+      var i=+s.dataset.mr,j=+s.dataset.ageidx;
+      if(!mrRooms[i])return;
+      if(!mrRooms[i].ages)mrRooms[i].ages=[];
+      mrRooms[i].ages[j]=s.value;
+    });
+  }
   function mrRenderComposer(){
+    mrSyncAges();
     document.getElementById("mrRooms").innerHTML=mrRooms.map(function(r,i){
       function occ(kind,label){return '<div class="mr-occ">'+label+' <button class="stp" data-mr="'+i+'" data-k="'+kind+'" data-d="-1">−</button><span class="mr-v">'+r[kind]+'</span><button class="stp" data-mr="'+i+'" data-k="'+kind+'" data-d="1">+</button></div>';}
-      return '<div class="mr-room"><span class="mr-rn">Pokój '+(i+1)+'</span>'+occ("adults","Dorośli")+occ("children","Dzieci")+(mrRooms.length>1?'<button class="mr-rmroom" data-rmroom="'+i+'">usuń</button>':'')+'</div>';
+      var ages=r.ages||[];
+      var agesHtml="";
+      if(r.children>0){
+        var sel=[];
+        for(var j=0;j<r.children;j++)sel.push(mrAgeSelectHtml(i,j,ages[j]));
+        agesHtml='<div class="mr-ages">'+sel.join("")+'</div>';
+      }
+      return '<div class="mr-room"><span class="mr-rn">Pokój '+(i+1)+'</span>'+occ("adults","Dorośli")+occ("children","Dzieci")+(mrRooms.length>1?'<button class="mr-rmroom" data-rmroom="'+i+'">usuń</button>':'')+agesHtml+'</div>';
     }).join("");
   }
   document.getElementById("mrLaunch").addEventListener("click",function(){mrRenderComposer();document.getElementById("mrResults").innerHTML="";mrModal.hidden=false;});
   document.getElementById("mrClose").addEventListener("click",function(){mrModal.hidden=true;});
   document.getElementById("mrBackdrop").addEventListener("click",function(){mrModal.hidden=true;});
-  document.getElementById("mrAddRoom").addEventListener("click",function(){if(mrRooms.length>=6){toast("Maks. 6 pokoi");return;}mrRooms.push({adults:2,children:0});mrRenderComposer();});
+  document.getElementById("mrAddRoom").addEventListener("click",function(){if(mrRooms.length>=6){toast("Maks. 6 pokoi");return;}mrRooms.push({adults:2,children:0,ages:[]});mrRenderComposer();});
   document.getElementById("mrRooms").addEventListener("click",function(e){
     var rm=e.target.closest("[data-rmroom]");if(rm){mrRooms.splice(+rm.dataset.rmroom,1);mrRenderComposer();return;}
-    var s=e.target.closest("[data-mr]");if(!s)return;
+    var s=e.target.closest(".stp[data-mr]");if(!s)return;
     var i=+s.dataset.mr,k=s.dataset.k,min=k==="adults"?1:0,max=k==="adults"?6:4;
     mrRooms[i][k]=Math.max(min,Math.min(max,mrRooms[i][k]+(+s.dataset.d)));mrRenderComposer();
   });
   document.getElementById("mrSearchBtn").addEventListener("click",function(){
+    mrSyncAges();
     var res=document.getElementById("mrResults");
     res.innerHTML='<div class="mr-empty">Szukam dostępności na wszystkie pokoje…</div>';
     var mrModeChecked=document.querySelector('input[name="mrMode"]:checked');

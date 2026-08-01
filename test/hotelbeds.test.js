@@ -272,3 +272,68 @@ test("tryb split (domyślny) liczy tylko osobne pokoje, bez zapytania o jeden du
     globalThis.fetch = oryginalny;
   }
 });
+
+// ------------------------------------------------------------------
+//  Formularz "Wspólny wyjazd" pozwala podać LICZBĘ dzieci per pokój, ale do
+//  01.08.2026 nie zbierał ICH WIEKU — a wiek decyduje o cenie (progi
+//  "gratis"/zniżka) i o tym, czy pokój w ogóle przyjmie taki skład. Front
+//  wysyła teraz rooms[].ages; tu sprawdzamy, że backend niesie ten wiek aż
+//  do zapytania o dostępność (paxes), a nie tylko przez normalizeRoomsInput.
+// ------------------------------------------------------------------
+test("wiek dzieci z pokoju multiroom trafia do zapytania o dostępność (paxes)", async () => {
+  const oryginalny = globalThis.fetch;
+  const zapytania = [];
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes("/hotel-api/1.0/hotels")) {
+      zapytania.push(JSON.parse(init.body));
+    }
+    return mockHotelbedsFetch()(url, init);
+  };
+  try {
+    await searchMultiroom({
+      dest: "Hiszpania",
+      rooms: [
+        { adults: 2, children: 2, ages: [3, 15] },
+        { adults: 1, children: 1, ages: [8] },
+      ],
+      roomsMode: "split",
+    });
+    assert.equal(zapytania.length, 2, "jedna destynacja x dwa pokoje = dwa zapytania o dostępność");
+    assert.deepEqual(
+      zapytania[0].occupancies[0].paxes,
+      [{ type: "CH", age: 3 }, { type: "CH", age: 15 }],
+      "wiek pierwszego pokoju musi dotrzeć do paxes, nie zgubić się po drodze"
+    );
+    assert.deepEqual(zapytania[1].occupancies[0].paxes, [{ type: "CH", age: 8 }]);
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});
+
+test("brak wieku dzieci w pokoju multiroom nie wywraca zapytania", async () => {
+  const oryginalny = globalThis.fetch;
+  const zapytania = [];
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes("/hotel-api/1.0/hotels")) {
+      zapytania.push(JSON.parse(init.body));
+    }
+    return mockHotelbedsFetch()(url, init);
+  };
+  try {
+    const offers = await searchMultiroom({
+      dest: "Hiszpania",
+      // Konsultant podał liczbę dzieci, ale nie zdążył (albo nie musiał)
+      // wybrać wieku — pole `ages` w ogóle nie przyszło z formularza.
+      rooms: [{ adults: 2, children: 1 }],
+      roomsMode: "split",
+    });
+    assert.equal(offers.length, 1, "brak wieku nie może ubić całego wyszukiwania");
+    assert.deepEqual(
+      zapytania[0].occupancies[0].paxes,
+      [{ type: "CH", age: 8 }],
+      "bez podanego wieku leci przybliżenie (8 lat), nie awaria zapytania"
+    );
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});
