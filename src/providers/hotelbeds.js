@@ -604,6 +604,8 @@ function deriveTags(facilities, board) {
   if (/beach/.test(txt)) tags.push("plaza");
   if (/disco|club|nightlife/.test(txt)) tags.push("impreza");
   if (/adults only|romantic/.test(txt)) tags.push("para");
-  if (!tags.length) tags.push("plaza");
+  // Bez fallbacku: hotel, o którym nie mamy danych, NIE dostaje tagu „plaza".
+  // Domyślne doklejanie „przy plaży" każdemu obiektowi bez opisu było
+  // przekoloryzacją — profil „przy plaży" pokazywał hotele, o których nic nie wiemy.
   return tags;
 }
