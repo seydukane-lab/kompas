@@ -134,6 +134,17 @@ test("szczegóły oferty mają zakładki (wzorem MerlinX) i zakładka bez danych
     "lista zakładek nie jest filtrowana po obecności danych");
 });
 
+test("formularz rezerwacji podpowiada wiek dzieci z wyszukiwarki zamiast każąc wpisywać go drugi raz", () => {
+  // Konsultant już wybrał wiek każdego dziecka w polach childAges przy szukaniu
+  // ofert — formularz „Dane do rezerwacji" nie może o to pytać od nowa na pusto.
+  const html = wczytaj("public/index.html");
+  const renderBookPax = html.match(/function renderBookPax\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.match(renderBookPax, /childAges\.querySelectorAll\("select"\)/,
+    "renderBookPax nie czyta wybranego wieku dzieci z #childAges");
+  assert.match(renderBookPax, /\.bk-page/,
+    "renderBookPax nie ustawia wartości pól wieku (.bk-page) w formularzu rezerwacji");
+});
+
 test("etykiety udogodnień w szczegółach oferty pokrywają dokładnie te same kody co mapAmenities", () => {
   // Rozjazd tutaj = kod udogodnienia bez etykiety renderuje się jako surowy
   // klucz (np. "sporty-wodne" zamiast "🏄 Sporty wodne") albo znika po cichu.

@@ -1187,6 +1187,13 @@
     for(var i=0;i<ad;i++)html+=bookPaxRowHtml("Dorosły "+(i+1),false);
     for(var j=0;j<kd;j++)html+=bookPaxRowHtml("Dziecko "+(j+1),true);
     document.getElementById("bookPax").innerHTML=html;
+    // Wiek dzieci konsultant już wybrał w wyszukiwarce (childAges) — podpowiadamy
+    // go tutaj zamiast każąc wpisywać drugi raz. Pole zostaje edytowalne, bo tu
+    // można doprecyzować na dokładną datę urodzenia.
+    var ageSelects=childAges.querySelectorAll("select"),ageInputs=document.querySelectorAll("#bookPax .bk-page");
+    for(var k=0;k<ageSelects.length&&k<ageInputs.length;k++){
+      ageInputs[k].value=ageSelects[k].options[ageSelects[k].selectedIndex].text;
+    }
   }
   function openBookForm(h){
     bookOffer=h||null;
