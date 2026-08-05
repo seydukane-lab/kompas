@@ -286,23 +286,6 @@
   .footnote{max-width:var(--maxw);margin:8px auto 40px;padding:0 24px;font-size:12px;color:var(--ink-faint);line-height:1.6}
   .footnote b{color:var(--ink-soft)}
   /* ---------- Asystent ---------- */
-  .agent{background:linear-gradient(135deg,var(--accent-soft),color-mix(in srgb,var(--sand-soft) 60%,var(--accent-soft)));border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:var(--radius);padding:16px 18px;margin-bottom:20px}
-  .agent-top{display:flex;align-items:center;gap:9px;margin-bottom:10px}
-  .agent-ico{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;flex:none}
-  .agent-ico svg{width:16px;height:16px}
-  .agent-top h3{font-size:14.5px;color:var(--accent-deep)}
-  .agent-top p{margin:1px 0 0;font-size:12px;color:var(--ink-soft)}
-  .agent-form{display:flex;gap:9px}
-  @media (max-width:560px){.agent-form{flex-direction:column}}
-  .agent-input{flex:1;padding:11px 14px;font-size:14.5px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)}
-  .agent-send{padding:11px 18px;font-size:14px;font-weight:650;border:none;border-radius:var(--radius-sm);color:#fff;background:linear-gradient(180deg,var(--accent),var(--accent-deep));display:flex;align-items:center;gap:7px;white-space:nowrap}
-  .agent-send:hover{filter:brightness(1.06)}
-  .agent-examples{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  .agent-ex{font-size:12px;color:var(--accent-deep);background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:4px 10px;cursor:pointer}
-  .agent-ex:hover{border-color:var(--accent)}
-  .agent-understood{margin-top:11px;font-size:13px;color:var(--ink-soft);background:var(--surface);border-radius:var(--radius-sm);padding:9px 12px;border-left:3px solid var(--accent);display:none}
-  .agent-understood.show{display:block}
-  .agent-understood b{color:var(--ink)}
 
   /* ---------- Informacje praktyczne / warunki wjazdowe ---------- */
   .practical{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;display:none}
@@ -700,22 +683,6 @@
   </aside>
 
   <main>
-    <div class="agent">
-      <div class="agent-top">
-        <div class="agent-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 00-9 9c0 1.6.4 3 1.2 4.3L3 21l4.7-1.2A9 9 0 1012 3z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg></div>
-        <div><h3>Asystent wyszukiwania</h3><p>Napisz po ludzku, czego szukasz — dobiorę kryteria i wyszukam.</p></div>
-      </div>
-      <div class="agent-form">
-        <input class="agent-input" id="agentInput" placeholder="np. rodzina 2+2, Hiszpania, sierpień, all inclusive, do 4500 zł/os">
-        <button class="agent-send" id="agentSend"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Szukaj</button>
-      </div>
-      <div class="agent-examples" id="agentExamples">
-        <span class="agent-ex">romantyczny wyjazd we dwoje do Grecji, spa, wrzesień</span>
-        <span class="agent-ex">Turcja all inclusive dla rodziny z dwójką dzieci, budżet 4000</span>
-        <span class="agent-ex">Hiszpania, blisko plaży, 2 osoby, tanio</span>
-      </div>
-      <div class="agent-understood" id="agentUnderstood"></div>
-    </div>
 
     <section class="practical" id="practical" aria-label="Informacje praktyczne">
       <div class="practical-head" id="practicalHead">
@@ -2066,7 +2033,7 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("agentUnderstood").classList.remove("show");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
 
   (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);})();
 
@@ -2193,66 +2160,6 @@
     buildGeoTree();
   }).catch(function(){geoTree.innerHTML='<div class="geo-loading">Nie udało się wczytać kierunków.</div>';});
 
-  /* ---------- Asystent (parsowanie języka naturalnego) ---------- */
-  var MONTHS={stycz:0,luty:1,lut:1,marz:2,mar:2,kwiec:3,kwie:3,maj:4,czerw:5,lip:6,sierp:7,sie:7,wrze:8,wrz:8,paźdz:9,pazdz:9,paźd:9,listop:10,list:10,grud:11};
-  function parseQuery(txt){
-    var t=txt.toLowerCase(),crit={boards:[],tags:[],regions:[]};
-    // kraj + regiony (może wykryć kilka)
-    Object.keys(COUNTRY_DATA).forEach(function(country){
-      if(t.indexOf(country.toLowerCase())>-1)crit.dest=country;
-      (COUNTRY_DATA[country].regions||[]).forEach(function(reg){var first=reg.split(/[\/(]/)[0].trim().toLowerCase();if(first.length>3&&t.indexOf(first)>-1){crit.dest=country;if(crit.regions.indexOf(reg)===-1)crit.regions.push(reg);}});
-    });
-    // miesiąc
-    for(var m in MONTHS){if(t.indexOf(m)>-1){crit.month=MONTHS[m];break;}}
-    // osoby: "2+2", "rodzina z dwójką dzieci", "X osob", "X doroslych"
-    var plus=t.match(/(\d)\s*\+\s*(\d)/);if(plus){crit.adults=+plus[1];crit.kids=+plus[2];}
-    var ad=t.match(/(\d+)\s*doros/);if(ad)crit.adults=+ad[1];
-    var kd=t.match(/(\d+)\s*(dziec|dzieci)/);if(kd)crit.kids=+kd[1];
-    if(/dw[óo]jk[aą]\s*dzieci|dwoje dzieci/.test(t))crit.kids=2;
-    if(/tr[óo]jk[aą]\s*dzieci|troje dzieci/.test(t))crit.kids=3;
-    if(/jedno dziecko|jednym dzieckiem/.test(t))crit.kids=1;
-    var os=t.match(/(\d+)\s*os[oó]b/);if(os&&crit.adults===undefined)crit.adults=+os[1];
-    if(/we dwoje|dla pary|para\b/.test(t)&&crit.adults===undefined){crit.adults=2;crit.kids=0;}
-    // budżet
-    var bt=t.match(/(\d[\d\s]{2,})\s*(z[łl]|pln|budżet|budzet)/)||t.match(/(?:budżet|budzet|do)\s*(\d[\d\s]{2,})/);
-    if(bt)crit.budget=+bt[1].replace(/\s/g,"");
-    var tys=t.match(/(\d+)\s*tys/);if(tys)crit.budget=+tys[1]*1000;
-    if(/tani|niedrogo|budżetow|budzetow|okazyjnie/.test(t)&&!crit.budget)crit.budget=3500;
-    // wyżywienie
-    if(/ultra all|ultra ai/.test(t))crit.boards.push("Ultra All Inclusive");
-    else if(/all inclusive|\bai\b|all in/.test(t))crit.boards.push("All Inclusive");
-    if(/śniadani|sniadani|bb\b/.test(t))crit.boards.push("BB");
-    // profil
-    if(/rodzin|z dzieć|z dziec/.test(t))crit.tags.push("rodzina");
-    if(/romantyc|we dwoje|dla pary|miodow/.test(t))crit.tags.push("para");
-    if(/imprez|klub|nocne życie|nocne zycie/.test(t))crit.tags.push("impreza");
-    if(/spa|wellness|relaks|masaż|masaz/.test(t))crit.tags.push("spa");
-    if(/plaż|plaz|nad morz|przy morz/.test(t))crit.tags.push("plaza");
-    return crit;
-  }
-  function applyParsed(crit){
-    var parts=[];
-    clearGeo();
-    if(crit.dest&&!(crit.regions&&crit.regions.length)){syncCountryUI(crit.dest,true);parts.push("kierunek: <b>"+crit.dest+"</b> (cały kraj)");}
-    if(crit.regions&&crit.regions.length){crit.regions.forEach(function(r){syncRegionUI(r,true);});parts.push("regiony: <b>"+crit.regions.join(", ")+"</b>");}
-    if(crit.month!==undefined){var y=new Date().getFullYear(),now=new Date().getMonth();if(crit.month<now)y++;var f=new Date(y,crit.month,10),t2=new Date(y,crit.month,17);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t2.toISOString().slice(0,10);parts.push("termin: <b>"+["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"][crit.month]+"</b>");}
-    if(crit.adults!==undefined){document.getElementById("adults").value=crit.adults;parts.push("<b>"+crit.adults+"</b> dorosłych");}
-    if(crit.kids!==undefined){document.getElementById("kids").value=crit.kids;if(crit.kids>0)parts.push("<b>"+crit.kids+"</b> dzieci");}
-    if(crit.budget){budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=Math.min(30000,Math.max(1500,crit.budget));budgetVal.textContent=fmt(+budget.value)+" zł";parts.push("budżet do <b>"+fmt(budget.value)+" zł/os</b>");}
-    // reset i ustaw chipy
-    activeBoards.length=0;activeTags.length=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
-    crit.boards.forEach(function(b){var el=document.querySelector('.chip[data-board="'+b+'"]');if(el){el.setAttribute("aria-pressed","true");activeBoards.push(b);}});
-    crit.tags.forEach(function(tg){var el=document.querySelector('.chip[data-tag="'+tg+'"]');if(el){el.setAttribute("aria-pressed","true");activeTags.push(tg);}});
-    if(crit.boards.length)parts.push("wyżywienie: <b>"+crit.boards.join(", ")+"</b>");
-    if(crit.tags.length)parts.push("profil: <b>"+crit.tags.join(", ")+"</b>");
-    var u=document.getElementById("agentUnderstood");
-    u.innerHTML=parts.length?("Zrozumiałem — "+parts.join(" · ")+". Szukam…"):"Nie wyłapałem konkretów — pokazuję szeroki wybór. Doprecyzuj kierunek, termin lub budżet.";
-    u.classList.add("show");
-  }
-  function runAgent(){var txt=document.getElementById("agentInput").value.trim();if(!txt)return;applyParsed(parseQuery(txt));search();}
-  document.getElementById("agentSend").addEventListener("click",runAgent);
-  document.getElementById("agentInput").addEventListener("keydown",function(e){if(e.key==="Enter")runAgent();});
-  document.getElementById("agentExamples").addEventListener("click",function(e){var ex=e.target.closest(".agent-ex");if(!ex)return;document.getElementById("agentInput").value=ex.textContent;runAgent();});
 
   initSession();
 
