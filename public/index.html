@@ -1554,6 +1554,20 @@
   // standard). Waga jak w ETA SCORE: value for money > reszta. Uczciwie: to WSTĘPNA
   // ocena — bez jakości plaży/pokoi/jedzenia (te dojdą z Claude/realnych danych).
   function etaAdj(h){var t=h.trust||0;return (h.rating||0)*t+7.5*(1-t);} // ocena skorygowana o wiarygodność (anty-przekoloryzacja)
+  // Dopasowanie do klienta — bliźniak clientFit() z src/ranking.js. Obie liczby MUSZĄ
+  // się zgadzać, bo serwer sortuje, a przeglądarka wyświetla tę samą plakietkę.
+  // Liczy na kryteriach OSTATNIEGO wyszukiwania, nie na bieżących kontrolkach:
+  // inaczej samo klikniecie chipa zmieniałoby liczby pod ofertami bez ponownego szukania.
+  var lastCrit={tags:[],adults:0,kids:0};
+  function clientFit(h){
+    var tags=lastCrit.tags||[],ht=h.tags||[],tagFit=0.5;
+    // Brak tagów w ofercie = brak wiedzy, nie zaprzeczenie profilu (jak w ranking.js).
+    if(tags.length&&ht.length)tagFit=tags.filter(function(x){return ht.indexOf(x)>-1;}).length/tags.length;
+    var pax=(+lastCrit.adults||0)+(+lastCrit.kids||0),cap=h.cap||0,capFit=0.5;
+    if(pax>0&&cap>0)capFit=cap<pax?0.3:Math.max(0.4,1-(cap-pax)*0.2);
+    return 0.5*tagFit+0.5*capFit;
+  }
+  var FIT_WEIGHT=20; // ile punktów ETA waży dopasowanie (±20 od środka) — jak w ranking.js
   function etaValue(h){
     var adj=etaAdj(h);
     var ratingPart=Math.max(0,Math.min(1,(adj-6)/4));
@@ -1561,7 +1575,8 @@
     var starPart=(h.stars||3)/5;
     var t=h.trust||0;
     var vfm=Math.max(0,Math.min(1,ratingPart*0.6+pricePart*0.4)); // jakość względem ceny
-    return Math.round((0.40*vfm+0.25*ratingPart+0.15*pricePart+0.10*starPart+0.10*t)*100);
+    var base=0.40*vfm+0.25*ratingPart+0.15*pricePart+0.10*starPart+0.10*t;
+    return Math.max(0,Math.min(100,Math.round(base*100+(clientFit(h)-0.5)*2*FIT_WEIGHT)));
   }
   function etaVerdict(h){
     var s=etaValue(h),t=h.trust||0,adj=etaAdj(h);
@@ -1994,6 +2009,8 @@
   function search(){
     searchBtn.disabled=true;
     sourceWarnEl.hidden=true;
+    // Zapamiętane kryteria = te, na których serwer policzy ETA. Patrz clientFit().
+    lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
     var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
     api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});

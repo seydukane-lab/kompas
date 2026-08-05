@@ -259,3 +259,70 @@ test("pokoje połączone to osobny filtr, nie synonim osobnej sypialni", () => {
   const filtrSypialnia = applyFilters([polaczone, rodzinny], { attrs: ["pokoj-dzielony"] });
   assert.deepEqual(filtrSypialnia.map((o) => o.id), ["rodzinny"]);
 });
+
+// ============================================================
+//  Dopasowanie do klienta — ten sam hotel nie może być wart tyle samo
+//  dla pary i dla rodziny 2+3. Bez tego plakietka ETA była stała.
+// ============================================================
+
+test("ten sam hotel dostaje różne ETA dla różnych profili klienta", () => {
+  const rodzinny = offer({ tags: ["rodzina", "plaza"], cap: 5 });
+  const dlaRodziny = scoreOffer(rodzinny, { tags: ["rodzina"], adults: 2, kids: 3 });
+  const dlaPary = scoreOffer(rodzinny, { tags: ["para"], adults: 2, kids: 0 });
+
+  assert.notEqual(dlaRodziny.valueScore, dlaPary.valueScore,
+    "hotel rodzinny na pięć osób musi mieć inną wartość dla rodziny 2+3 niż dla pary");
+  assert.ok(dlaRodziny.valueScore > dlaPary.valueScore,
+    `rodzina ${dlaRodziny.valueScore} powinna bić parę ${dlaPary.valueScore}`);
+});
+
+test("ANTY-PRZEKOLORYZACJA: oferta bez tagów nie jest karana", () => {
+  const bezTagow = scoreOffer(offer({ id: "bezTagow", tags: [] }), { tags: ["rodzina"], adults: 2, kids: 2 });
+  const nietrafiony = scoreOffer(offer({ id: "nietrafiony", tags: ["impreza"] }), { tags: ["rodzina"], adults: 2, kids: 2 });
+
+  const trafiony = scoreOffer(offer({ id: "trafiony", tags: ["rodzina"] }), { tags: ["rodzina"], adults: 2, kids: 2 });
+
+  assert.ok(bezTagow.valueScore > nietrafiony.valueScore,
+    `hotel bez opisu (${bezTagow.valueScore}) nie może przegrywać z opisanym jako imprezowy (${nietrafiony.valueScore}) — brak danych to nie zaprzeczenie profilu`);
+  assert.ok(trafiony.valueScore > bezTagow.valueScore,
+    "potwierdzone dopasowanie ma nadal bić brak danych — inaczej tagi nie znaczyłyby nic");
+
+  // Ten sam skład osobowy, jedyna różnica to podany profil — dla oferty bez tagów
+  // nie może to zmienić niczego, bo nie ma czego porównywać.
+  const bezProfiluKlienta = scoreOffer(offer({ tags: [] }), { adults: 2, kids: 2 });
+  assert.equal(bezTagow.valueScore, bezProfiluKlienta.valueScore,
+    "oferta bez tagów wychodzi tak samo, niezależnie od tego, czy klient podał profil");
+});
+
+test("pokój dokładnie na skład bije wielki zapas miejsc", () => {
+  const krit = { adults: 2, kids: 0 };
+  const naMiare = scoreOffer(offer({ cap: 2 }), krit);
+  const zZapasem = scoreOffer(offer({ cap: 6 }), krit);
+
+  assert.ok(naMiare.valueScore > zZapasem.valueScore,
+    `pokój dla dwóch (${naMiare.valueScore}) powinien bić apartament dla sześciu (${zZapasem.valueScore}) przy parze`);
+});
+
+test("brak kryteriów klienta zostawia skalę ETA nietkniętą", () => {
+  const bezKryteriow = scoreOffer(offer(), {});
+  const stary = (() => {
+    const o = offer(), t = trustScore(o);
+    const adj = o.rating * t + 7.5 * (1 - t);
+    const ratingPart = Math.max(0, Math.min(1, (adj - 6) / 4));
+    const pricePart = Math.max(0, Math.min(1, 1 - (o.price - 2000) / 12000));
+    const vfm = Math.max(0, Math.min(1, ratingPart * 0.6 + pricePart * 0.4));
+    return Math.round((0.4 * vfm + 0.25 * ratingPart + 0.15 * pricePart + 0.1 * (o.stars / 5) + 0.1 * t) * 100);
+  })();
+
+  assert.equal(bezKryteriow.valueScore, stary,
+    "gdy nie ma czego dopasowywać, liczba musi zostać ta sama co przed dodaniem członu — inaczej progi werdyktów się przesuwają");
+});
+
+test("dopasowanie do klienta wpływa też na kolejność, nie tylko na plakietkę", () => {
+  const krit = { tags: ["rodzina"], adults: 2, kids: 2 };
+  const dopasowany = scoreOffer(offer({ id: "dopasowany", tags: ["rodzina"], cap: 4 }), krit);
+  const niedopasowany = scoreOffer(offer({ id: "niedopasowany", tags: ["impreza"], cap: 4 }), krit);
+
+  const kolejnosc = sortOffers([niedopasowany, dopasowany], "trafnosc").map((o) => o.id);
+  assert.deepEqual(kolejnosc, ["dopasowany", "niedopasowany"]);
+});

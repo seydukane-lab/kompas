@@ -20,7 +20,45 @@ export function trustLabel(t) {
   return { cls: "low", txt: "Mało / stare opinie" };
 }
 
-// Ranking trafności: ocena skorygowana o wiarygodność + cena + dopasowanie profilu + standard.
+// Dopasowanie oferty do KONKRETNEGO klienta (0..1): profil wyjazdu + skład osobowy.
+// Ten sam hotel ma inną wartość dla pary i dla rodziny 2+3 — bez tego członu
+// plakietka ETA pokazywała obu tę samą liczbę.
+//
+// ANTY-PRZEKOLORYZACJA: czego nie wiemy, tego nie oceniamy. Brak podanego profilu
+// albo brak pojemności w danych daje 0.5 (neutralnie), nigdy zera — inaczej oferty
+// z uboższym opisem byłyby karane za to, że dostawca nie przysłał tagów.
+// Wynik 0.5 jest punktem neutralnym: w ETA działa jako modyfikator w obie strony
+// (patrz scoreOffer), więc brak wiedzy nie przesuwa liczby ani w górę, ani w dół.
+export function clientFit(offer, crit) {
+  const tags = (crit && crit.tags) || [];
+  const offerTags = offer.tags || [];
+  let tagFit = 0.5;
+  // Oceniamy dopasowanie tylko wtedy, gdy klient podał profil I oferta ma tagi.
+  // Pusta lista tagów u dostawcy to brak wiedzy, nie zaprzeczenie profilu — hotel
+  // rodzinny bez opisu nie może przegrywać z hotelem opisanym jako imprezowy.
+  if (tags.length && offerTags.length) {
+    tagFit = tags.filter((x) => offerTags.includes(x)).length / tags.length;
+  }
+
+  const pax = Number((crit && crit.adults) || 0) + Number((crit && crit.kids) || 0);
+  const cap = offer.cap || 0;
+  let capFit = 0.5;
+  if (pax > 0 && cap > 0) {
+    // Pokój dokładnie na skład jest lepszy niż wielki zapas: apartament dla sześciu
+    // osób sprzedany parze to zwykle przepłacona przestrzeń, nie luksus.
+    capFit = cap < pax ? 0.3 : Math.max(0.4, 1 - (cap - pax) * 0.2);
+  }
+
+  return 0.5 * tagFit + 0.5 * capFit;
+}
+
+// Ile punktów ETA (ze 100) waży dopasowanie do klienta. Modyfikator liczony od
+// środka: idealne dopasowanie dokłada +20, kompletnie chybione zabiera -20,
+// a brak danych (0.5) nie robi nic. Dzięki temu progi werdyktów ("Najlepszy
+// value" od 82) zostają tam, gdzie były — zmienia się kolejność, nie skala.
+export const FIT_WEIGHT = 20;
+
+// Ranking trafności: ocena skorygowana o wiarygodność + cena + dopasowanie do klienta + standard.
 export function scoreOffer(offer, crit) {
   const t = trustScore(offer);
   // Ocena "skorygowana": niepewne oceny ściągane w stronę średniej (7.5) -> anty-przekoloryzacja.
@@ -30,25 +68,22 @@ export function scoreOffer(offer, crit) {
   let pricePart = 1 - (offer.price - 2500) / 9000;
   pricePart = Math.max(0, Math.min(1, pricePart));
 
-  const tags = (crit && crit.tags) || [];
-  let tagMatch = 0.5;
-  if (tags.length) {
-    const hit = tags.filter((x) => (offer.tags || []).includes(x)).length;
-    tagMatch = hit / tags.length;
-  }
+  const fit = clientFit(offer, crit);
 
   const starPart = (offer.stars || 3) / 5;
   const score =
-    0.34 * ratingPart + 0.22 * pricePart + 0.2 * tagMatch + 0.1 * starPart + 0.14 * t;
+    0.34 * ratingPart + 0.22 * pricePart + 0.2 * fit + 0.1 * starPart + 0.14 * t;
 
-  // valueScore (0-100) = "jakość za pieniądze". Ten sam wzór co kliencki etaValue,
-  // żeby liczby na karcie i sortowanie się nie rozjeżdżały. Nie zmyśla nic ponad
-  // dane, które już mamy (cena, ocena ważona wiarygodnością, standard).
+  // valueScore (0-100) = "jakość za pieniądze dla TEGO klienta". Ten sam wzór co
+  // kliencki etaValue, żeby liczby na karcie i sortowanie się nie rozjeżdżały.
+  // Nie zmyśla nic ponad dane, które już mamy (cena, ocena ważona wiarygodnością,
+  // standard, dopasowanie do kryteriów).
   const pricePartV = Math.max(0, Math.min(1, 1 - ((offer.price || 0) - 2000) / 12000));
   const vfm = Math.max(0, Math.min(1, ratingPart * 0.6 + pricePartV * 0.4));
-  const valueScore = Math.round(
-    (0.4 * vfm + 0.25 * ratingPart + 0.15 * pricePartV + 0.1 * starPart + 0.1 * t) * 100
-  );
+  const base = 0.4 * vfm + 0.25 * ratingPart + 0.15 * pricePartV + 0.1 * starPart + 0.1 * t;
+  const valueScore = Math.max(0, Math.min(100,
+    Math.round(base * 100 + (fit - 0.5) * 2 * FIT_WEIGHT)
+  ));
 
   return { ...offer, score, trust: t, adjRating, valueScore };
 }
