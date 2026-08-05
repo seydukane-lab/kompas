@@ -21,6 +21,5 @@ inspiracje/
 src/advisor.js
 src/eta-os-prompt.js
 
-# Notatki prywatne (pytania do prawnika, rozmowy w firmie, sprawy własnościowe).
-# NIGDY do publicznego repo — dotyczą umowy o pracę i genezy projektu.
+# Notatki własne autora — nie dotyczą kodu i nie mają trafiać do repo.
 prywatne/
