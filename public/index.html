@@ -145,6 +145,15 @@
 
   .source-warn{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:11px 14px;border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:var(--radius-sm);background:var(--warn-soft);color:var(--warn);font-size:13px;line-height:1.45}
   .source-warn svg{flex:none;margin-top:1px}
+  /* Pokrycie danych dla wybranych atrybutów. Ton spokojny (nie alarm) — to informacja
+     o jakości danych, nie awaria. Wariant „ani jednej potwierdzonej" dostaje mocniejszy
+     kolor, bo tam licznik wyników realnie wprowadza w błąd. */
+  .attr-cover{margin:0 0 14px;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;line-height:1.5;
+    border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft)}
+  .attr-cover.none{border-color:color-mix(in srgb,var(--warn) 35%,transparent);background:var(--warn-soft);color:var(--warn)}
+  .attr-cover b{color:var(--ink)}
+  .attr-cover.none b{color:inherit}
+  .attr-cover .ac-row+.ac-row{margin-top:5px}
   .source-warn b{color:inherit}
   .source-warn .sw-retry{margin-left:auto;flex:none;background:none;border:1px solid currentColor;color:inherit;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer}
   .source-warn .sw-retry:hover{background:color-mix(in srgb,var(--warn) 14%,transparent)}
@@ -702,6 +711,7 @@
       </div>
     </div>
     <div class="source-warn" id="sourceWarn" hidden></div>
+    <div class="attr-cover" id="attrCover" hidden></div>
     <div class="op-filter" id="opFilter" hidden></div>
     <div class="summary" id="summary" hidden></div>
     <div class="cards" id="cards"></div>
@@ -1786,6 +1796,41 @@
   document.getElementById("cmpBackdrop").addEventListener("click",function(){document.getElementById("cmpModal").hidden=true;});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"){var cm=document.getElementById("cmpModal");if(cm&&!cm.hidden)cm.hidden=true;}});
 
+  // Pokrycie danych dla wybranych atrybutów (dane z /api/search, pole `attrs`).
+  // Sens: „30 wyników" znaczy co innego, gdy wszystkie 30 potwierdza cechę, a co innego,
+  // gdy żadna jej nie podaje i przeszły tylko dlatego, że brak danych nie odsiewa oferty.
+  // Świadomie opisujemy WYNIKI WYSZUKIWANIA, nie to, co zostało po filtrach operatora —
+  // przy zerze potwierdzeń zdanie i tak pozostaje prawdziwe dla każdego podzbioru.
+  // Polska odmiana: 1 oferta, 2-4 oferty, 5+ ofert (z wyjątkiem nastek: 12 ofert, nie 12 oferty).
+  function odmianaOfert(n){
+    var d=n%10,s=n%100;
+    if(n===1)return "1 oferta";
+    if(d>=2&&d<=4&&!(s>=12&&s<=14))return n+" oferty";
+    return n+" ofert";
+  }
+  function renderAttrCover(stats){
+    var box=document.getElementById("attrCover");
+    if(!stats||!stats.length){box.hidden=true;box.className="attr-cover";return;}
+    var rows=[],zeroPotwierdzen=false;
+    stats.forEach(function(s){
+      if(!s.unknown)return; // wszystko potwierdzone — nie ma o czym pisać
+      var chip=document.querySelector('.chip[data-attr="'+s.key+'"]');
+      var nazwa=chip?chip.textContent.replace(/^[^\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ]+/,"").trim():s.key;
+      if(!s.confirmed){
+        zeroPotwierdzen=true;
+        rows.push('<div class="ac-row">Żadna ze znalezionych ofert nie ma potwierdzonej informacji o cesze <b>'+nazwa+
+          '</b>. Poniższe '+odmianaOfert(s.unknown)+' jej nie podaje — to nie znaczy, że jej nie mają.</div>');
+      }else{
+        rows.push('<div class="ac-row"><b>'+nazwa+'</b>: '+odmianaOfert(s.confirmed)+' potwierdza tę cechę, '+
+          odmianaOfert(s.unknown)+' nie podaje danych.</div>');
+      }
+    });
+    if(!rows.length){box.hidden=true;box.className="attr-cover";return;}
+    box.className="attr-cover"+(zeroPotwierdzen?" none":"");
+    box.innerHTML=rows.join("");
+    box.hidden=false;
+  }
+
   function render(list){
     lastList=list;
     var n=nights(),pax=paxCount();
@@ -2013,7 +2058,7 @@
     lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
     var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
-    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
+    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderAttrCover(data.attrs);render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
   document.getElementById("sort").addEventListener("change",search);
