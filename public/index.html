@@ -422,8 +422,6 @@
   .cmp-best{background:var(--accent);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;margin-left:4px}
   .cmp-note{font-size:11.5px;color:var(--ink-faint);padding:8px 12px 4px}
   .price-demo{font-size:10px;color:var(--ink-faint);margin-top:2px;font-style:italic;letter-spacing:.02em}
-  .btn-ask{color:var(--ink-soft)}
-  .btn-ask:hover{color:var(--accent);border-color:var(--accent)}
   .th-sort{cursor:pointer;user-select:none;white-space:nowrap}
   .th-sort:hover{color:var(--accent)}
 
@@ -720,7 +718,7 @@
     <div class="cart-list" id="cartList"></div>
     <div class="cart-foot">
       <button class="cart-report-btn" id="cartReport">🏆 Raport doradcy — ranking + skrypty</button>
-      <div class="cart-foot-row"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartSend">📤 Wyślij</button><button class="cart-foot-btn" id="cartCopy">Kopiuj</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
+      <div class="cart-foot-row"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartSend">📤 Wyślij</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
     </div>
   </aside>
 </div>
@@ -1480,38 +1478,12 @@
       return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener noreferrer">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
     }).join("");
   }
-  // „Kopiuj oferty" — pełny, rankowany skrypt sprzedażowy (styl ETA OS):
-  // medal + werdykt + hak + korzyści→emocje + uwaga o kierunku + domknięcie.
-  function cartText(){
-    if(!cart.length)return"";
-    var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
-    var medals=["🥇","🥈","🥉"],sep="────────────────────────────";
-    var blocks=ranked.map(function(x,i){
-      var v=etaVerdict(x),sc=buildScript(x,detectAudience(x),0),intel=destIntelClient(x.region,x.country);
-      var star=x.stars?" "+Array(Math.round(x.stars)+1).join("★"):"";
-      var out=[
-        (medals[i]||("#"+(i+1)))+" "+(i+1)+". "+x.name+star+" — "+x.region,
-        "   "+v.t+" · ETA "+etaValue(x)+"/100 · od "+fmt(x.price)+" zł/os."+(x.priceTotal>0?" (razem ~"+fmt(x.priceTotal)+" zł)":"")+(x.board?" · "+x.board:""),
-        "",
-        "   "+sc.lead
-      ];
-      var cb=(sc.cb||[]).slice(0,3).map(function(c){return "   • "+c.f+" — "+c.b;}).join("\n");
-      if(cb)out.push(cb);
-      if(intel)out.push("   💡 Kierunek: "+intel.watch);
-      out.push("","   → "+sc.closer);
-      if(x.bookingUrl)out.push("   Oferta: "+x.bookingUrl);
-      return out.join("\n");
-    });
-    var order="KOLEJNOŚĆ PREZENTACJI: "+ranked.map(function(x,i){return (medals[i]||("#"+(i+1)))+" "+x.name;}).join("  ·  ");
-    return "🧭 PROPOZYCJE WYJAZDÓW — wyselekcjonowane oferty\n"+sep+"\n\n"+blocks.join("\n\n"+sep+"\n\n")+"\n\n"+sep+"\n"+order+"\nCeny orientacyjne, do potwierdzenia u organizatora. · Kompas";
-  }
   document.getElementById("cartBtn").addEventListener("click",function(){renderCart();cartDrawer.hidden=false;});
   document.getElementById("cartClose").addEventListener("click",function(){cartDrawer.hidden=true;});
   document.getElementById("cartBackdrop").addEventListener("click",function(){cartDrawer.hidden=true;});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!cartDrawer.hidden)cartDrawer.hidden=true;});
   cartListEl.addEventListener("click",function(e){var rm=e.target.closest("[data-rm]");if(rm)removeCart(rm.getAttribute("data-rm"));});
   document.getElementById("cartSend").addEventListener("click",function(){if(!cart.length){toast("Koszyk jest pusty");return;}cartDrawer.hidden=true;openSendText(clientCartText(),"Propozycje wyjazdów");});
-  document.getElementById("cartCopy").addEventListener("click",function(){var txt=cartText();if(!txt){toast("Koszyk jest pusty");return;}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano zestawienie ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
   document.getElementById("cartClear").addEventListener("click",function(){if(!cart.length)return;cart=[];saveCart();updateCartCount();renderCart();syncCardButtons();toast("Koszyk wyczyszczony");});
   updateCartCount();
 
@@ -1974,7 +1946,7 @@
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
         '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+(offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
-          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer">Przejdź do oferty ↗</a>':'<a class="btn-script btn-ask" href="mailto:seydukane@gmail.com?subject='+encodeURIComponent("Zapytanie o ofertę: "+h.name)+'&body='+encodeURIComponent("Dzień dobry, proszę o dostępność i cenę dla: "+h.name+" ("+(h.region||h.country)+").")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Zapytaj o dostępność</a>')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-send" data-send><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button>'+'<button class="btn-script" data-book><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg>Dane do rezerwacji</button>'+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
+          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-send" data-send><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button>'+'<button class="btn-script" data-book><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg>Dane do rezerwacji</button>'+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
         '</div>'+
       '</div>'+
       '<div class="script js-script"><div class="script-inner"></div></div>'+
