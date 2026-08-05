@@ -107,6 +107,34 @@ export function sortOffers(list, mode) {
 
 // Normalizacja tekstu do porównań nazw: małe litery + usunięcie polskich znaków
 // diakrytycznych (ł, ą, é…), żeby "Lagoon" == "lagoon", a "Dżerba" == "dzerba".
+// Ile z przefiltrowanych ofert faktycznie POTWIERDZA każdy z wybranych atrybutów,
+// a ile przeszło tylko dlatego, że dostawca nie podał danych.
+//
+// Po co: zasada „brak danych nie odsiewa oferty" jest słuszna, ale na rzadkich
+// atrybutach potrafi wprowadzić w błąd. Zmierzone 01.08.2026 na realnych danych:
+// filtr „Pokoje połączone" zwracał 30 ofert, z których ANI JEDNA nie miała tej
+// informacji — konsultant czytał to jako „30 hoteli z pokojami połączonymi”.
+// Dla porównania „Osobna sypialnia”: 123 oferty = 93 potwierdzone + 30 niewiadomych,
+// czyli proporcja zdrowa. Sama liczba wyników nie odróżnia tych dwóch sytuacji.
+//
+// Zwraca dane, nie ocenę — to interfejs decyduje, jak je pokazać. Liczy na liście
+// PO filtrach, bo oferty z jawnym „nie ma” już z niej wypadły.
+export function attributeCoverage(list, crit) {
+  const attrs = (crit && crit.attrs) || [];
+  if (!attrs.length) return [];
+
+  return attrs.map((key) => {
+    let confirmed = 0;
+    let unknown = 0;
+    for (const offer of list) {
+      const val = hasAttribute(offer, key);
+      if (val === true) confirmed++;
+      else if (val === undefined) unknown++;
+    }
+    return { key, confirmed, unknown };
+  });
+}
+
 export function normalizeName(s) {
   return String(s || "")
     .toLowerCase()

@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute, isDividedRoom,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute, isDividedRoom, attributeCoverage,
 } from "../src/ranking.js";
 
 // Oferta wzorcowa — testy zmieniają tylko to, co badają.
@@ -346,4 +346,44 @@ test("oferta o nieznanym profilu jest w wynikach, ale niżej niż potwierdzona",
 
   assert.ok(potwierdzony.valueScore > nieznany.valueScore,
     "wpuszczenie do wyników nie może oznaczać udawania, że profil się zgadza — od tego jest ranking");
+});
+
+// ============================================================
+//  Pokrycie atrybutów — ile wyników naprawdę potwierdza filtr
+//
+//  Zasada „brak danych nie odsiewa oferty" jest słuszna, ale sama liczba
+//  wyników nie odróżnia „93 potwierdzone + 30 niewiadomych" od „0 + 30".
+//  Te testy pilnują, żeby serwer podawał rozbicie, a nie samą sumę.
+// ============================================================
+
+test("bez wybranych atrybutów nie ma czego raportować", () => {
+  assert.deepEqual(attributeCoverage([offer()], {}), []);
+  assert.deepEqual(attributeCoverage([offer()], { attrs: [] }), []);
+});
+
+test("rozbicie oddziela potwierdzone od przepuszczonych z braku danych", () => {
+  const potwierdzony = offer({ id: "p", roomType: "Family Room (2 bedrooms)" });
+  const nieznany = offer({ id: "n" }); // dostawca nie podał typu pokoju
+  const drugiNieznany = offer({ id: "n2" });
+
+  const [stat] = attributeCoverage([potwierdzony, nieznany, drugiNieznany], { attrs: ["pokoj-dzielony"] });
+  assert.equal(stat.key, "pokoj-dzielony");
+  assert.equal(stat.confirmed, 1);
+  assert.equal(stat.unknown, 2);
+});
+
+test("filtr bez ani jednego potwierdzenia jest rozpoznawalny", () => {
+  // Dokładnie przypadek zmierzony 01.08: „Pokoje połączone" dawało 30 ofert,
+  // wszystkie bez informacji o typie pokoju. Konsultant musi móc to zobaczyć.
+  const bezDanych = [offer({ id: "a" }), offer({ id: "b" })];
+  const [stat] = attributeCoverage(bezDanych, { attrs: ["pokoje-polaczone"] });
+  assert.equal(stat.confirmed, 0);
+  assert.ok(stat.unknown > 0, "same niewiadome muszą być policzone, nie zgubione");
+});
+
+test("każdy wybrany atrybut dostaje własne rozbicie", () => {
+  const lista = [offer({ beach: 100, roomType: "Family Room (2 bedrooms)" }), offer({})];
+  const stats = attributeCoverage(lista, { attrs: ["plaza", "pokoj-dzielony"] });
+  assert.deepEqual(stats.map((s) => s.key), ["plaza", "pokoj-dzielony"]);
+  assert.ok(stats.every((s) => s.confirmed === 1 && s.unknown === 1));
 });
