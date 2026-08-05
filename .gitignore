@@ -20,6 +20,3 @@ inspiracje/
 # Doradca ETA OS — prompt to know-how użytkownika (framework ETA OS™). LOKALNIE.
 src/advisor.js
 src/eta-os-prompt.js
-
-# Notatki własne autora — nie dotyczą kodu i nie mają trafiać do repo.
-prywatne/
