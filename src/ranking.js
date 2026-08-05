@@ -241,7 +241,17 @@ export function applyFilters(list, crit) {
     if (crit.boards && crit.boards.length && !crit.boards.includes(h.board)) return false;
     // Profil wyjazdu = twardy filtr (OR): oferta musi mieć CHOĆ JEDEN z wybranych
     // tagów. OR (nie AND), bo tagi są heurystyczne — nie chcemy wycinać za ostro.
-    if (crit.tags && crit.tags.length && !crit.tags.some((t) => (h.tags || []).includes(t))) return false;
+    // Profil wyjazdu (rodzinny / para / imprezowy) — ta sama zasada co przy atrybutach
+    // obiektu: odsiewamy tylko te oferty, o których WIEMY, że profilu nie mają.
+    // Dostawca, który nie przysyła tagów, nie może przez to znikać z wyników —
+    // Hotelbeds to ponad połowa realnych ofert i ZERO tagów, więc twardy filtr
+    // wycinał całe żywe źródło, zostawiając konsultanta z samymi danymi demo.
+    // Oferty o nieznanym profilu ranking i tak stawia niżej niż potwierdzone
+    // dopasowane (patrz clientFit) — widoczne, ale nie udające pewniaka.
+    if (crit.tags && crit.tags.length) {
+      const tagiOferty = h.tags || [];
+      if (tagiOferty.length && !crit.tags.some((t) => tagiOferty.includes(t))) return false;
+    }
     if (crit.pax && h.cap < crit.pax) return false;
     // Filtry pakietowe: dotyczą tylko ofert typu "package" (lot+hotel).
     // Gdy aktywne, oferty hotel-only odpadają — użytkownik szuka wyjazdu z konkretnego miasta.

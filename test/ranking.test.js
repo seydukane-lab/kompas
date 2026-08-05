@@ -326,3 +326,24 @@ test("dopasowanie do klienta wpływa też na kolejność, nie tylko na plakietk�
   const kolejnosc = sortOffers([niedopasowany, dopasowany], "trafnosc").map((o) => o.id);
   assert.deepEqual(kolejnosc, ["dopasowany", "niedopasowany"]);
 });
+
+test("ANTY-PRZEKOLORYZACJA: profil wyjazdu nie odsiewa ofert o nieznanym profilu", () => {
+  // Hotelbeds nie przysyła tagów profilu, a to ponad połowa realnych wyników.
+  // Twardy filtr wycinał całe żywe źródło i zostawiał konsultanta z danymi demo.
+  const potwierdzony = offer({ id: "potwierdzony", tags: ["rodzina"] });
+  const nieznany = offer({ id: "nieznany", tags: [] }); // dostawca nie opisał profilu
+  const inny = offer({ id: "inny", tags: ["impreza"] }); // wiadomo: NIE rodzinny
+
+  const out = applyFilters([potwierdzony, nieznany, inny], { tags: ["rodzina"] });
+  assert.deepEqual(out.map((o) => o.id).sort(), ["nieznany", "potwierdzony"],
+    "brak tagów to brak wiedzy — nie wolno tego czytać jako „to nie jest hotel rodzinny”");
+});
+
+test("oferta o nieznanym profilu jest w wynikach, ale niżej niż potwierdzona", () => {
+  const krit = { tags: ["rodzina"], adults: 2, kids: 2 };
+  const potwierdzony = scoreOffer(offer({ tags: ["rodzina"], cap: 4 }), krit);
+  const nieznany = scoreOffer(offer({ tags: [], cap: 4 }), krit);
+
+  assert.ok(potwierdzony.valueScore > nieznany.valueScore,
+    "wpuszczenie do wyników nie może oznaczać udawania, że profil się zgadza — od tego jest ranking");
+});
