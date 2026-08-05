@@ -49,6 +49,11 @@ export function clientFit(offer, crit) {
     capFit = cap < pax ? 0.3 : Math.max(0.4, 1 - (cap - pax) * 0.2);
   }
 
+  // Oba składniki po połowie, każdy z neutralnym 0.5 przy braku danych. Rozważane
+  // było pomijanie nieznanego składnika zamiast domieszywania 0.5 — odrzucone, bo
+  // wtedy hotel bez opisu dostawałby tyle samo co potwierdzenie dopasowany, czyli
+  // brak wiedzy udawałby wiedzę. Dostawcy bez tagów to nie krzywdzi: filtr profilu
+  // (patrz applyFilters) i tak nie wpuszcza takich ofert do wyników z profilem.
   return 0.5 * tagFit + 0.5 * capFit;
 }
 
