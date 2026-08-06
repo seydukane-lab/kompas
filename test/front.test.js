@@ -160,3 +160,23 @@ test("etykiety udogodnień w szczegółach oferty pokrywają dokładnie te same 
   assert.deepEqual(kodyFrontu, kodyBackend,
     "AMENITY_LABELS we froncie musi mieć dokładnie te same kody co AMENITY_PATTERNS w hotelbeds.js");
 });
+
+test("każdy modal panelu zamyka się klawiszem Escape", () => {
+  // Konsultant przyzwyczaja się, że Escape działa — modal, który go ignoruje,
+  // wygląda jak zawieszony. Dwa modale („Do wysłania", „Wspólny wyjazd") długo
+  // tego nie miały, mimo że pozostałe pięć tak. Ten test pilnuje, żeby nowy
+  // modal nie dołączył do wyjątków.
+  const html = readFileSync(join(ROOT, "public/index.html"), "utf8");
+
+  const modale = [...html.matchAll(/<div class="cmp-modal" id="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(modale.length >= 7, `spodziewano się co najmniej 7 modali, jest ${modale.length}`);
+
+  // Obsługa bywa zapisana dwojako: przez zmienną (`!mrModal.hidden`) albo przez
+  // getElementById("sendModal") na początku handlera — czyli id potrafi stać
+  // przed słowem "Escape" albo po nim. Test sprawdza współwystępowanie w tej samej
+  // linii, żeby nie narzucać stylu zapisu, a nie kolejność.
+  const linieZEscape = html.split(/\r?\n/).filter((l) => l.includes("Escape") && !l.trim().startsWith("//"));
+  const bezEscape = modale.filter((id) => !linieZEscape.some((l) => l.includes(id)));
+
+  assert.deepEqual(bezEscape, [], `modale bez obsługi Escape: ${bezEscape.join(", ")}`);
+});

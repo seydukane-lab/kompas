@@ -113,7 +113,19 @@
      wypada za kontener panelu. */
   .attr-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .attr-col{min-width:0}
-  .attr-col-h{font-size:10px;font-weight:750;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;overflow-wrap:break-word}
+  /* Kolumny atrybutów są zwijane (<details>), bo lista będzie rosła. Domyślnie otwarte —
+     nic nie znika, konsultant tylko może schować kategorię, której nie używa. */
+  .attr-col-h{font-size:10px;font-weight:750;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;overflow-wrap:break-word;
+    cursor:pointer;list-style:none;display:flex;align-items:center;gap:5px;user-select:none}
+  .attr-col-h::-webkit-details-marker{display:none}
+  .attr-col-h::before{content:"";width:5px;height:5px;flex:none;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+    transform:rotate(45deg);margin-bottom:2px;transition:transform .15s}
+  details.attr-col:not([open]) .attr-col-h::before{transform:rotate(-45deg);margin-bottom:0}
+  /* Bez tego zwinięcie nic nie chowa: .chips ma własne display:flex, które przebija
+     natywne ukrywanie zawartości zamkniętego <details>. Sprawdzone na żywo — przy
+     samym <details> chipy zostawały widoczne na pełnej wysokości. */
+  details.attr-col:not([open]) .chips{display:none}
+  .attr-col-h:hover{color:var(--accent)}
   .attr-col .chips{flex-direction:column;align-items:stretch;gap:5px}
   .attr-col .chip{text-align:left;white-space:normal;line-height:1.2;padding:6px 7px;font-size:10.5px;overflow-wrap:break-word}
   /* Plakietka z liczbą aktywnych filtrów przy nagłówku panelu. */
@@ -126,7 +138,23 @@
   .child-ages-lbl{font-size:11px;color:var(--ink-faint);margin-bottom:5px}
   .child-ages-row{display:flex;flex-wrap:wrap;gap:6px}
   .child-age{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
-  input[type=range]{width:100%;accent-color:var(--accent)}
+  /* Suwaki kryteriów: tor wypełniony do pozycji uchwytu. WebKit nie ma natywnego
+     „progressu" na range, więc wypełnienie rysuje gradient ustawiany z JS przez
+     rangeFill() (zmienna --fill). Firefox ma ::-moz-range-progress i radzi sobie sam. */
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}
+  input[type=range]:focus{outline:none}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;
+    background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--fill,50%),var(--line-strong) var(--fill,50%),var(--line-strong) 100%)}
+  input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:var(--line-strong)}
+  input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--accent)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;margin-top:-6px;
+    width:18px;height:18px;border-radius:50%;background:var(--surface);border:3px solid var(--accent);
+    box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .12s}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--surface);
+    border:3px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.1)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px var(--accent-soft)}
+  input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 4px var(--accent-soft)}
   .btn-primary{width:100%;padding:12px;font-size:14.5px;font-weight:650;border:none;border-radius:var(--radius-sm);color:#fff;background:linear-gradient(180deg,var(--accent) 0%,var(--accent-deep) 100%);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:8px}
   .btn-primary:hover{filter:brightness(1.06)}
   .btn-primary:disabled{opacity:.6;cursor:progress}
@@ -294,8 +322,6 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .footnote{max-width:var(--maxw);margin:8px auto 40px;padding:0 24px;font-size:12px;color:var(--ink-faint);line-height:1.6}
   .footnote b{color:var(--ink-soft)}
-  /* ---------- Asystent ---------- */
-
   /* ---------- Informacje praktyczne / warunki wjazdowe ---------- */
   .practical{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;display:none}
   .practical.show{display:block}
@@ -652,23 +678,23 @@
       </div></div>
       <div class="field"><label>Atrybuty obiektu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)" title="Odsiewa tylko oferty, o których WIEMY, że danego atrybutu nie mają. Brak informacji (np. nieznana odległość od plaży) nie wyklucza oferty.">— brak danych o hotelu nie odsiewa go z wyników</span></label>
         <div class="attr-cols">
-          <div class="attr-col"><div class="attr-col-h">Lokalizacja</div><div class="chips" id="locAttrChips">
+          <details class="attr-col" open><summary class="attr-col-h">Lokalizacja</summary><div class="chips" id="locAttrChips">
             <button class="chip" data-attr="plaza" aria-pressed="false">🏖 Przy plaży</button>
             <button class="chip" data-attr="centrum" aria-pressed="false">🏙 Blisko centrum</button>
             <button class="chip" data-attr="lotnisko" aria-pressed="false">✈️ Blisko lotniska</button>
-          </div></div>
-          <div class="attr-col"><div class="attr-col-h">Obiekt</div><div class="chips" id="facAttrChips">
+          </div></details>
+          <details class="attr-col" open><summary class="attr-col-h">Obiekt</summary><div class="chips" id="facAttrChips">
             <button class="chip" data-attr="basen" aria-pressed="false">🏊 Basen</button>
             <button class="chip" data-attr="spa" aria-pressed="false">💆 Spa</button>
             <button class="chip" data-attr="wifi" aria-pressed="false">📶 Wi-Fi</button>
             <button class="chip" data-attr="niepelnosprawni" aria-pressed="false">♿ Dla niepełnosprawnych</button>
-          </div></div>
-          <div class="attr-col"><div class="attr-col-h">Aktywność</div><div class="chips" id="actAttrChips">
+          </div></details>
+          <details class="attr-col" open><summary class="attr-col-h">Aktywność</summary><div class="chips" id="actAttrChips">
             <button class="chip" data-attr="animacje" aria-pressed="false">🎉 Animacje</button>
             <button class="chip" data-attr="sporty-wodne" aria-pressed="false">🏄 Sporty wodne</button>
             <button class="chip" data-attr="klub-dzieci" aria-pressed="false">🧒 Klub dla dzieci</button>
             <button class="chip" data-attr="silownia" aria-pressed="false">🏋 Siłownia</button>
-          </div></div>
+          </div></details>
         </div>
       </div>
       <div class="field"><label>Układ pokoju <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— gdy dzieci mają spać osobno</span></label><div class="chips" id="roomAttrChips">
@@ -936,7 +962,15 @@
 
   var budget=document.getElementById("budget"),budgetVal=document.getElementById("budgetVal");
   var minRate=document.getElementById("minRate"),minRateVal=document.getElementById("minRateVal");
-  budget.addEventListener("input",function(){budgetVal.textContent=fmt(+budget.value)+" zł";});
+  // Odmalowuje wypełnienie toru suwaka do pozycji uchwytu (WebKit nie robi tego sam).
+  // MUSI być wołane wszędzie, gdzie zmienia się value albo zakres min/max — inaczej
+  // pasek zostaje w starym miejscu i pokazuje co innego niż liczba obok.
+  function rangeFill(el){
+    var min=+el.min||0,max=+el.max||100,v=+el.value;
+    var pct=max>min?((v-min)/(max-min))*100:0;
+    el.style.setProperty("--fill",Math.max(0,Math.min(100,pct))+"%");
+  }
+  budget.addEventListener("input",function(){budgetVal.textContent=fmt(+budget.value)+" zł";rangeFill(budget);});
   // Przełącznik budżetu: „za osobę" (cena/os.) vs „za wszystkich" (cena łączna).
   // Twardy limit — filtr odcina wszystko powyżej wybranej kwoty w danym trybie.
   // „Za wszystkich" ma większy zakres suwaka (bo to suma za cały wyjazd).
@@ -952,6 +986,7 @@
       document.getElementById("budgetLabel").textContent="Budżet / os. — max";
     }
     budgetVal.textContent=fmt(+budget.value)+" zł";
+    rangeFill(budget); // zmiana trybu zmienia min/max, więc samo value nie wystarczy
   }
   document.getElementById("budgetToggle").addEventListener("click",function(e){
     var b=e.target.closest(".bt-opt");if(!b)return;
@@ -959,7 +994,8 @@
     this.querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x===b);});
     applyBudgetMode();
   });
-  minRate.addEventListener("input",function(){minRateVal.textContent=(+minRate.value).toFixed(1).replace(".",",");});
+  minRate.addEventListener("input",function(){minRateVal.textContent=(+minRate.value).toFixed(1).replace(".",",");rangeFill(minRate);});
+  rangeFill(budget);rangeFill(minRate); // wypełnienie startowe, zanim ktokolwiek dotknie suwaka
 
   function trustLabel(t){if(t>=0.7)return{cls:"high",txt:"Opinie wiarygodne"};if(t>=0.45)return{cls:"mid",txt:"Opinie umiarkowane"};return{cls:"low",txt:"Mało / stare opinie"};}
 
@@ -1136,6 +1172,7 @@
   }
   document.getElementById("sendClose").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
   document.getElementById("sendBackdrop").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
+  document.addEventListener("keydown",function(e){var s=document.getElementById("sendModal");if(e.key==="Escape"&&s&&!s.hidden)s.hidden=true;});
   // Kopiuj + odśwież linki po ręcznej edycji tekstu.
   document.getElementById("sendText").addEventListener("input",function(){var enc=encodeURIComponent(this.value);document.getElementById("sendWa").href="https://wa.me/?text="+enc;document.getElementById("sendMail").href="mailto:?body="+enc;});
   document.getElementById("sendCopy").addEventListener("click",function(){var txt=document.getElementById("sendText").value;if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano wiadomość ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
@@ -1256,6 +1293,9 @@
   document.getElementById("mrLaunch").addEventListener("click",function(){mrRenderComposer();document.getElementById("mrResults").innerHTML="";mrModal.hidden=false;});
   document.getElementById("mrClose").addEventListener("click",function(){mrModal.hidden=true;});
   document.getElementById("mrBackdrop").addEventListener("click",function(){mrModal.hidden=true;});
+  // Escape zamyka tak samo jak w pozostałych modalach — konsultant, który przywykł,
+  // że działa wszędzie indziej, trafiał tu w ścianę.
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!mrModal.hidden)mrModal.hidden=true;});
   document.getElementById("mrAddRoom").addEventListener("click",function(){if(mrRooms.length>=6){toast("Maks. 6 pokoi");return;}mrRooms.push({adults:2,children:0,ages:[]});mrRenderComposer();});
   document.getElementById("mrRooms").addEventListener("click",function(e){
     var rm=e.target.closest("[data-rmroom]");if(rm){mrRooms.splice(+rm.dataset.rmroom,1);mrRenderComposer();return;}
@@ -2067,7 +2107,7 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent="6 000 zł";minRate.value=7.5;minRateVal.textContent="7,5";activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent="6 000 zł";rangeFill(budget);minRate.value=7.5;minRateVal.textContent="7,5";rangeFill(minRate);activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
 
   (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);})();
 
