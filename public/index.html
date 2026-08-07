@@ -133,7 +133,10 @@
   /* Suwaki kryteriów: tor wypełniony do pozycji uchwytu. WebKit nie ma natywnego
      „progressu" na range, więc wypełnienie rysuje gradient ustawiany z JS przez
      rangeFill() (zmienna --fill). Firefox ma ::-moz-range-progress i radzi sobie sam. */
-  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}
+  /* Wysokość MUSI zmieścić uchwyt (18px), nie sam tor (6px). Po -webkit-appearance:none
+     input kurczy się do wysokości toru i uchwyt wystaje poza element — suwak wygląda
+     wtedy jak cienka kreska i trudno go złapać myszą. */
+  input[type=range]{width:100%;height:18px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;margin:2px 0}
   input[type=range]:focus{outline:none}
   input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;
     background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--fill,50%),var(--line-strong) var(--fill,50%),var(--line-strong) 100%)}
