@@ -143,18 +143,22 @@
      wtedy jak cienka kreska i trudno go złapać myszą. */
   input[type=range]{width:100%;height:18px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;margin:2px 0}
   input[type=range]:focus{outline:none}
-  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;
-    background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--fill,50%),var(--line-strong) var(--fill,50%),var(--line-strong) 100%)}
-  input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:var(--line-strong)}
-  input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--accent)}
+  input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;
+    background:linear-gradient(to right,var(--accent) 0%,var(--accent-deep) var(--fill,50%),var(--line) var(--fill,50%),var(--line) 100%)}
+  input[type=range]::-moz-range-track{height:8px;border-radius:999px;background:var(--line)}
+  input[type=range]::-moz-range-progress{height:8px;border-radius:999px;background:var(--accent)}
+  /* Uchwyt: pełne koło w kolorze marki z jasną obwódką odcinającą go od toru.
+     Pierścień (ciemny środek) gubił się w ciemnym motywie i wyglądał archaicznie. */
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;margin-top:-6px;
-    width:18px;height:18px;border-radius:50%;background:var(--surface);border:3px solid var(--accent);
-    box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .12s}
-  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--surface);
-    border:3px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.25)}
-  input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.1)}
-  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px var(--accent-soft)}
-  input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 4px var(--accent-soft)}
+    width:20px;height:20px;border-radius:50%;background:var(--accent);border:2.5px solid var(--surface);
+    box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 1px var(--line-strong);transition:transform .12s,box-shadow .12s}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--accent);
+    border:2.5px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.35);transition:transform .12s}
+  input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.12)}
+  input[type=range]:hover::-moz-range-thumb{transform:scale(1.12)}
+  input[type=range]:active::-webkit-slider-thumb{transform:scale(1.2)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 5px var(--accent-soft)}
+  input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px var(--accent-soft)}
   .btn-primary{width:100%;padding:12px;font-size:14.5px;font-weight:650;border:none;border-radius:var(--radius-sm);color:#fff;background:linear-gradient(180deg,var(--accent) 0%,var(--accent-deep) 100%);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:8px}
   .btn-primary:hover{filter:brightness(1.06)}
   .btn-primary:disabled{opacity:.6;cursor:progress}
@@ -914,6 +918,31 @@
       try{el.showPicker();}catch(e){/* brak gestu albo nieobslugiwane — pole dalej dziala normalnie */}
     });
   });
+
+  // Powrót nie może być przed wylotem. Bez `min` kalendarz powrotu otwierał się na
+  // starym miesiącu — po zmianie wylotu na październik data powrotu dalej pokazywała
+  // sierpień i dawała się wybrać, a wyszukiwanie leciało z terminem wstecz.
+  // Ustawienie `min` załatwia oba: blokuje wcześniejszy dzień I otwiera kalendarz
+  // na właściwym miesiącu. Gdy nowy wylot wypada po dotychczasowym powrocie,
+  // przesuwamy powrót o tyle samo nocy, ile konsultant miał ustawione — zachowanie
+  // długości pobytu jest tu mniej zaskakujące niż skok na sztywne 7 dni.
+  (function spinajDaty(){
+    var od=document.getElementById("dateFrom"),doo=document.getElementById("dateTo");
+    if(!od||!doo)return;
+    function dni(a,b){return Math.round((new Date(b)-new Date(a))/864e5);}
+    function plusDni(data,n){var d=new Date(data);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+    var ostatniaDlugosc=(od.value&&doo.value)?Math.max(1,dni(od.value,doo.value)):7;
+    function sync(){
+      if(!od.value)return;
+      doo.min=od.value;
+      if(doo.value&&doo.value<od.value)doo.value=plusDni(od.value,ostatniaDlugosc);
+    }
+    od.addEventListener("change",function(){sync();});
+    doo.addEventListener("change",function(){
+      if(od.value&&doo.value&&doo.value>=od.value)ostatniaDlugosc=Math.max(1,dni(od.value,doo.value));
+    });
+    sync();
+  })();
 
   // Wiek dzieci — pola pojawiają się wg liczby dzieci. UWAGA: API wakacje.pl
   // (wrapper) liczy cenę dla 2 dorosłych i nie przyjmuje wieku dzieci, więc na
@@ -2019,7 +2048,9 @@
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
   document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent="6 000 zł";rangeFill(budget);minRate.value=7.5;minRateVal.textContent="7,5";rangeFill(minRate);activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
 
-  (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);document.getElementById("dateFrom").value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);})();
+  // Uwaga na kolejność: daty startowe ustawiane są PO spięciu pól (spinajDaty wyżej),
+  // więc bez tego `change` powrót nie dostałby atrybutu min aż do pierwszej ręcznej zmiany.
+  (function initDates(){var f=new Date(Date.now()+30*864e5),t=new Date(Date.now()+37*864e5);var od=document.getElementById("dateFrom");od.value=f.toISOString().slice(0,10);document.getElementById("dateTo").value=t.toISOString().slice(0,10);od.dispatchEvent(new Event("change"));})();
 
   /* ---------- Kraje: regiony + informacje praktyczne ---------- */
   var COUNTRY_DATA={},REGION_TO_COUNTRY={},geoTree=document.getElementById("geoTree");
