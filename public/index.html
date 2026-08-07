@@ -48,14 +48,6 @@
   .usr-msg{margin:10px 0 0;font-size:13px;min-height:1em}
   .usr-msg.ok{color:var(--good)}
   .usr-msg.bad{color:var(--crit)}
-  /* Formularz rezerwacji — zbiera dane, NIC nie zapisuje ani nie wysyła stąd. */
-  .book-off{margin:0 0 14px;padding:9px 12px;border-radius:8px;background:var(--surface-2);font-size:12.5px;color:var(--ink-soft)}
-  .book-form .field{margin-bottom:13px}
-  .book-form input[type=tel],.book-form input[type=email]{width:100%;padding:9px 11px;font-size:14px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)}
-  .book-form textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13.5px;padding:9px 11px;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);resize:vertical;min-height:64px}
-  .book-pax-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
-  .book-pax-n{font-size:12px;font-weight:600;color:var(--ink-soft);min-width:74px}
-  .book-pax-row input{flex:1 1 140px;min-width:0;font:inherit;font-size:13.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
   .usr-list{margin-top:16px;display:flex;flex-direction:column;gap:8px}
   .usr-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
   .usr-row.off{opacity:.55}
@@ -795,31 +787,7 @@
         <button class="btn-script btn-book" id="sendCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Kopiuj</button>
         <a class="btn-script" id="sendWa" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 01-12.6 7.4L3 21l2.2-5.2A8.5 8.5 0 1121 11.5z"/></svg>WhatsApp</a>
         <a class="btn-script" id="sendMail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>Email</a>
-        <button class="btn-script" id="sendBook" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg>Dane do rezerwacji</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<div class="cmp-modal" id="bookModal" hidden>
-  <div class="cmp-backdrop" id="bookBackdrop"></div>
-  <div class="cmp-panel cmp-panel-wide" role="dialog" aria-label="Dane do rezerwacji">
-    <div class="cmp-head"><h3>📝 Dane do rezerwacji</h3><button class="cart-x" id="bookClose" aria-label="Zamknij">&times;</button></div>
-    <div class="cmp-body">
-      <div class="det-note"><b>Nic z tego formularza nie jest nigdzie zapisywane ani wysyłane.</b> Dane zostają tylko w tej przeglądarce, dopóki nie skopiujesz gotowego tekstu — rezerwację zakładasz dalej ręcznie, tak jak dziś.</div>
-      <div class="book-off" id="bookOff"></div>
-      <form class="book-form" id="bookForm">
-        <div class="field"><label for="bkName">Zgłaszający — imię i nazwisko</label><input type="text" id="bkName" required placeholder="Jan Kowalski"></div>
-        <div class="field-row">
-          <div class="field"><label for="bkPhone">Telefon</label><input type="tel" id="bkPhone" placeholder="600 000 000"></div>
-          <div class="field"><label for="bkEmail">E-mail</label><input type="email" id="bkEmail" placeholder="jan@przyklad.pl"></div>
-        </div>
-        <div class="field"><label>Uczestnicy <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— imię i nazwisko jak w dokumencie tożsamości; wiek dzieci potrzebny do wyceny</span></label>
-          <div class="book-pax" id="bookPax"></div>
-        </div>
-        <div class="field"><label for="bkNotes">Uwagi <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— dieta, widok, sąsiedztwo pokoi itp., opcjonalnie</span></label><textarea id="bkNotes" rows="3"></textarea></div>
-        <button type="submit" class="btn-primary" id="bkGenerate">Generuj tekst zamówienia</button>
-      </form>
     </div>
   </div>
 </div>
@@ -1147,20 +1115,14 @@
     if(h.bookingUrl)L.push("\n🔗 "+h.bookingUrl);
     return L.join("\n");
   }
-  // offerCtx: oferta, do której odnosi się wysyłana wiadomość (jeśli jest jedna) —
-  // pozwala przyciskowi "Dane do rezerwacji" w tym samym modalu wiedzieć, o którą
-  // ofertę chodzi, bez zgadywania. Wiadomość z całego koszyka (kilka ofert) idzie
-  // bez kontekstu — formularz rezerwacji wtedy po prostu nie pokaże podsumowania oferty.
-  var sendCtxOffer=null;
-  function openSendText(text,subject,offerCtx){
+  function openSendText(text,subject){
     document.getElementById("sendText").value=text;
     var enc=encodeURIComponent(text);
     document.getElementById("sendWa").href="https://wa.me/?text="+enc;
     document.getElementById("sendMail").href="mailto:?subject="+encodeURIComponent(subject||"")+"&body="+enc;
-    sendCtxOffer=offerCtx||null;
     document.getElementById("sendModal").hidden=false;
   }
-  function openSend(h,n,pax){openSendText(clientOffer(h,n,pax),"Oferta: "+h.name,h);}
+  function openSend(h,n,pax){openSendText(clientOffer(h,n,pax),"Oferta: "+h.name);}
   // Czysta wiadomość dla klienta z CAŁEGO koszyka (kilka propozycji) — fakty, bez skryptu.
   function clientCartText(){
     if(!cart.length)return"";
@@ -1176,83 +1138,7 @@
   // Kopiuj + odśwież linki po ręcznej edycji tekstu.
   document.getElementById("sendText").addEventListener("input",function(){var enc=encodeURIComponent(this.value);document.getElementById("sendWa").href="https://wa.me/?text="+enc;document.getElementById("sendMail").href="mailto:?body="+enc;});
   document.getElementById("sendCopy").addEventListener("click",function(){var txt=document.getElementById("sendText").value;if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){toast("Skopiowano wiadomość ✓");},function(){fallbackCopy(txt);});else fallbackCopy(txt);});
-  document.getElementById("sendBook").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;openBookForm(sendCtxOffer);});
 
-  /* ---------- Formularz rezerwacji: zbiera dane od konsultanta, generuje gotowy
-     tekst zamówienia do skopiowania. GRANICA: żadnych zapisów do bazy, żadnej
-     wysyłki z Kompasu — dane żyją wyłącznie w tych polach formularza, w tej
-     przeglądarce, dopóki konsultant nie skopiuje wygenerowanego tekstu dalej. ---------- */
-  var bookModal=document.getElementById("bookModal"),bookOffer=null;
-  function bookPaxRowHtml(label,isChild){
-    return '<div class="book-pax-row"><span class="book-pax-n">'+label+'</span>'+
-      '<input type="text" class="bk-pname" placeholder="Imię i nazwisko" aria-label="Imię i nazwisko — '+label+'">'+
-      (isChild?'<input type="text" class="bk-page" placeholder="Wiek / data ur." aria-label="Wiek — '+label+'">':'')+
-      '</div>';
-  }
-  // Liczba wierszy uczestników wynika z formularza wyszukiwania (Dorośli/Dzieci) —
-  // to i tak dane, które konsultant już podał; nie każemy wpisywać ich drugi raz.
-  function renderBookPax(){
-    var ad=Math.max(1,+document.getElementById("adults").value||1),kd=Math.max(0,+document.getElementById("kids").value||0);
-    var html="";
-    for(var i=0;i<ad;i++)html+=bookPaxRowHtml("Dorosły "+(i+1),false);
-    for(var j=0;j<kd;j++)html+=bookPaxRowHtml("Dziecko "+(j+1),true);
-    document.getElementById("bookPax").innerHTML=html;
-    // Wiek dzieci konsultant już wybrał w wyszukiwarce (childAges) — podpowiadamy
-    // go tutaj zamiast każąc wpisywać drugi raz. Pole zostaje edytowalne, bo tu
-    // można doprecyzować na dokładną datę urodzenia.
-    var ageSelects=childAges.querySelectorAll("select"),ageInputs=document.querySelectorAll("#bookPax .bk-page");
-    for(var k=0;k<ageSelects.length&&k<ageInputs.length;k++){
-      ageInputs[k].value=ageSelects[k].options[ageSelects[k].selectedIndex].text;
-    }
-  }
-  function openBookForm(h){
-    bookOffer=h||null;
-    document.getElementById("bookOff").innerHTML=bookOffer
-      ? ('<b>'+bookOffer.name+'</b>'+(bookOffer.region||bookOffer.country?" · "+(bookOffer.region||bookOffer.country):"")+(bookOffer.offerNumber?" · Nr oferty: "+bookOffer.offerNumber:""))
-      : "Bez przypisanej konkretnej oferty — dopisz ją w uwagach, jeśli trzeba.";
-    document.getElementById("bkName").value="";
-    document.getElementById("bkPhone").value="";
-    document.getElementById("bkEmail").value="";
-    document.getElementById("bkNotes").value="";
-    renderBookPax();
-    bookModal.hidden=false;
-    document.getElementById("bkName").focus();
-  }
-  function bookOrderText(){
-    var name=document.getElementById("bkName").value.trim();
-    var phone=document.getElementById("bkPhone").value.trim();
-    var email=document.getElementById("bkEmail").value.trim();
-    var notes=document.getElementById("bkNotes").value.trim();
-    var L=["ZGŁOSZENIE DO REZERWACJI (dane robocze — nic z tego nie zostało nigdzie zapisane)",""];
-    if(bookOffer){
-      L.push("Oferta: "+bookOffer.name+(bookOffer.region||bookOffer.country?" ("+(bookOffer.region||bookOffer.country)+")":""));
-      if(bookOffer.offerNumber)L.push("Nr oferty: "+bookOffer.offerNumber);
-      L.push("");
-    }
-    L.push("Zgłaszający: "+(name||"—"));
-    if(phone)L.push("Telefon: "+phone);
-    if(email)L.push("E-mail: "+email);
-    L.push("");
-    L.push("Uczestnicy:");
-    [].forEach.call(document.querySelectorAll("#bookPax .book-pax-row"),function(row){
-      var lbl=row.querySelector(".book-pax-n").textContent;
-      var nm=row.querySelector(".bk-pname").value.trim()||"—";
-      var ageInp=row.querySelector(".bk-page");
-      L.push("• "+lbl+": "+nm+(ageInp&&ageInp.value.trim()?" (wiek/data ur.: "+ageInp.value.trim()+")":""));
-    });
-    if(notes){L.push("");L.push("Uwagi: "+notes);}
-    return L.join("\n");
-  }
-  document.getElementById("bookForm").addEventListener("submit",function(e){
-    e.preventDefault();
-    if(!document.getElementById("bkName").value.trim()){toast("Podaj imię i nazwisko zgłaszającego");return;}
-    var text=bookOrderText(),subject="Zamówienie rezerwacji"+(bookOffer?" — "+bookOffer.name:"");
-    bookModal.hidden=true;
-    openSendText(text,subject);
-  });
-  document.getElementById("bookClose").addEventListener("click",function(){bookModal.hidden=true;});
-  document.getElementById("bookBackdrop").addEventListener("click",function(){bookModal.hidden=true;});
-  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!bookModal.hidden)bookModal.hidden=true;});
 
   /* ---------- Multiroom Finder (wspólny wyjazd — kilka pokoi) ---------- */
   var mrRooms=[{adults:2,children:0,ages:[]},{adults:2,children:0,ages:[]}],mrModal=document.getElementById("mrModal"),mrLast=[];
@@ -1341,7 +1227,7 @@
   document.getElementById("mrResults").addEventListener("click",function(e){
     var b=e.target.closest("[data-mrsend]");if(!b)return;
     var h=mrLast[+b.dataset.mrsend];if(!h)return;
-    mrModal.hidden=true;openSendText(mrClientText(h),"Wspólny wyjazd — "+h.name,h);
+    mrModal.hidden=true;openSendText(mrClientText(h),"Wspólny wyjazd — "+h.name);
   });
   // Wiadomość dla klienta dla oferty multiroom (fakty + rozbicie na pokoje).
   function mrClientText(h){
@@ -1698,9 +1584,9 @@
   // Zakładka bez ŻADNEGO wiersza się nie pokazuje — pusta zakładka "Pokoje" sugerowałaby
   // brak informacji tam, gdzie jej po prostu nie pobraliśmy z tego źródła.
   function row(k,v){return v?('<div class="det-row"><span class="det-k">'+k+'</span><span class="det-v">'+v+'</span></div>'):'';}
-  // Oferta aktualnie otwarta w modalu Szczegóły — potrzebna przyciskom Do wysłania/
-  // Dane do rezerwacji w tym modalu (dodane po zauważeniu, że widok Tabela + Szczegóły
-  // to ślepy zaułek: nie było stąd jak przejść dalej bez przełączania na widok Karty).
+  // Oferta aktualnie otwarta w modalu Szczegóły — potrzebna przyciskowi „Do wysłania"
+  // w tym modalu (dodanemu po zauważeniu, że widok Tabela + Szczegóły to ślepy zaułek:
+  // nie było stąd jak przejść dalej bez przełączania na widok Karty).
   var detailOfferCtx=null;
   function openDetail(h){
     detailOfferCtx=h;
@@ -1758,7 +1644,7 @@
       : '<p class="det-empty">Brak kuratorowanej wiedzy o tym kierunku — sprawdź linki researchowe niżej.</p>';
     document.getElementById("detailBody").innerHTML=
       '<div class="det-note">Dane z listingu są orientacyjne. Szczegóły (plaża, pokoje, jedzenie, aktualne opinie) potwierdź researchem — linki niżej otwierają realne źródła, jak w warsztacie doradcy.</div>'+
-      '<div class="det-actions"><button type="button" class="btn-script" data-detsend><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button><button type="button" class="btn-script" data-detbook><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg>Dane do rezerwacji</button></div>'+
+      '<div class="det-actions"><button type="button" class="btn-script" data-detsend><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button></div>'+
       '<div class="det-sec">'+naglowek+'</div>'+
       tabsNav+tabsPanels+
       '<div class="det-sec"><h4>Kierunek</h4>'+kier+'</div>'+
@@ -1768,7 +1654,6 @@
   }
   document.getElementById("detailBody").addEventListener("click",function(e){
     if(e.target.closest("[data-detsend]")){document.getElementById("detailModal").hidden=true;openSend(detailOfferCtx,nights(),paxCount());return;}
-    if(e.target.closest("[data-detbook]")){document.getElementById("detailModal").hidden=true;openBookForm(detailOfferCtx);return;}
     var b=e.target.closest("[data-dtab]");if(!b)return;
     var key=b.getAttribute("data-dtab");
     document.querySelectorAll(".det-tab-btn").forEach(function(x){x.setAttribute("aria-selected",String(x===b));});
@@ -2046,7 +1931,7 @@
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
         '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+(offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
-          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-send" data-send><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button>'+'<button class="btn-script" data-book><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg>Dane do rezerwacji</button>'+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
+          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-send" data-send><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button>'+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
         '</div>'+
       '</div>'+
       '<div class="script js-script"><div class="script-inner"></div></div>'+
@@ -2071,7 +1956,6 @@
     el.querySelector("[data-toggle]").addEventListener("click",function(){sDrawer.classList.toggle("open");if(pDrawer)pDrawer.classList.remove("open");});
     el.querySelector("[data-detail]").addEventListener("click",function(){openDetail(h);});
     el.querySelector("[data-send]").addEventListener("click",function(){openSend(h,n,pax);});
-    el.querySelector("[data-book]").addEventListener("click",function(){openBookForm(h);});
     var pBtn=el.querySelector("[data-pract]");if(pBtn)pBtn.addEventListener("click",function(){pDrawer.classList.toggle("open");sDrawer.classList.remove("open");});
     var noBtn=el.querySelector("[data-copyno]");if(noBtn)noBtn.addEventListener("click",function(){var nn=noBtn.getAttribute("data-copyno");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(nn).then(function(){toast("Skopiowano nr oferty: "+nn+" ✓");},function(){fallbackCopy(nn);});else fallbackCopy(nn);});
     var cartBtnCard=el.querySelector("[data-cart]");if(cartBtnCard)cartBtnCard.addEventListener("click",function(){var added=toggleCart(h);syncCardButtons();toast(added?"Dodano do koszyka ✓":"Usunięto z koszyka");});

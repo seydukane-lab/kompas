@@ -134,15 +134,21 @@ test("szczegóły oferty mają zakładki (wzorem MerlinX) i zakładka bez danych
     "lista zakładek nie jest filtrowana po obecności danych");
 });
 
-test("formularz rezerwacji podpowiada wiek dzieci z wyszukiwarki zamiast każąc wpisywać go drugi raz", () => {
-  // Konsultant już wybrał wiek każdego dziecka w polach childAges przy szukaniu
-  // ofert — formularz „Dane do rezerwacji" nie może o to pytać od nowa na pusto.
+test("formularz rezerwacji został usunięty i nie wraca tylnymi drzwiami", () => {
+  // Decyzja właściciela z 04.08: „za dużo roboty, i tak mamy szablony do wysłania".
+  // Powód głębszy: formularz zbierał dane osobowe klienta, czyli ciągnął za sobą
+  // RODO, którego projekt świadomie nie rusza przed konsultacją prawną.
+  // ZOSTAJE „Do wysłania" (openSend) — to szablon oferty, zupełnie inna funkcja,
+  // która żadnych danych osobowych nie zbiera. Łatwo je pomylić, stąd ostatnia asercja.
   const html = wczytaj("public/index.html");
-  const renderBookPax = html.match(/function renderBookPax\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
-  assert.match(renderBookPax, /childAges\.querySelectorAll\("select"\)/,
-    "renderBookPax nie czyta wybranego wieku dzieci z #childAges");
-  assert.match(renderBookPax, /\.bk-page/,
-    "renderBookPax nie ustawia wartości pól wieku (.bk-page) w formularzu rezerwacji");
+
+  for (const znacznik of ["bookModal", "openBookForm", "renderBookPax", "bookOrderText",
+                          "bookPaxRowHtml", "data-book", "data-detbook", "bkName", "bkGenerate"]) {
+    assert.ok(!html.includes(znacznik), `formularz rezerwacji wrócił — znaleziono „${znacznik}”`);
+  }
+
+  assert.ok(html.includes("openSend"),
+    "„Do wysłania” nie może zniknąć razem z formularzem — to szablon oferty, nie zbieranie danych");
 });
 
 test("etykiety udogodnień w szczegółach oferty pokrywają dokładnie te same kody co mapAmenities", () => {
@@ -169,7 +175,9 @@ test("każdy modal panelu zamyka się klawiszem Escape", () => {
   const html = readFileSync(join(ROOT, "public/index.html"), "utf8");
 
   const modale = [...html.matchAll(/<div class="cmp-modal" id="([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(modale.length >= 7, `spodziewano się co najmniej 7 modali, jest ${modale.length}`);
+  // Próg jest absolutny, nie relatywny — po każdej zmianie liczby modali trzeba go
+  // przejrzeć. Spadł z 7 na 6, gdy zniknął formularz rezerwacji.
+  assert.ok(modale.length >= 6, `spodziewano się co najmniej 6 modali, jest ${modale.length}`);
 
   // Obsługa bywa zapisana dwojako: przez zmienną (`!mrModal.hidden`) albo przez
   // getElementById("sendModal") na początku handlera — czyli id potrafi stać
