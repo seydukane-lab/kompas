@@ -211,3 +211,22 @@ test("plakietka „Najlepszy value” ma próg relatywny z podłogą jakości", 
   assert.match(html, /function render\(list\)\{[\s\S]{0,200}ustawProgETA\(list\)/,
     "render() nie przelicza progu przed rysowaniem wyników");
 });
+
+test("data powrotu nie może wypaść przed wylotem", () => {
+  // Bez atrybutu min kalendarz powrotu otwierał się na starym miesiącu: po zmianie
+  // wylotu na październik data powrotu dalej pokazywała sierpień i dawała się wybrać,
+  // a wyszukiwanie leciało z terminem wstecz.
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /doo\.min=od\.value/,
+    "pole powrotu nie dostaje atrybutu min z daty wylotu — kalendarz znowu otworzy się na złym miesiącu");
+
+  // Sam min nie wystarcza: datę da się wpisać z klawiatury, omijając kalendarz.
+  assert.match(html, /function search\(\)\{[\s\S]{0,400}_do\.value<_od\.value/,
+    "search() nie sprawdza, czy powrót nie jest przed wylotem");
+
+  // Daty startowe ustawiane są PO spięciu pól, więc bez zdarzenia change
+  // powrót nie dostałby min aż do pierwszej ręcznej zmiany.
+  assert.match(html, /function initDates\(\)\{[\s\S]{0,400}dispatchEvent\(new Event\("change"\)\)/,
+    "initDates nie odpala change — min nie zostanie ustawione na starcie");
+});

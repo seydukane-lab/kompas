@@ -2031,6 +2031,13 @@
   /* ---------- Komunikacja z backendem ---------- */
   var searchBtn=document.getElementById("searchBtn");
   function search(){
+    // Ostatnia furtka: atrybut min blokuje wybór z kalendarza, ale datę można wpisać
+    // z klawiatury. Bez tego wyszukiwanie poleciałoby z terminem wstecz.
+    var _od=document.getElementById("dateFrom"),_do=document.getElementById("dateTo");
+    if(_od.value&&_do.value&&_do.value<_od.value){
+      _do.value=_od.value;
+      toast("Powrót nie może być przed wylotem — poprawiono");
+    }
     searchBtn.disabled=true;
     sourceWarnEl.hidden=true;
     // Zapamiętane kryteria = te, na których serwer policzy ETA. Patrz clientFit().
