@@ -1514,10 +1514,27 @@
     var base=0.40*vfm+0.25*ratingPart+0.15*pricePart+0.10*starPart+0.10*t;
     return Math.max(0,Math.min(100,Math.round(base*100+(clientFit(h)-0.5)*2*FIT_WEIGHT)));
   }
+  // Próg plakietki „🏆 Najlepszy value". Sztywne 82 pkt nie działało: odkąd ETA
+  // uwzględnia dopasowanie do klienta, dobrze wycelowane zapytanie podbija prawie
+  // wszystkie oferty naraz i odznakę dostaje kilkadziesiąt z nich — czyli nie mówi
+  // już nic. Próg jest więc RELATYWNY do bieżących wyników (czołowe 10%), ale
+  // z podłogą jakości 72 pkt, żeby w słabej stawce nie koronować najlepszego z kiepskich.
+  //
+  // Liczony RAZ na wyszukiwanie i trzymany globalnie — to jest cała sztuczka. Gdyby
+  // każdy widok liczył czołówkę po swojemu, ta sama oferta miałaby plakietkę na karcie,
+  // a w koszyku już nie. Jeden próg dla wszystkich dziewięciu miejsc wołających
+  // etaVerdict() gwarantuje, że werdykt jest ten sam wszędzie.
+  var etaTop=82;
+  function ustawProgETA(list){
+    var v=(list||[]).map(etaValue).sort(function(a,b){return b-a;});
+    if(!v.length){etaTop=82;return;}
+    var idx=Math.max(0,Math.ceil(v.length*0.1)-1); // granica czołowych 10%
+    etaTop=Math.max(72,v[idx]);
+  }
   function etaVerdict(h){
     var s=etaValue(h),t=h.trust||0,adj=etaAdj(h);
     if(t<0.25)return {t:"⚠️ Mało/starych opinii",c:"warn"};
-    if(s>=82)return {t:"🏆 Najlepszy value",c:"top"};
+    if(s>=etaTop)return {t:"🏆 Najlepszy value",c:"top"};
     if((h.price||0)>7000&&adj<8)return {t:"❌ Drogo jak na oceny",c:"bad"};
     if(s>=72)return {t:"✅ Warto",c:"good"};
     if(s>=62)return {t:"💰 Warto w dobrej cenie",c:"mid"};
@@ -1758,6 +1775,7 @@
 
   function render(list){
     lastList=list;
+    ustawProgETA(list); // próg plakietki liczony raz, na pełnym wyniku wyszukiwania
     var n=nights(),pax=paxCount();
     document.getElementById("resCount").textContent=list.length;
     var summary=document.getElementById("summary");

@@ -188,3 +188,26 @@ test("każdy modal panelu zamyka się klawiszem Escape", () => {
 
   assert.deepEqual(bezEscape, [], `modale bez obsługi Escape: ${bezEscape.join(", ")}`);
 });
+
+test("plakietka „Najlepszy value” ma próg relatywny z podłogą jakości", () => {
+  // Sztywne 82 pkt przestało działać, odkąd ETA uwzględnia dopasowanie do klienta:
+  // dobrze wycelowane zapytanie podbijało prawie całą stawkę i odznakę dostawały
+  // dziesiątki ofert naraz. Próg musi być liczony z bieżących wyników, ale nie może
+  // spaść dowolnie nisko — inaczej w słabej stawce koronowalibyśmy najlepszego z kiepskich.
+  const html = wczytaj("public/index.html");
+
+  const fn = html.match(/function ustawProgETA\(list\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji ustawProgETA — próg znowu jest sztywny?");
+  assert.match(fn, /Math\.max\(72,/, "zniknęła podłoga jakości 72 pkt");
+  assert.match(fn, /0\.1/, "próg nie odnosi się już do czołowych 10% wyników");
+
+  // Werdykt musi czytać próg ze zmiennej, a nie mieć zaszytej liczby.
+  const verdict = html.match(/function etaVerdict\(h\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.match(verdict, /s>=etaTop/, "etaVerdict nie używa wyliczonego progu");
+  assert.ok(!/s>=82/.test(verdict), "w etaVerdict został zaszyty stary próg 82");
+
+  // Próg liczony raz na wyszukiwanie — inaczej ta sama oferta miałaby plakietkę
+  // na karcie, a w koszyku już nie.
+  assert.match(html, /function render\(list\)\{[\s\S]{0,200}ustawProgETA\(list\)/,
+    "render() nie przelicza progu przed rysowaniem wyników");
+});
