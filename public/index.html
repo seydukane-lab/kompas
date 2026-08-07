@@ -118,8 +118,14 @@
      samym <details> chipy zostawały widoczne na pełnej wysokości. */
   details.attr-col:not([open]) .chips{display:none}
   .attr-col-h:hover{color:var(--accent)}
-  .attr-col .chips{flex-direction:column;align-items:stretch;gap:5px}
-  .attr-col .chip{text-align:left;white-space:normal;line-height:1.2;padding:6px 7px;font-size:10.5px;overflow-wrap:break-word}
+  /* nowrap jest KONIECZNE: bazowe .chips ma flex-wrap:wrap, a w układzie kolumnowym
+     linia flex przyjmuje wtedy szerokość najszerszego elementu i przestaje kurczyć się
+     do kontenera — chipy w kolumnie „Obiekt" wystawały przez to 11px poza nią. */
+  .attr-col .chips{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:5px}
+  /* min-width:0 jest KONIECZNE: flex-item ma domyślnie min-width:auto i nie kurczy się
+     poniżej najdłuższego słowa, więc „Dla niepełnosprawnych" rozpychało chip o 11px
+     poza kolumnę. Dopiero z zerem działa overflow-wrap poniżej. */
+  .attr-col .chip{text-align:left;white-space:normal;line-height:1.2;padding:6px 7px;font-size:10.5px;overflow-wrap:break-word;min-width:0;hyphens:auto}
   /* Plakietka z liczbą aktywnych filtrów przy nagłówku panelu. */
   .filter-count{display:inline-block;margin-left:7px;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;text-align:center;vertical-align:middle;font-variant-numeric:tabular-nums}
   .range-val{font-size:13px;font-weight:650;color:var(--accent-deep);font-variant-numeric:tabular-nums}
@@ -711,8 +717,9 @@
         <button class="chip" data-stars="4" aria-pressed="false">4★+</button>
         <button class="chip" data-stars="5" aria-pressed="false">5★</button>
       </div></div>
-      <div class="field"><label>Jakość opinii <span class="hint">— anty-ściema</span></label><div class="chips" id="reviewChips">
-        <button class="chip" data-rev="1" aria-pressed="false" title="Odsiewa oferty bez ani jednej opinii — resztę nadal ocenia wiarygodność opinii (widoczna przy każdej ofercie), nie tylko ich obecność">✓ Tylko z realnymi opiniami</button>
+      <div class="field"><label>Jakość opinii <span class="hint">— hotel z oceną 9,8 wystawioną przez trzy osoby nie jest lepszy od 8,7 z czterech tysięcy. Kompas liczy to za Ciebie i pokazuje przy każdej ofercie („Opinie wiarygodne” / „Mało&nbsp;/&nbsp;stare opinie”).</span></label><div class="chips" id="reviewChips">
+        <button class="chip" data-rev="1" aria-pressed="false" title="Zostawia tylko oferty, które mają choć jedną opinię. Uwaga: Hotelbeds nie przysyła ocen gości, więc ten filtr ukryje całe to źródło — włączaj świadomie.">✓ Tylko z realnymi opiniami</button>
+        <span class="hint" style="margin-top:6px">Ten filtr ukryje oferty Hotelbeds — ten dostawca nie przysyła ocen gości.</span>
       </div></div>
       <button class="btn-primary" id="searchBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Szukaj ofert</button>
       <button class="btn-ghost" id="resetBtn">Wyczyść kryteria</button>
