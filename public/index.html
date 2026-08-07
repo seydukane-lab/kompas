@@ -123,6 +123,11 @@
   /* Plakietka z liczbą aktywnych filtrów przy nagłówku panelu. */
   .filter-count{display:inline-block;margin-left:7px;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;text-align:center;vertical-align:middle;font-variant-numeric:tabular-nums}
   .range-val{font-size:13px;font-weight:650;color:var(--accent-deep);font-variant-numeric:tabular-nums}
+  /* Podpis pod etykietą pola („— brak danych nie odsiewa oferty" itp.). MUSI być
+     blokiem: jako inline dłuższy tekst zawijał się w tej samej linii co nagłówek
+     i wchodził na niego. Etykiety są uppercase, podpisy nie — stąd reset. */
+  .hint{display:block;margin-top:2px;text-transform:none;font-weight:400;color:var(--ink-faint);
+    letter-spacing:normal;line-height:1.35}
   .budget-toggle{display:inline-flex;gap:0;margin:5px 0 8px;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;background:var(--surface)}
   .bt-opt{cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:4px 13px;border:0;background:transparent;color:var(--ink-soft);transition:background .12s,color .12s}
   .bt-opt.active{background:var(--accent);color:#fff}
@@ -587,14 +592,14 @@
     <div class="panel-head"><h2>Kryteria wyjazdu <span class="filter-count" id="filterCount" hidden>0</span></h2><p><b>Zacznij tutaj:</b> wybierz kierunek niżej i kliknij „Szukaj ofert" — reszta jest opcjonalna, tylko zawęża wynik.</p></div>
     <div class="panel-body">
       <div class="sec-head">Kierunek i hotel</div>
-      <div class="field"><label for="hotelName">Nazwa hotelu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— znajdź konkretny obiekt</span></label>
+      <div class="field"><label for="hotelName">Nazwa hotelu <span class="hint">— znajdź konkretny obiekt</span></label>
         <div class="field-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input type="text" id="hotelName" placeholder="np. Blue Horizon, Lagoon, Azure…" autocomplete="off">
           <button class="clr" id="hotelNameClr" type="button" aria-label="Wyczyść nazwę">&times;</button>
         </div>
       </div>
-      <div class="field"><label>Kierunki <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— zaznacz kraje i/lub regiony</span></label>
+      <div class="field"><label>Kierunki <span class="hint">— zaznacz kraje i/lub regiony</span></label>
         <div class="geo-quick">
           <button class="geo-q" id="geoWorld" type="button" title="Zaznacz wszystkie kierunki">🌍 Cały świat</button>
           <button class="geo-q" id="geoNoPass" type="button" title="Kraje, do których Polakowi wystarczy dowód osobisty">🛂 Bez paszportu</button>
@@ -602,7 +607,7 @@
         </div>
         <div class="geo-tree" id="geoTree"><div class="geo-loading">Ładowanie kierunków…</div></div>
       </div>
-      <div class="field"><label>Wylot z <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— można kilka</span></label><div class="chips" id="depChips">
+      <div class="field"><label>Wylot z <span class="hint">— można kilka</span></label><div class="chips" id="depChips">
         <button class="chip" data-dep="Warszawa" aria-pressed="false">Warszawa</button>
         <button class="chip" data-dep="Katowice" aria-pressed="false">Katowice</button>
         <button class="chip" data-dep="Kraków" aria-pressed="false">Kraków</button>
@@ -620,7 +625,7 @@
         <button class="chip" data-trans="Autokar" aria-pressed="false">🚌 Autokar</button>
         <button class="chip" data-trans="Własny dojazd" aria-pressed="false">🚗 Własny</button>
       </div></div>
-      <div class="field"><label>Dni tygodnia wylotu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— można kilka</span></label><div class="chips" id="weekdayChips">
+      <div class="field"><label>Dni tygodnia wylotu <span class="hint">— można kilka</span></label><div class="chips" id="weekdayChips">
         <button class="chip" data-wd="1" aria-pressed="false">Pon</button>
         <button class="chip" data-wd="2" aria-pressed="false">Wt</button>
         <button class="chip" data-wd="3" aria-pressed="false">Śr</button>
@@ -638,7 +643,7 @@
           <button class="chip" data-flex="7" aria-pressed="false">±7 dni</button>
         </div>
       </div>
-      <div class="field"><label>Długość pobytu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— liczba nocy</span></label><div class="chips" id="nightsChips">
+      <div class="field"><label>Długość pobytu <span class="hint">— liczba nocy</span></label><div class="chips" id="nightsChips">
         <button class="chip" data-nights="0" aria-pressed="true">Dowolna</button>
         <button class="chip" data-nights="7" aria-pressed="false">7 nocy</button>
         <button class="chip" data-nights="10" aria-pressed="false">10 nocy</button>
@@ -671,7 +676,7 @@
         <button class="chip" data-tag="para" aria-pressed="false">Dla pary</button>
         <button class="chip" data-tag="impreza" aria-pressed="false">Imprezowy</button>
       </div></div>
-      <div class="field"><label>Atrybuty obiektu <span style="text-transform:none;font-weight:400;color:var(--ink-faint)" title="Odsiewa tylko oferty, o których WIEMY, że danego atrybutu nie mają. Brak informacji (np. nieznana odległość od plaży) nie wyklucza oferty.">— brak danych o hotelu nie odsiewa go z wyników</span></label>
+      <div class="field"><label>Atrybuty obiektu <span class="hint" title="Odsiewa tylko oferty, o których WIEMY, że danego atrybutu nie mają. Brak informacji (np. nieznana odległość od plaży) nie wyklucza oferty.">— brak danych o hotelu nie odsiewa go z wyników</span></label>
         <div class="attr-cols">
           <details class="attr-col" open><summary class="attr-col-h">Lokalizacja</summary><div class="chips" id="locAttrChips">
             <button class="chip" data-attr="plaza" aria-pressed="false">🏖 Przy plaży</button>
@@ -692,17 +697,17 @@
           </div></details>
         </div>
       </div>
-      <div class="field"><label>Układ pokoju <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— gdy dzieci mają spać osobno</span></label><div class="chips" id="roomAttrChips">
+      <div class="field"><label>Układ pokoju <span class="hint">— gdy dzieci mają spać osobno</span></label><div class="chips" id="roomAttrChips">
         <button class="chip" data-attr="pokoj-dzielony" aria-pressed="false">🛏 Osobna sypialnia</button>
         <button class="chip" data-attr="pokoje-polaczone" aria-pressed="false">🚪 Pokoje połączone</button>
       </div></div>
-      <div class="field"><label>Min. kategoria <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— gwiazdki</span></label><div class="chips" id="starChips">
+      <div class="field"><label>Min. kategoria <span class="hint">— gwiazdki</span></label><div class="chips" id="starChips">
         <button class="chip" data-stars="0" aria-pressed="true">Dowolna</button>
         <button class="chip" data-stars="3" aria-pressed="false">3★+</button>
         <button class="chip" data-stars="4" aria-pressed="false">4★+</button>
         <button class="chip" data-stars="5" aria-pressed="false">5★</button>
       </div></div>
-      <div class="field"><label>Jakość opinii <span style="text-transform:none;font-weight:400;color:var(--ink-faint)">— anty-ściema</span></label><div class="chips" id="reviewChips">
+      <div class="field"><label>Jakość opinii <span class="hint">— anty-ściema</span></label><div class="chips" id="reviewChips">
         <button class="chip" data-rev="1" aria-pressed="false" title="Odsiewa oferty bez ani jednej opinii — resztę nadal ocenia wiarygodność opinii (widoczna przy każdej ofercie), nie tylko ich obecność">✓ Tylko z realnymi opiniami</button>
       </div></div>
       <button class="btn-primary" id="searchBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Szukaj ofert</button>
