@@ -94,7 +94,10 @@ export function clearSearchCache() {
 function reasonFor(err) {
   const status = err?.status;
   if (status === 429) return "przekroczono limit zapytań (429) — spróbuj ponownie za chwilę";
-  if (status === 403) return "odmowa dostępu (403) — wyczerpany limit dobowy albo problem z kluczem API";
+  // 403 z Hotelbeds to praktycznie zawsze wyczerpana pula zapytań o DOSTĘPNOŚĆ, nie zły klucz —
+  // zdiagnozowane 07.08.2026: przy trwającym 403 na availability endpoint /status i całe
+  // Content API odpowiadały 200 OK. Komunikat nie może wysyłać nikogo na fałszywy trop klucza.
+  if (status === 403) return "wyczerpana pula zapytań o dostępność (403) — klucz działa, pula odnawia się po stronie dostawcy";
   if (typeof status === "number" && status >= 500) return `błąd serwera dostawcy (${status})`;
   if (typeof status === "number") return `dostawca odpowiedział błędem HTTP ${status}`;
   if (/przekroczono limit \d+ ms/.test(err?.message || "")) return "przekroczono limit czasu odpowiedzi";

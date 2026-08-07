@@ -148,7 +148,7 @@ export async function search(crit) {
     })
   );
   // Jeśli KAŻDA odpytana destynacja padła, to nie jest uczciwe zero wyników —
-  // to awaria dostawcy (np. wyczerpany limit dobowy sandboxa: HTTP 403 na
+  // to awaria dostawcy (np. wyczerpana pula availability w sandboksie: HTTP 403 na
   // wszystkie zapytania, zaobserwowane 31.07.2026). Rzucamy dalej, żeby
   // warstwa wyżej (providers/index.js) mogła odróżnić to od "nic nie ma"
   // zamiast po cichu zwracać pustą listę.
@@ -262,7 +262,7 @@ export async function searchMultiroom(crit) {
     if (limitPrzekroczony) {
       komunikat = "Przekroczono limit zapytań do dostawcy. Odczekaj chwilę i spróbuj ponownie — to nie znaczy, że nie ma wolnych miejsc.";
     } else if (dostepOdmowiony) {
-      komunikat = "Dostawca odmówił dostępu do wyszukiwania (wyczerpany limit dobowy albo problem z kluczem API). To nie jest brak wolnych miejsc — zgłoś to osobie technicznej.";
+      komunikat = "Wyczerpana pula zapytań o dostępność u dostawcy. To NIE jest brak wolnych miejsc ani problem z kluczem — pula odnawia się po stronie dostawcy (nie z dnia na dzień). Pozostałe źródła działają normalnie.";
     } else {
       komunikat = "Dostawca nie odpowiedział na zapytanie o dostępność. Wynik byłby niepełny, więc go nie pokazujemy — spróbuj ponownie za chwilę.";
     }
