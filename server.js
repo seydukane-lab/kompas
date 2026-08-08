@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
-import { applyFilters, scoreOffer, sortOffers, attributeCoverage } from "./src/ranking.js";
+import { applyFilters, scoreOffer, sortOffers, attributeCoverage, unknownAttrs } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
@@ -303,7 +303,11 @@ app.get("/api/search", async (req, res) => {
     // attrs: ile wyników POTWIERDZA każdy wybrany atrybut, a ile przeszło z braku
     // danych. Panel może dzięki temu napisać wprost „93 potwierdzone, 30 bez danych”
     // zamiast samego „123 oferty”, które przy rzadkich atrybutach bywa mylące.
-    res.json({ offers: sorted, sources, count: sorted.length, attrs: attributeCoverage(sorted, crit) });
+    // attrUnknown: które z wybranych atrybutów TA oferta nie potwierdza (przeszła
+    // filtr z braku danych, nie z jawnego dopasowania) — karta oznacza to znacznikiem.
+    const withAttrUnknown = sorted.map((o) => ({ ...o, attrUnknown: unknownAttrs(o, crit.attrs) }));
+
+    res.json({ offers: withAttrUnknown, sources, count: withAttrUnknown.length, attrs: attributeCoverage(sorted, crit) });
   } catch (err) {
     console.error("search error:", err);
     res.status(500).json({ error: "Błąd wyszukiwania", detail: err.message });

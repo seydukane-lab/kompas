@@ -135,6 +135,17 @@ export function attributeCoverage(list, crit) {
   });
 }
 
+// Które z wybranych atrybutów TA KONKRETNA oferta nie potwierdza (hasAttribute
+// === undefined) — czyli przeszła filtr wyłącznie dlatego, że brak danych nie
+// odsiewa ofert. attributeCoverage() liczy to zbiorczo dla całej listy; tu jest
+// wersja per oferta, żeby karta mogła oznaczyć TĘ cechę jako niepewną zamiast
+// dawać konsultantowi wrażenie, że skoro oferta przeszła filtr „Przy plaży", to
+// na pewno jest przy plaży.
+export function unknownAttrs(offer, attrs) {
+  if (!attrs || !attrs.length) return [];
+  return attrs.filter((key) => hasAttribute(offer, key) === undefined);
+}
+
 export function normalizeName(s) {
   return String(s || "")
     .toLowerCase()

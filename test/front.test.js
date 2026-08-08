@@ -230,3 +230,20 @@ test("data powrotu nie może wypaść przed wylotem", () => {
   assert.match(html, /function initDates\(\)\{[\s\S]{0,400}dispatchEvent\(new Event\("change"\)\)/,
     "initDates nie odpala change — min nie zostanie ustawione na starcie");
 });
+
+test("karta oferty oznacza atrybuty, które przeszły filtr tylko z braku danych", () => {
+  // Backend (src/ranking.js:unknownAttrs) mówi, KTÓRYCH wybranych atrybutów dana
+  // oferta nie potwierdza — offer.attrUnknown. Karta musi to pokazać, inaczej
+  // konsultant patrzący na wynik filtra „Przy plaży” nie wie, że akurat TA oferta
+  // przeszła z braku danych, a nie bo faktycznie jest przy plaży.
+  const html = wczytaj("public/index.html");
+
+  const cardFn = html.match(/function cardEl\(h,i,n,pax\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(cardFn, "brak funkcji cardEl — zmieniła nazwę/sygnaturę?");
+  assert.match(cardFn, /h\.attrUnknown/, "cardEl nie czyta pola attrUnknown z oferty");
+  assert.match(cardFn, /tag-unknown/, "brak dyskretnego znacznika (klasa tag-unknown) dla atrybutów bez danych");
+
+  // Etykieta atrybutu ma iść przez wspólny helper, nie przez powieloną logikę —
+  // 05-06.08 duplikacja tej samej rzeczy między backendem a frontem już się rozjechała raz.
+  assert.match(cardFn, /attrChipLabel\(/, "cardEl nie używa attrChipLabel — nazwa atrybutu znowu zdubluje logikę renderAttrCover");
+});

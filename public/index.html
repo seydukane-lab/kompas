@@ -241,6 +241,10 @@
   .tag.board{color:var(--accent-deep);background:var(--accent-soft);font-weight:600}
   .tag.tag-new{color:#0a7d3c;background:#e3f7ea;font-weight:600}
   .tag.pkg{color:var(--sand);background:var(--sand-soft);font-weight:600}
+  /* Cecha, której ta oferta NIE potwierdza — przeszła filtr tylko dlatego, że brak
+     danych nie odsiewa. Przerywana ramka i brak tła: ma być widoczne, ale nie krzyczeć,
+     bo to informacja o jakości danych, a nie ostrzeżenie o błędzie. */
+  .tag.tag-unknown{color:var(--ink-faint);background:transparent;border:1px dashed var(--line-strong);font-weight:500}
   .src-badge.op{background:color-mix(in srgb,var(--sand) 84%,#000)}
   .rate-row{display:flex;align-items:center;gap:10px;margin-top:13px;flex-wrap:wrap}
   .rate-badge{font-size:15px;font-weight:750;color:#fff;padding:4px 9px;border-radius:8px;font-variant-numeric:tabular-nums}
@@ -1794,14 +1798,19 @@
     if(d>=2&&d<=4&&!(s>=12&&s<=14))return n+" oferty";
     return n+" ofert";
   }
+  // Nazwa atrybutu do wyświetlenia (bez emoji) — czytana z etykiety chipa filtra,
+  // żeby nie duplikować nazw atrybutów w drugim miejscu w kodzie.
+  function attrChipLabel(key){
+    var chip=document.querySelector('.chip[data-attr="'+key+'"]');
+    return chip?chip.textContent.replace(/^[^\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ]+/,"").trim():key;
+  }
   function renderAttrCover(stats){
     var box=document.getElementById("attrCover");
     if(!stats||!stats.length){box.hidden=true;box.className="attr-cover";return;}
     var rows=[],zeroPotwierdzen=false;
     stats.forEach(function(s){
       if(!s.unknown)return; // wszystko potwierdzone — nie ma o czym pisać
-      var chip=document.querySelector('.chip[data-attr="'+s.key+'"]');
-      var nazwa=chip?chip.textContent.replace(/^[^\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ]+/,"").trim():s.key;
+      var nazwa=attrChipLabel(s.key);
       if(!s.confirmed){
         zeroPotwierdzen=true;
         rows.push('<div class="ac-row">Żadna ze znalezionych ofert nie ma potwierdzonej informacji o cesze <b>'+nazwa+
@@ -1987,7 +1996,11 @@
         '<div class="card-body">'+
           '<div class="loc"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.4-7-11a7 7 0 0114 0c0 4.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'+(h.region||h.country)+'</div>'+
           '<h3>'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></h3>'+
-          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">🏖 plaża '+h.beach+' m</span>':'')+(h.roomType?'<span class="tag">🛏 '+h.roomType+'</span>':'')+(h.newHotel?'<span class="tag tag-new">🆕 nowy/odnowiony</span>':'')+(h.adultsOnly?'<span class="tag">🔞 tylko dorośli</span>':'')+(typeof h.ski==="number"?'<span class="tag">⛷ stok '+(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m")+'</span>':'')+'</div>'+
+          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">🏖 plaża '+h.beach+' m</span>':'')+(h.roomType?'<span class="tag">🛏 '+h.roomType+'</span>':'')+(h.newHotel?'<span class="tag tag-new">🆕 nowy/odnowiony</span>':'')+(h.adultsOnly?'<span class="tag">🔞 tylko dorośli</span>':'')+(typeof h.ski==="number"?'<span class="tag">⛷ stok '+(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m")+'</span>':'')+
+            // Atrybuty, które ta oferta przeszła tylko z braku danych (nie potwierdza ich) —
+            // patrz src/ranking.js:unknownAttrs. Dyskretny znacznik, nie ostrzeżenie o błędzie.
+            (h.attrUnknown||[]).map(function(k){return '<span class="tag tag-unknown" title="Wybrany filtr nie odsiewa ofert bez danych — ta oferta przeszła, bo dostawca nie podał tej informacji.">'+attrChipLabel(k)+': brak danych</span>';}).join("")+
+          '</div>'+
           '<div class="rate-row"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span><span class="rate-txt">'+(h.reviews>0?('<b>'+fmt(h.reviews)+'</b> opinii · najśw. '+h.freshDays+' dni temu'):'brak danych o opiniach')+'</span></div>'+
           '<div class="card-trust-row"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span>'+(function(){var v=etaVerdict(h);return '<span class="card-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="card-eta-n" title="Ocena wartości za pieniądze (ETA)">ETA '+etaValue(h)+'/100</span></span>';})()+'</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+

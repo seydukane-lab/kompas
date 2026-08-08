@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute, isDividedRoom, attributeCoverage,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs,
 } from "../src/ranking.js";
 
 // Oferta wzorcowa — testy zmieniają tylko to, co badają.
@@ -386,4 +386,38 @@ test("każdy wybrany atrybut dostaje własne rozbicie", () => {
   const stats = attributeCoverage(lista, { attrs: ["plaza", "pokoj-dzielony"] });
   assert.deepEqual(stats.map((s) => s.key), ["plaza", "pokoj-dzielony"]);
   assert.ok(stats.every((s) => s.confirmed === 1 && s.unknown === 1));
+});
+
+// ============================================================
+//  unknownAttrs — to samo pytanie, ale PER OFERTA (nie zbiorczo dla listy).
+//  Karta oferty potrzebuje wiedzieć, czy TA KONKRETNA oferta potwierdza
+//  wybraną cechę, czy tylko przeszła filtr z braku danych.
+// ============================================================
+
+test("oferta z potwierdzoną cechą nie dostaje znacznika braku danych", () => {
+  const potwierdzony = offer({ roomType: "Family Room (2 bedrooms)" });
+  assert.deepEqual(unknownAttrs(potwierdzony, ["pokoj-dzielony"]), []);
+});
+
+test("oferta bez danych o cesze dostaje znacznik z jej kluczem", () => {
+  const nieznany = offer({}); // brak roomType = nie wiadomo
+  assert.deepEqual(unknownAttrs(nieznany, ["pokoj-dzielony"]), ["pokoj-dzielony"]);
+});
+
+test("znacznik dotyczy tylko atrybutów bez danych, nie wszystkich wybranych", () => {
+  const mieszana = offer({ beach: 100 }); // plaża potwierdzona, pokój — brak danych
+  assert.deepEqual(unknownAttrs(mieszana, ["plaza", "pokoj-dzielony"]), ["pokoj-dzielony"]);
+});
+
+test("bez wybranych atrybutów nie ma czego oznaczać na karcie", () => {
+  assert.deepEqual(unknownAttrs(offer({}), []), []);
+  assert.deepEqual(unknownAttrs(offer({}), undefined), []);
+});
+
+test("jawne „nie posiada” to nie jest brak danych — nie dostaje znacznika", () => {
+  // hasAttribute zwraca false (nie undefined) dla dystansu poza progiem —
+  // to wiedza, nie niewiadoma, więc unknownAttrs nie powinno tego oznaczać
+  // (a filtr i tak wyciąłby taką ofertę wcześniej w applyFilters).
+  const dalekoOdPlazy = offer({ beach: 2000 });
+  assert.deepEqual(unknownAttrs(dalekoOdPlazy, ["plaza"]), []);
 });
