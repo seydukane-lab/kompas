@@ -247,3 +247,42 @@ test("karta oferty oznacza atrybuty, które przeszły filtr tylko z braku danych
   // 05-06.08 duplikacja tej samej rzeczy między backendem a frontem już się rozjechała raz.
   assert.match(cardFn, /attrChipLabel\(/, "cardEl nie używa attrChipLabel — nazwa atrybutu znowu zdubluje logikę renderAttrCover");
 });
+
+test("cena łączna za grupę liczy się jednym wspólnym wzorem (offerTotal), nie osobno w każdym widoku", () => {
+  // packages.js (dane demo) nigdy nie ustawia priceTotal — providers/index.js normalizuje
+  // to na 0. Karta i tabela liczyły więc lokalny fallback (cena/os. × liczba osób), ale
+  // szczegóły oferty, porównywarka (przez cartSnap), koszyk i wydruk/prezentacja czytały
+  // h.priceTotal WPROST — więc dla każdej oferty demo pokazywały kreskę albo nic. Klient
+  // dostawał ofertę bez najważniejszej liczby: ile zapłaci razem za całą grupę.
+  const html = wczytaj("public/index.html");
+
+  const totalFn = html.match(/function offerTotal\(h,pax\)\{[\s\S]*?\}/)?.[0] || "";
+  assert.ok(totalFn, "brak funkcji offerTotal — wspólny licznik totalu zniknął?");
+  assert.match(totalFn, /h\.price\*Math\.max\(1,pax/, "offerTotal nie ma fallbacku cena/os. × liczba osób");
+
+  // Szczegóły oferty (openDetail): wiersz „Razem” musi się pokazywać ZAWSZE (przez fallback),
+  // a nie tylko gdy dostawca akurat poda realny priceTotal.
+  // \r?\n, nie \n — index.html ma końce linii CRLF, więc regex zakotwiczony na samym
+  // \n nie łapie tu nic na Windowsie (a na Linuksie łapie — test przechodziłby zależnie
+  // od tego, gdzie go uruchomisz).
+  const detailFn = html.match(/function openDetail\(h\)\{[\s\S]*?var naglowek=[\s\S]*?;\r?\n/)?.[0] || "";
+  assert.ok(detailFn, "brak funkcji openDetail lub zmieniła kształt — nie znaleziono bloku naglowek");
+  assert.match(detailFn, /row\("Razem \(orientacyjnie\)",fmt\(offerTotal\(h,paxCount\(\)\)\)/,
+    "openDetail znowu czyta h.priceTotal wprost — w trybie demo wiersz Razem zniknie");
+  assert.ok(!/h\.priceTotal>0\?row\("Razem/.test(detailFn),
+    "wiersz Razem w openDetail nadal jest warunkowy na surowe h.priceTotal");
+
+  // Koszyk: snapshot musi liczyć total przez offerTotal, inaczej porównywarka i lista
+  // koszyka (obie czytają x.priceTotal z zapamiętanej oferty) dostają zero dla demo.
+  const cartSnapFn = html.match(/function cartSnap\(h\)\{[\s\S]*?\}/)?.[0] || "";
+  assert.ok(cartSnapFn, "brak funkcji cartSnap — zmieniła nazwę?");
+  assert.match(cartSnapFn, /priceTotal:offerTotal\(h,paxCount\(\)\)/,
+    "cartSnap znowu zapisuje surowe h.priceTotal||0 — koszyk i porównywarka zgubią total dla ofert demo");
+
+  // Wydruk/prezentacja klienta (offerDocHtml) — używana i dla pojedynczej oferty,
+  // i dla całego koszyka — musi pokazywać total zawsze, nie tylko gdy jest w danych źródła.
+  const docFn = html.match(/function offerDocHtml\(x,n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(docFn, "brak funkcji offerDocHtml — zmieniła nazwę/sygnaturę?");
+  assert.match(docFn, /offerTotal\(x,paxCount\(\)\)/,
+    "offerDocHtml nie liczy totalu przez offerTotal — wydruk dla klienta znowu zgubi Razem dla ofert demo");
+});
