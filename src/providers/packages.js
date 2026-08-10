@@ -168,13 +168,25 @@ const DATA = [
 
 export const meta = { id: "pl-packages", label: "Oferty PL (demo)", needsKeys: false };
 
+// O KTÓRYCH udogodnieniach ten seed w ogóle ma wiedzę. Czyta to hasAttribute()
+// w ranking.js: klucz spoza tej listy zwraca `undefined` (brak danych), a nie `false`.
+// Bez tej deklaracji sam komentarz niżej był pobożnym życzeniem — deriveAmenities()
+// zwraca tablicę dla każdej oferty (każdy hotel łapie choćby wifi), więc
+// `amenities.includes("niepelnosprawni")` dawało jawne `false` dla 91/91 ofert.
+// Konsultant szukający hotelu dla klienta na wózku czytał to jako „sprawdziliśmy,
+// żaden z 91 nie ma" zamiast „ta informacja u nas nie istnieje".
+// Hotelbeds NIE deklaruje pokrycia (ma realne mapowanie AMENITY_PATTERNS z opisu
+// facility) i działa jak dotąd — ta lista dotyczy wyłącznie seeda demo.
+const AMENITY_COVERAGE = [
+  "basen", "spa", "wifi", "animacje", "sporty-wodne", "klub-dzieci", "silownia",
+];
+
 // Amenities demo: ten provider nie ma per-hotelowego pliku faktów (basen/wifi/...),
 // więc heurystyka wynika WYŁĄCZNIE z pól, które hotel już ma (tags, board, stars) —
 // nie zgadujemy pojedynczych hoteli. "niepelnosprawni" NIGDY się tu nie pojawia:
 // ten seed po prostu nie zawiera takiej informacji o żadnym hotelu (ANTY-PRZEKOLORYZACJA:
-// brak danych, nie pusta/pełna tablica narzucona wszystkim ofertom naraz). Dzięki temu
-// filtr "Niepełnosprawni" uczciwie nie pokaże nic w trybie demo — to poprawne zachowanie,
-// nie usterka.
+// brak danych, nie pusta/pełna tablica narzucona wszystkim ofertom naraz) — i właśnie
+// dlatego nie ma go w AMENITY_COVERAGE wyżej.
 function deriveAmenities(h) {
   const a = [];
   if (h.tags.includes("spa")) a.push("spa");
@@ -225,6 +237,7 @@ export async function search(crit) {
     demo: true,
     photos: [h.photo],
     amenities: deriveAmenities(h),
+    amenityCoverage: AMENITY_COVERAGE,
     roomType: deriveRoomType(h),
   }));
 }

@@ -155,6 +155,36 @@ test("demo nigdy nie zgaduje dostępności dla niepełnosprawnych — tej inform
     oferty.every((o) => !o.amenities.includes("niepelnosprawni")),
     "seed demo nie zawiera realnej informacji o dostępności — nie wolno jej zmyślać"
   );
+  // Sam brak klucza w tablicy to za mało: skoro deriveAmenities() zwraca tablicę dla
+  // KAŻDEJ oferty (każdy hotel łapie choćby wifi), stara reguła czytała ten brak jako
+  // "sprawdziliśmy, nie ma" i dawała jawne `false` dla 91/91 ofert. Konsultant szukający
+  // hotelu dla klienta na wózku dostawał zaprzeczenie zamiast niewiedzy.
+  assert.ok(
+    oferty.every((o) => hasAttribute(o, "niepelnosprawni") === undefined),
+    "brak informacji o dostępności musi być brakiem danych, a nie odpowiedzią 'nie ma'"
+  );
+  // Kontrola, że deklaracja zasięgu nie wyłączyła wiedzy, którą seed REALNIE ma —
+  // inaczej „naprawa" zamieniłaby wszystkie osiem udogodnień w jedno wielkie „nie wiemy".
+  assert.ok(
+    oferty.some((o) => hasAttribute(o, "basen") === true) && oferty.some((o) => hasAttribute(o, "basen") === false),
+    "udogodnienia w zasięgu seeda muszą dawać realne true/false, nie undefined"
+  );
+});
+
+test("oferta bez własnych amenities przejmuje zasięg wiedzy dawcy, a nie samą listę", () => {
+  // Scalanie duplikatów: gdy reprezentant nie ma amenities, bierze je z innego źródła.
+  // Gdyby przejął samą tablicę bez `amenityCoverage`, lista z ograniczonego źródła
+  // czytałaby się jako pełna wiedza i cechy spoza jego zakresu znowu wyszłyby jako "nie ma".
+  const bogaty = offer({ source: "hotelbeds", __prio: 1 });
+  const ubogi = offer({ source: "demo", __prio: 5, amenities: ["basen"], amenityCoverage: ["basen", "spa"] });
+  const [scalona] = dedupeOffers([bogaty, ubogi]);
+
+  assert.deepEqual(scalona.amenities, ["basen"], "lista udogodnień ma się przenieść");
+  assert.equal(hasAttribute(scalona, "spa"), false, "cecha w zasięgu dawcy nadal daje realną odpowiedź");
+  assert.equal(
+    hasAttribute(scalona, "niepelnosprawni"), undefined,
+    "po scaleniu cecha spoza zasięgu dawcy nie może się zamienić w zaprzeczenie"
+  );
 });
 
 // Regresja: cała pula cap===4+"rodzina" kiedyś dostawała identyczną nazwę pokoju

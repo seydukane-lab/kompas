@@ -188,6 +188,28 @@ test("hasAttribute zwraca undefined, gdy nie ma podstawy do oceny", () => {
   assert.equal(hasAttribute(offer({ amenities: ["spa"] }), "basen"), false);
 });
 
+// Regresja: seed demo wyprowadza amenities z tagów, więc KAŻDA oferta miała tablicę —
+// a skoro tablica istnieje, stara reguła czytała brak klucza jako "sprawdziliśmy, nie ma".
+// Dla "niepelnosprawni" dawało to jawne `false` dla 91/91 ofert demo, czyli zaprzeczenie
+// zamiast niewiedzy. Provider deklaruje teraz, o czym w ogóle ma wiedzę.
+test("provider może zadeklarować, o których udogodnieniach ma wiedzę — reszta to brak danych, nie zaprzeczenie", () => {
+  const zasieg = ["basen", "spa"];
+  const o = offer({ amenities: ["basen"], amenityCoverage: zasieg });
+
+  assert.equal(hasAttribute(o, "basen"), true, "udogodnienie w zasięgu i obecne");
+  assert.equal(hasAttribute(o, "spa"), false, "udogodnienie w zasięgu, ale nieobecne — to realne 'nie ma'");
+  assert.equal(
+    hasAttribute(o, "niepelnosprawni"), undefined,
+    "cecha spoza zadeklarowanego zasięgu musi być brakiem danych, nie zaprzeczeniem"
+  );
+
+  // Bez deklaracji nic się nie zmienia — Hotelbeds mapuje tę ósemkę z opisu facility,
+  // więc dla niego pusta pozycja NADAL znaczy "sprawdzone, nie ma".
+  const bezDeklaracji = offer({ amenities: ["basen"] });
+  assert.equal(hasAttribute(bezDeklaracji, "niepelnosprawni"), false, "provider bez deklaracji zachowuje stare zachowanie");
+});
+
+
 test("wielokrotne atrybuty działają jak AND, a nieznane dane nie psują wyniku", () => {
   const pelny = offer({ id: "pelny", beach: 50, amenities: ["basen", "wifi"] });
   const czesciowy = offer({ id: "czesciowy", beach: 50, amenities: ["basen"] }); // brak wifi

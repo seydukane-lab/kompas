@@ -207,7 +207,16 @@ export function hasAttribute(offer, key) {
     return v == null ? undefined : v <= dist.max;
   }
   if (ATTR_AMENITY.has(key)) {
-    return Array.isArray(offer.amenities) ? offer.amenities.includes(key) : undefined;
+    if (!Array.isArray(offer.amenities)) return undefined;
+    // Sama pusta pozycja w tablicy amenities to za mało, żeby powiedzieć „nie ma".
+    // Provider może zadeklarować w `amenityCoverage`, o KTÓRYCH udogodnieniach w ogóle
+    // ma wiedzę; klucz spoza tej listy to brak danych, nie zaprzeczenie. Bez deklaracji
+    // (Hotelbeds) zostaje stara reguła: tablica istnieje = odpowiedź jest znana.
+    // Po co: seed demo wyprowadza amenities z tagów, więc każda oferta miała tablicę,
+    // ale żadna nie mogła mieć "niepelnosprawni" — i konsultant szukający hotelu dla
+    // klienta na wózku dostawał „0 z 91" jako sprawdzone zaprzeczenie zamiast niewiedzy.
+    if (Array.isArray(offer.amenityCoverage) && !offer.amenityCoverage.includes(key)) return undefined;
+    return offer.amenities.includes(key);
   }
   if (ATTR_ROOM.has(key)) {
     // Uwaga: availability zwraca nazwę TEGO wariantu pokoju, o który zapytaliśmy.

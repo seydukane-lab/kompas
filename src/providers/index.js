@@ -254,7 +254,13 @@ export function dedupeOffers(list) {
     // nie nadpisujemy, żeby nie zgubić jego własnej odpowiedzi.
     if (!Array.isArray(primary.amenities)) {
       const withAmenities = rest.find((o) => Array.isArray(o.amenities));
-      if (withAmenities) primary.amenities = withAmenities.amenities;
+      if (withAmenities) {
+        primary.amenities = withAmenities.amenities;
+        // Razem z tablicą przejmujemy deklarację pokrycia dawcy (albo jej BRAK) —
+        // inaczej lista udogodnień z ograniczonego źródła (demo) czytałaby się jako
+        // pełna wiedza i cechy spoza jego zakresu znowu wyszłyby jako "nie ma".
+        primary.amenityCoverage = withAmenities.amenityCoverage;
+      }
     }
     // Ślad, że oferta łączy kilka źródeł (do ewentualnej plakietki na karcie).
     primary.mergedFrom = grp.map((o) => o.source).filter((s, i, a) => s && a.indexOf(s) === i);
