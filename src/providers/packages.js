@@ -194,9 +194,21 @@ function deriveAmenities(h) {
 // Po co: bez `roomType` w demo filtr „układ pokoju" byłby niewidoczny dla każdego,
 // kto nie ma klucza Hotelbeds — dokładnie ta pułapka, przez którą kolumny
 // Obiekt/Aktywność przez dwa dni nic nie filtrowały (commit bcbfa10).
+//
+// Cap===4 + tag "rodzina" rozbijamy na DWA różne produkty (patrz ranking.js:ATTR_ROOM —
+// „pokój dzielony" i „pokoje połączone" to świadomie osobne atrybuty, nie synonimy).
+// Wcześniej cała ta pula dostawała jedną nazwę „Pokój rodzinny (2 sypialnie)", więc
+// hasAttribute() dla "pokoje-polaczone" wychodziło `false` dla KAŻDEJ oferty demo
+// (roomType zawsze ustawiony → nigdy `undefined`) i filtr „Pokoje połączone" w trybie
+// demo zawsze zwracał 0 wyników — martwy klik, zanim jeszcze user zobaczy realne dane
+// Hotelbeds. Gwiazdki jako oś podziału: 5★ dostaje właściwy apartament rodzinny
+// (divided), 4★ dostaje typowy tańszy układ dwóch połączonych pokoi (connecting) —
+// oba czytane wyłącznie z pól, które oferta już ma, bez zmyślania faktu o hotelu.
 function deriveRoomType(h) {
   if (h.cap >= 5) return "Apartament z 2 sypialniami";
-  if (h.cap === 4 && h.tags.includes("rodzina")) return "Pokój rodzinny (2 sypialnie)";
+  if (h.cap === 4 && h.tags.includes("rodzina")) {
+    return h.stars >= 5 ? "Pokój rodzinny (2 sypialnie)" : "Pokoje połączone (2 klucze, drzwi łączące)";
+  }
   if (h.cap === 4) return "Pokój czteroosobowy";
   if (h.cap === 3) return "Pokój trzyosobowy";
   return "Pokój dwuosobowy";

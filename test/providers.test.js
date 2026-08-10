@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { dedupeOffers, searchAll, clearSearchCache, providerStatus } from "../src/providers/index.js";
 import { withDeadline } from "../src/http.js";
 import { search as searchPackages } from "../src/providers/packages.js";
+import { hasAttribute } from "../src/ranking.js";
 
 function offer(over = {}) {
   return {
@@ -154,6 +155,23 @@ test("demo nigdy nie zgaduje dostępności dla niepełnosprawnych — tej inform
     oferty.every((o) => !o.amenities.includes("niepelnosprawni")),
     "seed demo nie zawiera realnej informacji o dostępności — nie wolno jej zmyślać"
   );
+});
+
+// Regresja: cała pula cap===4+"rodzina" kiedyś dostawała identyczną nazwę pokoju
+// ("Pokój rodzinny (2 sypialnie)"), więc hasAttribute(..., "pokoje-polaczone")
+// wychodziło `false` dla KAŻDEJ oferty demo (roomType zawsze ustawiony -> nigdy
+// `undefined`) i filtr „Pokoje połączone" bez klucza Hotelbeds zawsze zwracał
+// 0 wyników — martwy klik w panelu, mimo że sam mechanizm filtra działał poprawnie.
+test("demo z packages.js daje realne potwierdzenia OBU układów pokoju, nie tylko dzielonego", async () => {
+  const oferty = await searchPackages({});
+  const dzielone = oferty.filter((o) => hasAttribute(o, "pokoj-dzielony") === true);
+  const polaczone = oferty.filter((o) => hasAttribute(o, "pokoje-polaczone") === true);
+  assert.ok(dzielone.length > 0, "filtr 'Osobna sypialnia' nie może być martwy w demo");
+  assert.ok(polaczone.length > 0, "filtr 'Pokoje połączone' nie może być martwy w demo");
+  const oboje = oferty.filter(
+    (o) => hasAttribute(o, "pokoj-dzielony") === true && hasAttribute(o, "pokoje-polaczone") === true
+  );
+  assert.equal(oboje.length, 0, "to dwa różne produkty — żadna oferta nie powinna potwierdzać obu naraz");
 });
 
 test("withDeadline przepuszcza to, co zdąży", async () => {
