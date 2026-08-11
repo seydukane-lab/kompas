@@ -11,7 +11,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveTargets, normalizeRoomsInput, MAX_POKOI, mapAmenities, search as hbSearch, searchMultiroom } from "../src/providers/hotelbeds.js";
+import { resolveTargets, normalizeRoomsInput, MAX_POKOI, mapAmenities, mapBoard, mapStars, search as hbSearch, searchMultiroom } from "../src/providers/hotelbeds.js";
 
 // Atrapa API Hotelbeds: jeden hotel (kod 100) dostępny dla każdego zapytania
 // o dostępność (osobne pokoje i jeden duży pokój na cały skład), z prostą
@@ -167,6 +167,60 @@ test("mapAmenities rozpoznaje realne udogodnienia z opisu", () => {
 test("mapAmenities nie zgaduje udogodnień, których opis nie wspomina", () => {
   const out = mapAmenities([facility("Outdoor swimming pool")]);
   assert.deepEqual(out, ["basen"]);
+});
+
+// ------------------------------------------------------------------
+//  Wyżywienie to element UMOWY z klientem, nie kosmetyka karty oferty.
+//  Zmierzone 11.08.2026 na 13 196 realnych stawkach (PMI/BCN/AGP): stary
+//  mapBoard kończył się `return "BB"`, więc 34,7% stawek dostawało wymyślone
+//  „Śniadania" — w tym 3418 stawek ROOM ONLY i 743 SELF CATERING. Konsultant
+//  sprzedawał śniadania, których w rezerwacji nie było.
+// ------------------------------------------------------------------
+
+test("ROOM ONLY i SELF CATERING nie udają śniadań", () => {
+  assert.equal(mapBoard("RO", "Room Only"), "Bez wyżywienia");
+  assert.equal(mapBoard("SC", "Self Catering"), "Bez wyżywienia");
+  assert.notEqual(mapBoard("RO", "Room Only"), "BB", "RO jako 'BB' to sprzedaż nieistniejącego posiłku");
+});
+
+test("kody wyżywienia nie schodzą w dół do 'BB'", () => {
+  // Błąd działał w obie strony: AS (All Inclusive Premium) i MB (HB z napojami)
+  // lądowały jako „BB", czyli oferta była pokazywana gorzej, niż jest naprawdę.
+  assert.equal(mapBoard("AS", "All Inclusive Premium"), "Ultra All Inclusive");
+  assert.equal(mapBoard("MB", "Half board with beverages"), "HB");
+  assert.equal(mapBoard("FB", "Full Board"), "FB", "FB nie może być mylone z HB");
+  assert.equal(mapBoard("AI", "All Inclusive"), "All Inclusive");
+  assert.equal(mapBoard("AI", "Ultra All Inclusive Resort"), "Ultra All Inclusive");
+});
+
+test("wszystkie warianty śniadania trafiają do jednej etykiety", () => {
+  for (const kod of ["BB", "AB", "CB", "DB", "GB", "IB", "LB", "SB", "B1", "B2"]) {
+    assert.equal(mapBoard(kod, ""), "BB", `${kod} to śniadanie wg słownika dostawcy`);
+  }
+});
+
+test("nieznany kod wyżywienia to brak danych, a nie 'BB'", () => {
+  // Dostawca ma 54 kody i dokłada kolejne; te o niejednoznacznym opisie
+  // (CE „dinner included", CO „lunch included" — jeden posiłek, ani BB, ani HB)
+  // muszą wracać jako niewiadoma, nie jako zgadnięta wartość.
+  assert.equal(mapBoard("CE", "Dinner included"), undefined);
+  assert.equal(mapBoard("ZZZ", "Kod, którego jeszcze nie ma"), undefined);
+  assert.equal(mapBoard("", ""), undefined);
+  assert.equal(mapBoard(null, null), undefined);
+  // Sama nazwa bez potwierdzonego kodu nie wystarcza do postawienia tezy.
+  assert.equal(mapBoard("ZZZ", "Ultra All Inclusive"), undefined,
+    "nazwa stawki może doprecyzować znany kod, ale nie zastąpić go");
+});
+
+test("nieznana kategoria hotelu to brak gwiazdek, a nie ciche trzy", () => {
+  // 32 z 582 hoteli (5,5%) mają kategorię bez cyfry: SUP, HS, SPC, AG, BOU, ALBER.
+  // Stary kod dawał im 3 gwiazdki, więc minStars=3 wpuszczał je jak potwierdzone.
+  assert.equal(mapStars("4EST"), 4);
+  assert.equal(mapStars("APTH3"), 3);
+  assert.equal(mapStars("SUP"), undefined);
+  assert.equal(mapStars("BOU"), undefined);
+  assert.equal(mapStars(""), undefined);
+  assert.equal(mapStars(null), undefined);
 });
 
 // ------------------------------------------------------------------

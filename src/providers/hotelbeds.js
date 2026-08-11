@@ -75,21 +75,64 @@ const DEST_CODES = {
 // Destynacje z realnymi danymi w sandboxie — używane dla "dowolny kierunek".
 const SANDBOX_DESTS = ["PMI", "BCN", "AGP"];
 
-// Kod wyżywienia Hotelbeds -> nasza etykieta
-function mapBoard(code, name) {
+// Kod wyżywienia Hotelbeds -> nasza etykieta.
+//
+// Tablica wyprowadzona z OFICJALNEGO słownika dostawcy
+// (GET /hotel-content-api/1.0/types/boards — 54 kody, pobrane 11.08.2026),
+// a nie z domysłów. Mapujemy WYŁĄCZNIE kody, których opis jest jednoznaczny.
+//
+// Dlaczego to jest ważniejsze niż wygląda — zmierzone 11.08.2026 na 13 196
+// realnych stawkach (Majorka, Barcelona, Malaga): stary kod kończył się
+// `return "BB"`, więc 34,7% stawek dostawało wymyślone „Śniadania". W tym
+// 3418 stawek `RO` (ROOM ONLY — wyżywienia NIE MA) i 743 `SC` (SELF CATERING).
+// Konsultant sprzedawał klientowi śniadania, których w rezerwacji nie było —
+// a wyżywienie to element umowy, nie kosmetyka. Błąd działał też w drugą
+// stronę: `AS` (All Inclusive Premium) i `MB` (HB z napojami) schodziły do „BB",
+// czyli zaniżały ofertę, którą konsultant miał do sprzedania.
+//
+// Kody NIEjednoznaczne (np. CE „DINNER INCLUDED", CO „LUNCH INCLUDED" — jeden
+// posiłek, który nie jest ani HB, ani BB) celowo NIE są mapowane: zwracamy
+// `undefined`, czyli „nie wiemy", zamiast zgadywać. Tak samo każdy kod, który
+// dostawca doda po tej dacie.
+const BOARD_MAP = {
+  // Bez wyżywienia
+  RO: "Bez wyżywienia", SC: "Bez wyżywienia", DR: "Bez wyżywienia",
+  // Śniadanie w dowolnej postaci
+  BB: "BB", AB: "BB", CB: "BB", DB: "BB", GB: "BB", IB: "BB", KO: "BB",
+  LB: "BB", SB: "BB", B1: "BB", B2: "BB", DA: "BB", DV: "BB", QB: "BB",
+  // Dwa posiłki
+  HB: "HB", MB: "HB", DC: "HB", DE: "HB", DI: "HB", DS: "HB",
+  HL: "HB", HR: "HB", HS: "HB",
+  // Pełne wyżywienie
+  FB: "FB", PB: "FB", DF: "FB", DG: "FB", DH: "FB", DJ: "FB",
+  FE: "FB", FL: "FB", FR: "FB", FS: "FB",
+  // All inclusive
+  AI: "All Inclusive", TL: "All Inclusive", AS: "Ultra All Inclusive",
+};
+
+export function mapBoard(code, name) {
   const c = (code || "").toUpperCase();
-  if (c === "AI" || /all inclusive/i.test(name || "")) {
-    return /ultra/i.test(name || "") ? "Ultra All Inclusive" : "All Inclusive";
+  // Nazwa stawki bywa dokładniejsza niż kod (dostawcy opisują „Ultra All
+  // Inclusive" tekstem, mając w kodzie zwykłe AI) — ale tylko doprecyzowuje
+  // to, co kod już potwierdza. Sama nazwa bez znanego kodu nie wystarcza.
+  if (/ultra/i.test(name || "") && (c === "AI" || c === "AS" || c === "TL")) {
+    return "Ultra All Inclusive";
   }
-  if (c === "HB" || c === "FB") return "HB";
-  if (c === "BB") return "BB";
-  return "BB";
+  const etykieta = BOARD_MAP[c];
+  if (etykieta) return etykieta;
+  // Nieznany kod = BRAK DANYCH. Nigdy nie zgadujemy wyżywienia:
+  // filtr i karta oferty muszą to rozróżnić od potwierdzonego „BB".
+  return undefined;
 }
 
-// Kategoria Hotelbeds (np. "4EST", "5EST") -> liczba gwiazdek
-function mapStars(categoryCode) {
+// Kategoria Hotelbeds (np. "4EST", "5EST") -> liczba gwiazdek.
+// Zmierzone 11.08.2026 na 582 hotelach: 32 z nich (5,5%) mają kategorię bez
+// żadnej cyfry — SUP, HS, SPC, AG, BOU, ALBER. Stary kod dawał im po cichu
+// 3 gwiazdki, więc `minStars: 3` traktował nieznaną kategorię jak potwierdzone
+// trzy gwiazdki. Teraz zwracamy `undefined` — nie wiemy, więc nie twierdzimy.
+export function mapStars(categoryCode) {
   const m = /(\d)/.exec(categoryCode || "");
-  return m ? Number(m[1]) : 3;
+  return m ? Number(m[1]) : undefined;
 }
 
 function isoDate(d) {

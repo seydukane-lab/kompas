@@ -281,12 +281,22 @@ export function applyFilters(list, crit) {
       } else if (h.price > crit.budget) return false;
     }
     if (crit.minRate && h.rating < crit.minRate) return false;
-    if (crit.minStars && (h.stars || 0) < crit.minStars) return false;
+    // Gwiazdki: `h.stars == null` znaczy „dostawca nie podał kategorii", a nie
+    // „hotel jest słaby". Nieznaną kategorię przepuszczamy — ta sama zasada co
+    // przy atrybutach obiektu. Stary `(h.stars || 0)` wywalał takie oferty przy
+    // KAŻDYM ustawionym progu, bo undefined schodziło do zera.
+    if (crit.minStars && h.stars != null && h.stars < crit.minStars) return false;
     // „Tylko z realnymi opiniami" — anty-przekoloryzacja: odrzuca oferty bez wolumenu opinii.
     if (crit.onlyReviewed && !(h.reviews > 0)) return false;
     // Długość pobytu: tolerancja ±1 noc (7 vs 8 to praktycznie ten sam wyjazd).
     if (crit.nights && h.nights && Math.abs(h.nights - crit.nights) > 1) return false;
-    if (crit.boards && crit.boards.length && !crit.boards.includes(h.board)) return false;
+    // Wyżywienie: oferta bez potwierdzonego kodu (h.board == null) NIE jest
+    // odsiewana — inaczej powtórzyłby się błąd filtra profilu z 05.08, tyle że
+    // na 34,7% stawek Hotelbeds. Panel oznacza takie oferty jako „brak danych",
+    // więc konsultant widzi różnicę między potwierdzonym HB a niewiadomą.
+    if (crit.boards && crit.boards.length && h.board != null && !crit.boards.includes(h.board)) {
+      return false;
+    }
     // Profil wyjazdu = twardy filtr (OR): oferta musi mieć CHOĆ JEDEN z wybranych
     // tagów. OR (nie AND), bo tagi są heurystyczne — nie chcemy wycinać za ostro.
     // Profil wyjazdu (rodzinny / para / imprezowy) — ta sama zasada co przy atrybutach

@@ -192,6 +192,32 @@ test("hasAttribute zwraca undefined, gdy nie ma podstawy do oceny", () => {
 // a skoro tablica istnieje, stara reguła czytała brak klucza jako "sprawdziliśmy, nie ma".
 // Dla "niepelnosprawni" dawało to jawne `false` dla 91/91 ofert demo, czyli zaprzeczenie
 // zamiast niewiedzy. Provider deklaruje teraz, o czym w ogóle ma wiedzę.
+test("filtr wyżywienia nie wycina ofert, dla których wyżywienie jest nieznane", () => {
+  // Od 11.08 Hotelbeds zwraca `board: undefined` dla kodów, których nie umiemy
+  // jednoznacznie zmapować (zamiast wcześniejszego zmyślonego „BB"). Gdyby filtr
+  // je odsiewał, konsultant zaznaczający „Śniadania" traciłby 34,7% realnych
+  // stawek — dokładnie ten sam błąd, co filtr profilu naprawiony 05.08.
+  const potwierdzone = offer({ id: "bb", board: "BB" });
+  const inne = offer({ id: "ai", board: "All Inclusive" });
+  const nieznane = offer({ id: "niewiadoma", board: undefined });
+
+  const out = applyFilters([potwierdzone, inne, nieznane], { boards: ["BB"] });
+  assert.deepEqual(out.map((o) => o.id).sort(), ["bb", "niewiadoma"],
+    "oferta z jawnie innym wyżywieniem wypada, oferta bez danych zostaje");
+});
+
+test("próg gwiazdek nie wycina hoteli o nieznanej kategorii", () => {
+  // `mapStars` zwraca undefined dla kategorii bez cyfry (SUP, BOU, ALBER...).
+  // Stary zapis `(h.stars || 0) < minStars` schodził na zero i kasował je przy
+  // każdym progu — hotel bez podanej kategorii nie jest hotelem jednogwiazdkowym.
+  const piec = offer({ id: "piec", stars: 5 });
+  const dwie = offer({ id: "dwie", stars: 2 });
+  const bezKategorii = offer({ id: "bezKat", stars: undefined });
+
+  const out = applyFilters([piec, dwie, bezKategorii], { minStars: 4 });
+  assert.deepEqual(out.map((o) => o.id).sort(), ["bezKat", "piec"]);
+});
+
 test("provider może zadeklarować, o których udogodnieniach ma wiedzę — reszta to brak danych, nie zaprzeczenie", () => {
   const zasieg = ["basen", "spa"];
   const o = offer({ amenities: ["basen"], amenityCoverage: zasieg });
