@@ -284,6 +284,31 @@ function variantOf(o) {
     operator: o.operator || o.source || "",
     bookingUrl: o.bookingUrl || "",
     offerNumber: o.offerNumber || "",
+    // Szczegóły przelotu i warunków — to są cechy WARIANTU, nie hotelu: ten sam
+    // obiekt u innego operatora leci z innego lotniska, inną linią i bywa bez
+    // transferu. Bez tych pól konsultant musiałby i tak wracać do systemu
+    // operatora, czyli Kompas dokładałby krok zamiast go usuwać.
+    // Konsekwentnie `undefined`, nie "" ani 0 — brak danych ma zostać brakiem
+    // danych (np. wolne miejsca na powrót bywają nieznane).
+    days: o.days,
+    returnDate: o.returnDate,
+    departureCode: o.departureCode,
+    arrivalCode: o.arrivalCode,
+    carrier: o.carrier,
+    flightNo: o.flightNo,
+    returnFlightNo: o.returnFlightNo,
+    outboundDep: o.outboundDep,
+    outboundArr: o.outboundArr,
+    returnDep: o.returnDep,
+    returnArr: o.returnArr,
+    handLuggage: o.handLuggage,
+    seatsLeft: o.seatsLeft,
+    directFlight: o.directFlight,
+    transferIncluded: o.transferIncluded,
+    roomOptions: o.roomOptions,
+    offerAttributes: o.offerAttributes,
+    priceHistory: o.priceHistory,
+    optionalUntil: o.optionalUntil,
   };
 }
 function attachVariants(primary, grp) {

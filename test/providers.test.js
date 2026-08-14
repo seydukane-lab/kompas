@@ -204,6 +204,71 @@ test("demo z packages.js daje realne potwierdzenia OBU układów pokoju, nie tyl
   assert.equal(oboje.length, 0, "to dwa różne produkty — żadna oferta nie powinna potwierdzać obu naraz");
 });
 
+// Konsultant nie wybiera „oferty" — wybiera HOTEL, a potem przebiera w wariantach
+// (operator × lotnisko × termin × cena). Do 15.08.2026 seed dawał jeden rekord na
+// hotel, więc filtry operatora i wylotu nie miały czym operować, a panel pokazywał
+// produkt, którego w tej formie nikt nie sprzedaje.
+test("demo generuje wiele wariantów na hotel, a dedupe składa je w jeden wynik", async () => {
+  const surowe = await searchPackages({});
+  const po = dedupeOffers(surowe);
+
+  assert.ok(surowe.length > po.length * 2,
+    "seed nie generuje rodzeństwa — jeden hotel dalej daje jedną ofertę");
+  assert.ok(po.every((o) => (o.variants || []).length >= 2),
+    "po scaleniu każdy hotel ma mieć co najmniej dwa warianty do wyboru");
+
+  const v = po[0].variants[0];
+  for (const pole of ["operator", "departureCode", "arrivalCode", "carrier", "flightNo", "days"]) {
+    assert.ok(v[pole] !== undefined, `wariant nie niesie pola ${pole} — UI nie pokaże szczegółów przelotu`);
+  }
+});
+
+test("suma za grupę nie jest zawsze dwukrotnością ceny za osobę", async () => {
+  // To nie jest usterka danych, tylko realny mechanizm rynkowy: część operatorów
+  // promuje „drugą osobę taniej", więc oferta droższa „od" bywa tańsza w sumie.
+  // Gdyby seed tego nie odtwarzał, sortowanie po sumie wyglądałoby na zbędne —
+  // a to jest jedyne sortowanie, któremu konsultant może ufać.
+  const surowe = await searchPackages({});
+  const zPromocja = surowe.filter((o) => o.priceTotal !== o.price * 2);
+  assert.ok(zPromocja.length > 0,
+    "żaden wariant nie ma promocji drugiej osoby — porównywanie po sumie traci sens");
+  assert.ok(zPromocja.every((o) => o.priceTotal > o.price),
+    "suma za grupę nie może wyjść niższa niż cena za jedną osobę");
+});
+
+test("brak informacji o wolnych miejscach zostaje brakiem, nie zerem", async () => {
+  // W realnym panelu wolne miejsca bywają podane tylko dla lotu tam, a powrót
+  // pokazuje „*". Zero znaczyłoby „brak miejsc" — czyli dokładnie odwrotność prawdy.
+  const surowe = await searchPackages({});
+  assert.ok(surowe.some((o) => o.seatsLeft === undefined),
+    "seed nie odtwarza przypadku nieznanej liczby miejsc");
+  assert.ok(surowe.every((o) => o.seatsLeft === undefined || o.seatsLeft > 0),
+    "wolne miejsca nie mogą być zerem — brak danych ma być undefined");
+  assert.ok(surowe.every((o) => o.seatsLeftReturn === undefined),
+    "liczba miejsc na powrót nie jest w tym seedzie znana i nie wolno jej zmyślać");
+});
+
+test("historia ceny daje realny argument sprzedażowy, nie płaską linię", async () => {
+  const surowe = await searchPackages({});
+  const h = surowe[0].priceHistory;
+  assert.ok(h && Array.isArray(h.byDate) && h.byDate.length >= 5,
+    "brak rozbicia ceny po dniach wylotu");
+  const ceny = h.byDate.map((d) => d.price);
+  assert.ok(Math.max(...ceny) > Math.min(...ceny),
+    "ceny w kolejnych dniach są identyczne — wykres nie pokazywałby niczego");
+  assert.ok(h.byDate.some((d) => d.offset === h.cheapestOffset && d.price === Math.min(...ceny)),
+    "wskazany najtańszy termin nie zgadza się z najniższą ceną w rozbiciu");
+});
+
+test("warianty tego samego hotelu są powtarzalne między wywołaniami", async () => {
+  // Generator jest zasiany id hotelu. Gdyby losował za każdym razem od nowa,
+  // ta sama oferta zmieniałaby cenę między wyszukaniem a pokazaniem jej klientowi.
+  const a = await searchPackages({});
+  const b = await searchPackages({});
+  assert.deepEqual(a.map((o) => o.id + ":" + o.price), b.map((o) => o.id + ":" + o.price),
+    "seed nie jest deterministyczny — cena zmienia się między wywołaniami");
+});
+
 test("withDeadline przepuszcza to, co zdąży", async () => {
   const wynik = await withDeadline(Promise.resolve("gotowe"), 1000, "szybkie");
   assert.equal(wynik, "gotowe");

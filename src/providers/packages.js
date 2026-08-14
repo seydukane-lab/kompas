@@ -226,14 +226,181 @@ function deriveRoomType(h) {
   return "Pokój dwuosobowy";
 }
 
+// ============================================================
+//  WARIANTY OFERTY — jeden hotel to NIE jedna oferta
+//
+//  Do 15.08.2026 seed zwracał jeden rekord na hotel, więc filtry „operator"
+//  i „wylot z" nie miały czym operować, a konsultant nie widział tego, co robi
+//  w pracy naprawdę: wybiera OBIEKT, a potem przebiera w kilkunastu wariantach
+//  różniących się operatorem, lotniskiem, terminem i ceną.
+//
+//  Scalanie w jeden wynik z listą `variants[]` robi już dedupeOffers()
+//  w providers/index.js (grupuje po nazwie+kraju) — tutaj wystarczy wygenerować
+//  rodzeństwo, a warstwa wspólna sama je złoży.
+//
+//  ⚠️ Wszystkie liczby są GENEROWANE (deterministycznie z id hotelu, żeby testy
+//  i zrzuty ekranu były powtarzalne). Żaden rekord nie pochodzi z zewnętrznego
+//  systemu — to nadal seed poglądowy oznaczony `demo: true`.
+// ============================================================
+
+// Deterministyczny PRNG — ten sam hotel zawsze daje te same warianty.
+function rng(seed) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return function () {
+    h += 0x6d2b79f5; let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const WYLOTY = [
+  { code: "KTW", city: "Katowice" }, { code: "WAW", city: "Warszawa" },
+  { code: "WRO", city: "Wrocław" }, { code: "POZ", city: "Poznań" },
+  { code: "GDN", city: "Gdańsk" }, { code: "KRK", city: "Kraków" },
+];
+
+// Lotnisko docelowe zależy od kierunku — konsultant zna te kody na pamięć
+// i fałszywy kod od razu podważa wiarygodność całego panelu.
+const PRZYLOTY = {
+  Egipt: ["HRG", "SSH"], Turcja: ["AYT"], Grecja: ["RHO", "HER", "CFU"],
+  Hiszpania: ["ALC", "PMI", "AGP"], Tunezja: ["MIR", "DJE"], Cypr: ["PFO", "LCA"],
+  Portugalia: ["FAO"], Włochy: ["NAP", "CTA"], Chorwacja: ["SPU", "DBV"],
+  Bułgaria: ["BOJ"], Albania: ["TIA"], Maroko: ["RAK", "AGA"], Malta: ["MLA"],
+};
+
+const PRZEWOZNICY = [
+  { name: "Enter Air", prefix: "E4" }, { name: "WizzAir (samolot rejsowy)", prefix: "W6" },
+  { name: "Ryanair (samolot rejsowy)", prefix: "FR" }, { name: "SmartWings", prefix: "QS" },
+  { name: "LOT (samolot rejsowy)", prefix: "LO" }, { name: "Corendon", prefix: "XC" },
+];
+
+// Operatorzy obecni na polskim rynku czarterowym. Ten sam hotel sprzedaje kilku
+// naraz i to jest sedno wariantów — różnią się ceną przy identycznym produkcie.
+const OPERATORZY = ["TUI", "Itaka", "Coral Travel", "Rainbow", "Grecos", "Exim Tours", "Ecco Holiday", "Best Reisen"];
+
+function hhmm(minuty) {
+  const m = ((minuty % 1440) + 1440) % 1440;
+  return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+}
+
+function przesun(iso, dni) {
+  return new Date(new Date(iso + "T00:00:00Z").getTime() + dni * 864e5).toISOString().slice(0, 10);
+}
+
+// Historia ceny — „gdyby poleciał Pan dzień później, jest taniej" to najmocniejszy
+// argument sprzedażowy w całym widoku oferty, a Kompas dotąd go nie miał.
+function historiaCeny(bazowa, r) {
+  const dni = [];
+  for (let i = -3; i <= 4; i++) {
+    const wahanie = 1 + (r() - 0.45) * 0.22;
+    dni.push({ offset: i, price: Math.round((bazowa * wahanie) / 10) * 10 });
+  }
+  const najtansza = dni.reduce((a, b) => (b.price < a.price ? b : a), dni[0]);
+  return {
+    previous: Math.round((bazowa * (1 + r() * 0.12)) / 10) * 10,
+    lowest30d: Math.round((Math.min(...dni.map((d) => d.price)) * (1 - r() * 0.08)) / 10) * 10,
+    byDate: dni,
+    cheapestOffset: najtansza.offset,
+  };
+}
+
+// Opcje pokoju: pierwsza „w cenie", kolejne z dopłatą — dokładnie jak w panelu
+// sprzedażowym. Nazwy celowo w mieszanym formacie, bo każdy operator formatuje
+// je inaczej i dopasowywanie po nazwie jest w praktyce zawodne.
+function opcjePokoju(h, r) {
+  const bazowy = deriveRoomType(h);
+  const opcje = [{ name: bazowy, chips: ["Pokój " + (h.cap >= 4 ? "rodzinny" : "dwuosobowy")], surcharge: 0 }];
+  if (r() > 0.35) {
+    opcje.push({
+      name: bazowy + (h.beach <= 150 ? " (Sea View)" : " (Garden View)"),
+      chips: [h.beach <= 150 ? "Widok na morze" : "Widok na ogród"],
+      surcharge: Math.round((120 + r() * 480) / 10) * 10,
+    });
+  }
+  return opcje;
+}
+
+function buildVariants(h) {
+  const r = rng(h.id);
+  const ile = 2 + Math.floor(r() * 4); // 2–5 wariantów na hotel
+  const przyloty = PRZYLOTY[h.country] || ["---"];
+  const out = [];
+
+  for (let i = 0; i < ile; i++) {
+    const wylot = WYLOTY[Math.floor(r() * WYLOTY.length)];
+    const przewoznik = PRZEWOZNICY[Math.floor(r() * PRZEWOZNICY.length)];
+    const przylot = przyloty[Math.floor(r() * przyloty.length)];
+    const operator = i === 0 ? h.operator : OPERATORZY[Math.floor(r() * OPERATORZY.length)];
+
+    const offsetDni = i === 0 ? 0 : Math.floor(r() * 9) - 4;
+    const departDate = przesun(h.departDate, offsetDni);
+    const nights = h.nights;
+    // 8d/7n to standard, ale część wariantów ma dzień więcej przy tej samej liczbie nocy.
+    const days = nights + (r() > 0.75 ? 2 : 1);
+
+    const cenaOs = Math.round((h.price * (1 + (r() - 0.42) * 0.24)) / 10) * 10;
+    // Część operatorów promuje „drugą osobę taniej", więc suma NIE jest prostą
+    // wielokrotnością ceny za osobę — i dlatego konsultant sortuje po sumie.
+    const promocjaDrugiej = r() > 0.7;
+    const priceTotal = promocjaDrugiej
+      ? Math.round((cenaOs * 1.35) / 10) * 10
+      : cenaOs * 2;
+
+    const startMin = 300 + Math.floor(r() * 900);
+    const lot = 150 + Math.floor(r() * 120);
+    const powrotMin = 300 + Math.floor(r() * 800);
+
+    out.push({
+      ...h,
+      id: h.id + "-v" + (i + 1),
+      operator,
+      source: operator,
+      price: cenaOs,
+      priceTotal,
+      departDate,
+      returnDate: przesun(departDate, days - 1),
+      nights,
+      days,
+      departureCity: wylot.city,
+      departureCode: wylot.code,
+      arrivalCode: przylot,
+      carrier: przewoznik.name,
+      flightNo: przewoznik.prefix + (1000 + Math.floor(r() * 8999)),
+      returnFlightNo: przewoznik.prefix + (1000 + Math.floor(r() * 8999)),
+      outboundDep: hhmm(startMin),
+      outboundArr: hhmm(startMin + lot),
+      returnDep: hhmm(powrotMin),
+      returnArr: hhmm(powrotMin + lot),
+      handLuggage: r() > 0.5 ? "5 kg" : "10 kg",
+      // Wolne miejsca bywają podane tylko dla lotu tam — powrót pokazuje „*".
+      // To realny przypadek BRAKU DANYCH, nie zero: undefined, nie 0.
+      seatsLeft: r() > 0.25 ? 1 + Math.floor(r() * 8) : undefined,
+      seatsLeftReturn: undefined,
+      directFlight: r() > 0.15,
+      tfg: true,
+      transferIncluded: r() > 0.2,
+      roomOptions: opcjePokoju(h, r),
+      offerAttributes: [
+        ...(r() > 0.2 ? ["Transfer w cenie"] : []),
+        ...(r() > 0.15 ? ["Lot bezpośredni"] : []),
+        ...(r() > 0.6 ? ["Assistance"] : []),
+      ],
+      priceHistory: historiaCeny(cenaOs, r),
+      optionalUntil: przesun(departDate, -6) + " 17:23",
+    });
+  }
+  return out;
+}
+
 // eslint-disable-next-line no-unused-vars
 export async function search(crit) {
   // Provider zwraca pełną listę pakietów; filtrowanie/ranking robi warstwa wspólna.
   // source = touroperator, żeby na karcie widać było, kto organizuje wyjazd.
-  return DATA.map((h) => ({
+  return DATA.flatMap(buildVariants).map((h) => ({
     ...h,
     type: "package",
-    source: h.operator,
     demo: true,
     photos: [h.photo],
     amenities: deriveAmenities(h),
