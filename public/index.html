@@ -561,6 +561,29 @@
   .det-tab-btn[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
   .det-tab-panel{display:none}
   .det-tab-panel.active{display:block}
+  /* Warianty oferty: jeden obiekt = wiele terminów/operatorów. Tabela ma własny
+     scroll poziomy, żeby na wąskim ekranie nie rozpychała całego modala. */
+  .wr-intro{font-size:12.5px;color:var(--ink-faint);margin:0 0 10px;line-height:1.5}
+  .wr-scroll{overflow-x:auto}
+  .wr-tab{width:100%;border-collapse:collapse;font-size:12.5px;min-width:620px}
+  .wr-tab th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;padding:0 10px 7px;border-bottom:1px solid var(--line)}
+  .wr-tab td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  .wr-tab tr:last-child td{border-bottom:0}
+  .wr-num{text-align:right;white-space:nowrap}
+  .wr-sub{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;margin-top:2px}
+  .wr-best{background:var(--accent-soft)}
+  .wr-tag{display:inline-block;margin-left:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--accent-deep);border:1px solid var(--accent);border-radius:10px;padding:1px 7px;vertical-align:middle}
+  .wr-unk{color:var(--ink-faint);font-style:italic;border-bottom:1px dashed var(--line-strong);cursor:help}
+  /* Wykres ceny wg dnia wylotu — najmocniejszy argument sprzedażowy w tym widoku:
+     „dzień później i jest taniej o…". */
+  .ph-wrap{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+  .ph-head{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px}
+  .ph-chart{display:flex;align-items:flex-end;gap:6px;height:104px}
+  .ph-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+  .ph-bar{width:100%;border-radius:5px 5px 0 0;background:var(--line-strong)}
+  .ph-best{background:var(--accent)}
+  .ph-lab{font-size:9.5px;color:var(--ink-faint);margin-top:5px;white-space:nowrap}
+  .ph-note{font-size:11.5px;color:var(--ink-faint);margin-top:9px}
   .det-amen{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
   .det-amen span{font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:20px;background:var(--surface-2);color:var(--ink-soft)}
   .rep-order{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.9}
@@ -1703,8 +1726,66 @@
 
     var tabWyzywienie=row("Wyżywienie",h.board);
 
+    // Warianty tego samego obiektu (operator × lotnisko × termin). dedupeOffers()
+    // scala rodzeństwo w jeden wynik i wystawia je w h.variants — konsultant wybiera
+    // OBIEKT, a potem przebiera w terminach, dokładnie jak w systemie sprzedażowym.
+    // Sortujemy po SUMIE, nie po cenie za osobę: przy promocjach „druga osoba taniej"
+    // oferta droższa „od" bywa tańsza dla pary, więc cena/os. nie jest porównywalna.
+    // Odmiana przez przypadki: „1 miejsce", „3 miejsca", „7 miejsc". Panel czyta
+    // konsultant, który przekleja to klientowi — „1 miejsc" wygląda na maszynowy błąd
+    // i podważa staranność całej reszty.
+    function odmMiejsca(n){
+      if(n===1)return "miejsce";
+      var d=n%10,s=n%100;
+      return (d>=2&&d<=4&&(s<12||s>14))?"miejsca":"miejsc";
+    }
+    var tabWarianty=(function(){
+      var V=(h.variants||[]).slice();
+      if(V.length<2)return "";
+      V.sort(function(a,b){return (a.priceTotal||a.price*2)-(b.priceTotal||b.price*2);});
+      var naj=V[0].priceTotal||V[0].price*2;
+      var wiersze=V.map(function(v){
+        var suma=v.priceTotal||v.price*2;
+        var trasa=(v.departureCode||v.departureCity||"")+(v.arrivalCode?" → "+v.arrivalCode:"");
+        var godz=(v.outboundDep&&v.outboundArr)?(v.outboundDep+"–"+v.outboundArr):"";
+        var przelot=[v.carrier,v.flightNo].filter(Boolean).join(" ");
+        var dl=(v.days&&v.nights)?(v.days+"d/"+v.nights+"n"):(v.nights?v.nights+" nocy":"");
+        // Liczba wolnych miejsc bywa nieznana — „brak danych", nigdy 0 (zero
+        // znaczyłoby „wyprzedane", czyli dokładną odwrotność prawdy).
+        var miejsca=(typeof v.seatsLeft==="number")?(v.seatsLeft+" "+odmMiejsca(v.seatsLeft)):'<span class="wr-unk" title="Operator nie podał liczby wolnych miejsc — to nie znaczy, że ich nie ma.">brak danych</span>';
+        return '<tr'+(suma===naj?' class="wr-best"':'')+'>'+
+          '<td><b>'+(v.operator||"—")+'</b>'+(suma===naj?'<span class="wr-tag">najtaniej za grupę</span>':'')+'</td>'+
+          '<td>'+(v.departDate?fmtDate(v.departDate):"—")+(dl?'<span class="wr-sub">'+dl+'</span>':'')+'</td>'+
+          '<td>'+trasa+(godz?'<span class="wr-sub">'+godz+'</span>':'')+(przelot?'<span class="wr-sub">'+przelot+'</span>':'')+'</td>'+
+          '<td class="wr-num">'+fmt(v.price)+' zł<span class="wr-sub">za osobę</span></td>'+
+          '<td class="wr-num"><b>'+fmt(suma)+' zł</b><span class="wr-sub">razem</span></td>'+
+          '<td>'+miejsca+'</td></tr>';
+      }).join("");
+      var hist=(function(){
+        var ph=V[0].priceHistory;
+        if(!ph||!ph.byDate||!ph.byDate.length)return "";
+        var ceny=ph.byDate.map(function(d){return d.price;});
+        var mx=Math.max.apply(null,ceny),mn=Math.min.apply(null,ceny);
+        var slupki=ph.byDate.map(function(d){
+          var wys=mx>mn?(28+62*(d.price-mn)/(mx-mn)):60;
+          var naj=d.price===mn;
+          return '<div class="ph-col"><div class="ph-bar'+(naj?" ph-best":"")+'" style="height:'+wys.toFixed(0)+'%" title="'+fmt(d.price)+' zł/os."></div><div class="ph-lab">'+(d.offset===0?"termin":(d.offset>0?"+":"")+d.offset+" dn.")+'</div></div>';
+        }).join("");
+        return '<div class="ph-wrap"><div class="ph-head">Cena za osobę w zależności od dnia wylotu</div>'+
+          '<div class="ph-chart">'+slupki+'</div>'+
+          '<div class="ph-note">Najtaniej: '+fmt(mn)+' zł/os.'+(ph.lowest30d?' · najniższa cena z ostatnich 30 dni: '+fmt(ph.lowest30d)+' zł/os.':'')+'</div></div>';
+      })();
+      return '<div class="wr-intro">Ten sam obiekt sprzedaje '+V.length+' wariantów. '+
+        'Kolejność według <b>sumy za grupę</b> — przy promocjach „druga osoba taniej” '+
+        'oferta droższa za osobę bywa tańsza w całości.</div>'+
+        '<div class="wr-scroll"><table class="wr-tab"><thead><tr>'+
+        '<th>Operator</th><th>Wylot</th><th>Przelot</th><th>Za osobę</th><th>Razem</th><th>Miejsca</th>'+
+        '</tr></thead><tbody>'+wiersze+'</tbody></table></div>'+hist;
+    })();
+
     var TABS=[
       {key:"opis",label:"Opis obiektu",html:tabOpis},
+      {key:"terminy",label:"Terminy i operatorzy",html:tabWarianty},
       {key:"pokoje",label:"Pokoje",html:tabPokoje},
       {key:"lokalizacja",label:"Położenie i dojazd",html:tabLokalizacja},
       {key:"wyzywienie",label:"Wyżywienie",html:tabWyzywienie},

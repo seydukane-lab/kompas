@@ -260,6 +260,18 @@ test("historia ceny daje realny argument sprzedażowy, nie płaską linię", asy
     "wskazany najtańszy termin nie zgadza się z najniższą ceną w rozbiciu");
 });
 
+test("słupek dla wybranego terminu równa się cenie wariantu", async () => {
+  // Wykres stoi w modalu tuż pod tabelą wariantów. Gdyby słupek „termin" pokazywał
+  // inną liczbę niż wiersz nad nim, konsultant zobaczyłby dwie różne ceny tej samej
+  // oferty w jednym widoku — i słusznie przestałby ufać obu.
+  const surowe = await searchPackages({});
+  for (const o of surowe.slice(0, 40)) {
+    const zero = o.priceHistory.byDate.find((d) => d.offset === 0);
+    assert.equal(zero.price, o.price,
+      `wariant ${o.id}: cena na wykresie (${zero.price}) ≠ cena oferty (${o.price})`);
+  }
+});
+
 test("warianty tego samego hotelu są powtarzalne między wywołaniami", async () => {
   // Generator jest zasiany id hotelu. Gdyby losował za każdym razem od nowa,
   // ta sama oferta zmieniałaby cenę między wyszukaniem a pokazaniem jej klientowi.

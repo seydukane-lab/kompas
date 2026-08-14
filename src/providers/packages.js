@@ -294,6 +294,10 @@ function przesun(iso, dni) {
 function historiaCeny(bazowa, r) {
   const dni = [];
   for (let i = -3; i <= 4; i++) {
+    // Słupek dla offsetu 0 MUSI być dokładnie ceną tego wariantu — inaczej konsultant
+    // widzi w tabeli jedną cenę, a na wykresie tuż obok inną dla tego samego terminu
+    // i przestaje ufać obu liczbom.
+    if (i === 0) { dni.push({ offset: 0, price: bazowa }); continue; }
     const wahanie = 1 + (r() - 0.45) * 0.22;
     dni.push({ offset: i, price: Math.round((bazowa * wahanie) / 10) * 10 });
   }
