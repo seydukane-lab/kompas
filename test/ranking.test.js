@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import {
   trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs,
 } from "../src/ranking.js";
+import { mapBoard } from "../src/providers/hotelbeds.js";
 
 // Oferta wzorcowa — testy zmieniają tylko to, co badają.
 function offer(over = {}) {
@@ -204,6 +205,27 @@ test("filtr wyżywienia nie wycina ofert, dla których wyżywienie jest nieznane
   const out = applyFilters([potwierdzone, inne, nieznane], { boards: ["BB"] });
   assert.deepEqual(out.map((o) => o.id).sort(), ["bb", "niewiadoma"],
     "oferta z jawnie innym wyżywieniem wypada, oferta bez danych zostaje");
+});
+
+test("filtr wyżywienia działa dla etykiety „Bez wyżywienia” — najliczniejszej kategorii w realnych danych", () => {
+  // Po 3d5cc3f `mapBoard` zwraca „Bez wyżywienia” dla RO/SC/DR. W pomiarze z 11.08 to
+  // 64 ze 120 realnych ofert — czyli kategoria częstsza niż wszystkie pozostałe razem.
+  // Test celowo bierze etykietę z mapBoard(), a nie z przepisanego na sztywno stringa:
+  // gdyby kiedyś zmieniło się brzmienie po stronie providera, chip w panelu przestałby
+  // cokolwiek filtrować (porównanie w applyFilters jest dosłowne), a test ma to złapać.
+  const etykieta = mapBoard("RO");
+  assert.equal(etykieta, "Bez wyżywienia", "mapBoard('RO') zmienił etykietę — chip w panelu przestanie pasować");
+
+  const ro = offer({ id: "ro", board: etykieta });
+  const ai = offer({ id: "ai", board: "All Inclusive" });
+  const nieznane = offer({ id: "niewiadoma", board: undefined });
+
+  const zaznaczony = applyFilters([ro, ai, nieznane], { boards: [etykieta] });
+  assert.deepEqual(zaznaczony.map((o) => o.id).sort(), ["niewiadoma", "ro"],
+    "przy zaznaczonym chipie zostaje oferta bez wyżywienia i ta o nieznanym; All Inclusive wypada");
+
+  const bezFiltra = applyFilters([ro, ai, nieznane], {});
+  assert.equal(bezFiltra.length, 3, "bez zaznaczonego chipa filtr wyżywienia nie może niczego odsiewać");
 });
 
 test("próg gwiazdek nie wycina hoteli o nieznanej kategorii", () => {

@@ -286,3 +286,97 @@ test("cena łączna za grupę liczy się jednym wspólnym wzorem (offerTotal), n
   assert.match(docFn, /offerTotal\(x,paxCount\(\)\)/,
     "offerDocHtml nie liczy totalu przez offerTotal — wydruk dla klienta znowu zgubi Razem dla ofert demo");
 });
+
+// ============================================================
+//  Front nie zakłada, że wyżywienie i kategoria są zawsze znane.
+//
+//  3d5cc3f nauczył BACKEND nie zgadywać (mapBoard/mapStars zwracają undefined
+//  dla kodów spoza oficjalnego słownika). Front tego nie wiedział i dalej wklejał
+//  te pola wprost albo podstawiał za nie fikcyjne 3 gwiazdki — czyli dokładnie ten
+//  sam błąd, który właśnie usunięto z providera, tylko o jedną warstwę wyżej
+//  i widoczny bezpośrednio dla klienta.
+// ============================================================
+
+test("scriptText nie wypisuje „undefined” ani gołej gwiazdki, gdy oferta nie zna wyżywienia/kategorii", () => {
+  const html = wczytaj("public/index.html");
+
+  // Cała funkcja mieści się w jednej fizycznej linii, więc ZACHŁANNE .*\} zatrzyma się
+  // na ostatniej klamrze w tym samym wierszu (kropka nie łapie \n). Niegreedy [\s\S]*?\}
+  // złapałoby tu wnętrze sc.cb.forEach(function(x){...}) i test badałby nie tę funkcję.
+  const kod = html.match(/function scriptText\(h,sc\)\{.*\}/)?.[0] || "";
+  assert.ok(kod, "brak funkcji scriptText — zmieniła nazwę/sygnaturę?");
+
+  // Test behawioralny, nie sam regex: uruchamiamy prawdziwy kod z pliku na podstawionych
+  // zależnościach i patrzymy na tekst, który realnie zobaczy konsultant.
+  const scriptText = new Function("ratingTxt", "AUD_META", "fmt", kod + "; return scriptText;")(
+    () => "brak opinii",
+    { rodzina: { label: "Rodzina" } },
+    (n) => String(n)
+  );
+  const sc = { aud: "rodzina", lead: "Lead", cb: [], closer: "Zamknięcie" };
+
+  const bezDanych = scriptText({ name: "Hotel X", region: "Hurghada", price: 4200 }, sc);
+  assert.ok(!/undefined/.test(bezDanych),
+    "skrypt sprzedażowy wypisuje „undefined” dla oferty bez wyżywienia/kategorii");
+  assert.ok(!/\|\s*\*/.test(bezDanych),
+    "została goła gwiazdka bez liczby — segment kategorii dokłada się mimo braku danych");
+
+  // Pułapka kontrolna: bez tego test przeszedłby też dla wersji, która po prostu
+  // usunęła oba pola na stałe — a mają się pokazywać, gdy provider je potwierdzi.
+  const zDanymi = scriptText(
+    { name: "Hotel X", region: "Hurghada", price: 4200, board: "All Inclusive", stars: 5 }, sc);
+  assert.match(zDanymi, /All Inclusive/, "znane wyżywienie zniknęło ze skryptu");
+  assert.match(zDanymi, /5\*/, "znana kategoria zniknęła ze skryptu");
+});
+
+test("nieznana kategoria nie zamienia się w fikcyjne 3 gwiazdki — ani w koszyku, ani u klienta", () => {
+  const html = wczytaj("public/index.html");
+
+  const snapFn = html.match(/function cartSnap\(h\)\{[\s\S]*?\}/)?.[0] || "";
+  assert.ok(snapFn, "brak funkcji cartSnap — zmieniła nazwę?");
+  assert.match(snapFn, /stars:h\.stars,/,
+    "cartSnap znowu podstawia fallback za nieznaną kategorię");
+
+  // Globalnie po całym pliku: ten wzorzec nie ma prawa wrócić NIGDZIE w warstwie
+  // wyświetlania. Jedyne dozwolone (h.stars||3) to formuła etaValue — tam 3/5 jest
+  // neutralnym priorem w ważonej średniej, a nie twierdzeniem o hotelu.
+  assert.ok(!/stars\((?:h|x)\.stars\|\|3\)/.test(html),
+    "wróciło stars(...||3) — nieznana kategoria znowu renderuje się jako potwierdzone 3 gwiazdki");
+  assert.ok(!/\(x\.stars\|\|"\?"\)/.test(html),
+    "wiersz „Kategoria” w wydruku znowu pokazuje placeholder ?★ zamiast zniknąć");
+  assert.match(html, /var starPart=\(h\.stars\|\|3\)\/5/,
+    "prior w etaValue zniknął — to wzór scoringu, miał zostać nietknięty");
+});
+
+test("karta wyniku nie pokazuje słowa „undefined” w miejscu wyżywienia", () => {
+  const html = wczytaj("public/index.html");
+
+  const cardFn = html.match(/function cardEl\(h,i,n,pax\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(cardFn, "brak funkcji cardEl — zmieniła nazwę/sygnaturę?");
+  // Uwaga na konstrukcję tego warunku: poprawna, warunkowa wersja ZAWIERA ten sam
+  // podciąg co zepsuta, więc szukanie samego '<span class="tag board">'+h.board+'</span>'
+  // dawałoby fałszywy alarm. Rozróżnia je dopiero kontekst — czy tag jest wklejony
+  // bezwarunkowo zaraz po otwarciu meta-row.
+  assert.ok(!/"meta-row"><span class="tag board">/.test(cardFn),
+    "cardEl wkleja h.board bez osłony — oferta bez wyżywienia pokaże „undefined” na najczęściej oglądanym ekranie panelu");
+  assert.match(cardFn, /h\.board\?'<span class="tag board">'\+h\.board\+'<\/span>':''/,
+    "brak warunku na h.board — tag wyżywienia ma się nie renderować, gdy dostawca go nie podał");
+});
+
+test("filtr wyżywienia ma chip dla najliczniejszej realnej kategorii, spójny z mapBoard", () => {
+  const html = wczytaj("public/index.html");
+  const provider = wczytaj("src/providers/hotelbeds.js");
+
+  // Etykieta w data-board musi być DOSŁOWNIE tym, co zwraca provider — applyFilters
+  // porównuje stringi wprost, więc literówka albo „ż” zamienione na „z” daje chip,
+  // który zawsze zwraca zero wyników i wygląda jak zepsuty filtr.
+  assert.match(provider, /RO: "Bez wyżywienia"/,
+    "BOARD_MAP nie mapuje już RO na „Bez wyżywienia” — chip w panelu straci pokrycie");
+  assert.match(html, /<button class="chip" data-board="Bez wyżywienia"/,
+    "brak chipa „Bez wyżywienia” — w realnych danych to 64 ze 120 ofert, największa kategoria");
+
+  const blok = html.match(/<div class="chips" id="boardChips">[\s\S]*?<\/div>/)?.[0] || "";
+  assert.ok(blok, "nie znaleziono bloku #boardChips");
+  assert.equal((blok.match(/data-board="/g) || []).length, 5,
+    "spodziewane 5 chipów wyżywienia (AI, Ultra AI, HB, BB, Bez wyżywienia)");
+});

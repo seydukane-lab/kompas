@@ -684,6 +684,7 @@
         <button class="chip" data-board="Ultra All Inclusive" aria-pressed="false">Ultra AI</button>
         <button class="chip" data-board="HB" aria-pressed="false">2 posiłki</button>
         <button class="chip" data-board="BB" aria-pressed="false">Śniadania</button>
+        <button class="chip" data-board="Bez wyżywienia" aria-pressed="false">Bez wyżywienia</button>
       </div></div>
       <div class="field"><label>Profil wyjazdu</label><div class="chips" id="tagChips">
         <button class="chip" data-tag="rodzina" aria-pressed="false">Rodzinny</button>
@@ -1140,7 +1141,11 @@
     var v=variant||0;v=((v%leads.length)+leads.length)%leads.length;
     return {aud:aud,variant:v,lead:leads[v](h),cb:featureBenefits(h),closer:closers[v%closers.length]};
   }
-  function scriptText(h,sc){var t="OFERTA: "+h.name+" — "+h.region+"  ["+AUD_META[sc.aud].label+"]\n";t+="Ocena: "+ratingTxt(h)+"  |  "+h.board+"  |  "+h.stars+"*\nCena od "+fmt(h.price)+" zł/os.\n\n"+sc.lead+"\n\nDLACZEGO WARTO:\n";sc.cb.forEach(function(x){t+="• "+x.f+" — "+x.b+"\n";});return t+"\n"+sc.closer+"\n";}
+  // Linia „Ocena" składana z segmentów: wyżywienie i kategoria dokładają się TYLKO gdy
+  // provider je potwierdził. Wcześniej wklejane wprost, więc oferta bez tych danych
+  // dawała klientowi „undefined" albo gołą gwiazdkę — patrz 3d5cc3f (backend przestał
+  // zgadywać, front musiał przestać zakładać, że zawsze wie).
+  function scriptText(h,sc){var t="OFERTA: "+h.name+" — "+h.region+"  ["+AUD_META[sc.aud].label+"]\n";var meta=[ratingTxt(h)];if(h.board)meta.push(h.board);if(h.stars)meta.push(h.stars+"*");t+="Ocena: "+meta.join("  |  ")+"\nCena od "+fmt(h.price)+" zł/os.\n\n"+sc.lead+"\n\nDLACZEGO WARTO:\n";sc.cb.forEach(function(x){t+="• "+x.f+" — "+x.b+"\n";});return t+"\n"+sc.closer+"\n";}
 
   // Czysta, FAKTOWA wiadomość dla klienta (WhatsApp/mail) — tylko dane, które REALNIE
   // mamy. Anti-przekoloryzacja: opinie tylko gdy reviews>0; atrybuty tylko gdy znane.
@@ -1148,7 +1153,7 @@
     var dist=function(m){return m>=1000?(m/1000).toFixed(1).replace(".",",")+" km":m+" m";};
     var total=offerTotal(h,pax);
     var L=[];
-    L.push("🏨 "+h.name+" "+stars(h.stars||3));
+    L.push("🏨 "+h.name+" "+stars(h.stars));
     L.push("📍 "+(h.region?h.region+", ":"")+(h.country||""));
     L.push("");
     if(h.board)L.push("🍽 Wyżywienie: "+h.board);
@@ -1274,7 +1279,7 @@
         body='<ul class="mr-bd">'+mrRoomsBreakdownHtml(h.roomsBreakdown)+'</ul>';
       }
       var totLabel=h.compareConfigs?'od '+fmt(h.priceTotal)+' zł':fmt(h.priceTotal)+' zł';
-      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span>'+(h.compareConfigs?'':badge)+'</div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+totLabel+'</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div>'+body+'<button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
+      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars)+'</span>'+(h.compareConfigs?'':badge)+'</div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+totLabel+'</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div>'+body+'<button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
     }).join("");
   }
   document.getElementById("mrResults").addEventListener("click",function(e){
@@ -1284,7 +1289,7 @@
   });
   // Wiadomość dla klienta dla oferty multiroom (fakty + rozbicie na pokoje).
   function mrClientText(h){
-    var L=["🏨 "+h.name+" "+stars(h.stars||3),"📍 "+((h.region?h.region+", ":"")+(h.country||""))];
+    var L=["🏨 "+h.name+" "+stars(h.stars),"📍 "+((h.region?h.region+", ":"")+(h.country||""))];
     if(typeof h.beach==="number")L.push("🏖 Plaża: "+(h.beach>=1000?(h.beach/1000).toFixed(1).replace(".",",")+" km":h.beach+" m"));
     if(h.compareConfigs&&h.compareConfigs.length){
       h.compareConfigs.forEach(function(c){
@@ -1450,7 +1455,7 @@
   }
   function inCart(id){return cart.some(function(x){return x.id===id;});}
   // Zapisujemy lekki snapshot oferty (nie całą kartę) — starczy do listy i zestawienia.
-  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),stars:h.stars||3,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
+  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),stars:h.stars,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
   function toggleCart(h){var i=cart.findIndex(function(x){return x.id===h.id;});var added;if(i>-1){cart.splice(i,1);added=false;}else{cart.push(cartSnap(h));added=true;}saveCart();updateCartCount();if(!cartDrawer.hidden)renderCart();return added;}
   function removeCart(id){var i=cart.findIndex(function(x){return x.id===id;});if(i>-1){cart.splice(i,1);saveCart();updateCartCount();renderCart();syncCardButtons();}}
   function updateCartCount(){var n=cart.length;cartCountEl.textContent=n;cartCountEl.classList.toggle("on",n>0);cartHeadN.textContent=n?("("+n+")"):"";}
@@ -1506,7 +1511,7 @@
     var termin=x.departDate?fmtDate(x.departDate)+(x.departureCity?" · wylot z "+x.departureCity:""):"";
     return '<table class="params">'+
       r("Lokalizacja",(x.region?x.region+", ":"")+(x.country||""))+
-      r("Kategoria",(x.stars||"?")+"★")+
+      r("Kategoria",x.stars?x.stars+"★":"")+
       r("Wyżywienie",x.board)+
       r("Długość pobytu",(x.nights||n)+" nocy")+
       r("Termin",termin)+
@@ -1522,7 +1527,7 @@
   // Blok jednej oferty dla wydruku (parametry + wiedza o kierunku + cena). BEZ skryptu.
   function offerDocHtml(x,n){
     var intel=destIntelClient(x.region,x.country);
-    return '<div class="off"><div class="n">'+x.name+' '+stars(x.stars||3)+'</div><div class="loc">'+(x.region||x.country||"")+'</div>'+
+    return '<div class="off"><div class="n">'+x.name+' '+stars(x.stars)+'</div><div class="loc">'+(x.region||x.country||"")+'</div>'+
       offerParamsHtml(x,n)+
       (intel?'<p class="intel">📍 <b>O kierunku:</b> '+intel.vibe+(intel.forWho?' · Dobry dla: '+intel.forWho:'')+'</p>':'')+
       '<div class="price-big">Cena: od '+fmt(x.price)+' zł/os. &nbsp;·&nbsp; razem ok. '+fmt(offerTotal(x,paxCount()))+' zł</div></div>';
@@ -1662,7 +1667,7 @@
     detailOfferCtx=h;
     var intel=destIntelClient(h.region,h.country);
     var pract=practGridHtml(h.country);
-    document.getElementById("detailTitle").innerHTML=h.name+' <span class="stars">'+stars(h.stars||3)+'</span>';
+    document.getElementById("detailTitle").innerHTML=h.name+' <span class="stars">'+stars(h.stars)+'</span>';
 
     var naglowek=
       row("Cena / osoba","<b>"+fmt(h.price)+" zł</b>")+
@@ -1885,7 +1890,7 @@
       var total=offerTotal(h,pax);
       return '<tr data-idx="'+i+'"><td class="tc-fav"><button class="row-fav'+(inCart(h.id)?" saved":"")+'" data-cid="'+h.id+'" title="Odłóż do koszyka">'+(inCart(h.id)?"★":"☆")+'</button></td>'+
         '<td class="tc-reg">'+(h.region||h.country)+'</td>'+
-        '<td class="tc-name"><b>'+h.name+'</b> <span class="stars">'+stars(h.stars||3)+'</span>'+(h.operator?'<span class="tc-op">'+h.operator+'</span>':'')+'</td>'+
+        '<td class="tc-name"><b>'+h.name+'</b> <span class="stars">'+stars(h.stars)+'</span>'+(h.operator?'<span class="tc-op">'+h.operator+'</span>':'')+'</td>'+
         '<td class="tc-rate"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span></td>'+
         '<td class="tc-eta"><span class="rep-verdict '+etaVerdict(h).c+'" title="'+etaVerdict(h).t+'">'+etaValue(h)+'</span></td>'+
         '<td class="tc-price">'+fmt(h.price)+'<small>zł/os</small></td>'+
@@ -2000,8 +2005,8 @@
         '<div class="card-photo" style="'+photoStyle+'">'+photo+'<div class="badge-row">'+(i<3?'<span class="rank-badge">#'+(i+1)+' rekomendacja</span>':'')+srcBadge+'</div></div>'+
         '<div class="card-body">'+
           '<div class="loc"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.4-7-11a7 7 0 0114 0c0 4.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'+(h.region||h.country)+'</div>'+
-          '<h3>'+h.name+' <span class="stars">'+stars(h.stars||3)+'</span></h3>'+
-          '<div class="meta-row"><span class="tag board">'+h.board+'</span>'+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">🏖 plaża '+h.beach+' m</span>':'')+(h.roomType?'<span class="tag">🛏 '+h.roomType+'</span>':'')+(h.newHotel?'<span class="tag tag-new">🆕 nowy/odnowiony</span>':'')+(h.adultsOnly?'<span class="tag">🔞 tylko dorośli</span>':'')+(typeof h.ski==="number"?'<span class="tag">⛷ stok '+(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m")+'</span>':'')+
+          '<h3>'+h.name+' <span class="stars">'+stars(h.stars)+'</span></h3>'+
+          '<div class="meta-row">'+(h.board?'<span class="tag board">'+h.board+'</span>':'')+pkgMeta+((h.cap&&!h.capUnknown)?'<span class="tag">do '+h.cap+' os.</span>':'')+(typeof h.beach==="number"?'<span class="tag">🏖 plaża '+h.beach+' m</span>':'')+(h.roomType?'<span class="tag">🛏 '+h.roomType+'</span>':'')+(h.newHotel?'<span class="tag tag-new">🆕 nowy/odnowiony</span>':'')+(h.adultsOnly?'<span class="tag">🔞 tylko dorośli</span>':'')+(typeof h.ski==="number"?'<span class="tag">⛷ stok '+(h.ski>=1000?(h.ski/1000).toFixed(1).replace(".",",")+" km":h.ski+" m")+'</span>':'')+
             // Atrybuty, które ta oferta przeszła tylko z braku danych (nie potwierdza ich) —
             // patrz src/ranking.js:unknownAttrs. Dyskretny znacznik, nie ostrzeżenie o błędzie.
             (h.attrUnknown||[]).map(function(k){return '<span class="tag tag-unknown" title="Wybrany filtr nie odsiewa ofert bez danych — ta oferta przeszła, bo dostawca nie podał tej informacji.">'+attrChipLabel(k)+': brak danych</span>';}).join("")+
