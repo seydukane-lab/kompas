@@ -103,6 +103,42 @@ test("sortowanie działa w każdym trybie", () => {
   assert.equal(list[0].id, "a");
 });
 
+test("filtr wylotu patrzy na WSZYSTKIE warianty obiektu, nie tylko na reprezentanta", () => {
+  // Regresja z 16.08.2026. Odkąd jeden hotel ma po kilka wariantów z różnych lotnisk,
+  // dedupeOffers wybiera jeden z nich na reprezentanta — a filtr sprawdzał wyłącznie
+  // h.departureCity tego reprezentanta. Zmierzone na seedzie demo: 56 hoteli miało lot
+  // z Katowic, filtr przepuszczał 19. Konsultant zaznaczał lotnisko klienta i tracił
+  // dwie trzecie realnie dostępnych ofert, nie mając jak się o tym dowiedzieć.
+  const hotel = offer({
+    id: "wielolotniskowy",
+    departureCity: "Warszawa", // reprezentant NIE pasuje do filtru
+    variants: [
+      { departureCity: "Warszawa", transport: "Samolot", departDate: "2026-09-07" },
+      { departureCity: "Katowice", transport: "Samolot", departDate: "2026-09-09" },
+    ],
+  });
+
+  assert.equal(applyFilters([hotel], { departures: ["Katowice"] }).length, 1,
+    "hotel z wariantem z Katowic wypadł, bo reprezentant leci z Warszawy");
+  assert.equal(applyFilters([hotel], { departure: "Katowice" }).length, 1,
+    "wariant pojedynczego miasta wylotu (crit.departure) też musi czytać warianty");
+  assert.equal(applyFilters([hotel], { departures: ["Gdańsk"] }).length, 0,
+    "lotnisko, którego nie ma w ŻADNYM wariancie, nadal ma odsiewać ofertę");
+
+  // Dzień tygodnia wylotu — ten sam mechanizm: 2026-09-07 to poniedziałek,
+  // 2026-09-09 środa. Reprezentant leci w poniedziałek, więc filtr na środę
+  // musi trafić w drugi wariant, a nie odrzucić cały obiekt.
+  assert.equal(applyFilters([hotel], { weekdays: [3] }).length, 1,
+    "filtr dnia tygodnia nie widzi wariantów — hotel wylatujący w środę wypadł");
+  assert.equal(applyFilters([hotel], { weekdays: [6] }).length, 0,
+    "dzień, w którym nie lata ŻADEN wariant, nadal ma odsiewać");
+
+  // Oferta hotel-only (bez lotu) nie pasuje do filtrów pakietowych — bez zmian.
+  const samNocleg = offer({ id: "hotel-only", type: "hotel", departureCity: undefined, variants: [] });
+  assert.equal(applyFilters([samNocleg], { departures: ["Katowice"] }).length, 0,
+    "oferta bez lotu nie może przechodzić filtru miasta wylotu");
+});
+
 test("sortowanie po sumie za grupę odwraca kolejność, gdy tańsza „od” nie jest tańsza razem", () => {
   // Scenariusz z docs/struktura-oferty-pakietowej.md: operator B ma wyższą cenę za osobę
   // (promocja „druga osoba za symboliczną kwotę”), ale niższą sumę. Sortowanie po cenie/os.

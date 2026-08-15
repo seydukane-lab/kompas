@@ -93,6 +93,19 @@ export function scoreOffer(offer, crit) {
   return { ...offer, score, trust: t, adjRating, valueScore };
 }
 
+// Czy KTÓRYKOLWIEK wariant obiektu spełnia warunek? Oferta pakietowa po scaleniu
+// (dedupeOffers) niesie `variants[]` — wszystkie terminy tego samego hotelu, także te
+// z innych lotnisk i od innych operatorów niż wariant pokazany jako reprezentant.
+// Filtr, który patrzy tylko na pola reprezentanta, odsiewa obiekty realnie pasujące.
+//
+// Oferty hotel-only (bez `type === "package"`) nie pasują do filtrów pakietowych z zasady
+// — użytkownik szuka wtedy wyjazdu z konkretnego miasta, nie samego noclegu.
+export function matchesAnyVariant(offer, warunek) {
+  if (offer.type !== "package") return false;
+  const warianty = offer.variants && offer.variants.length ? offer.variants : [offer];
+  return warianty.some((v) => warunek(v));
+}
+
 // Suma za CAŁĄ GRUPĘ: priceTotal dostawcy, jeśli jest, inaczej cena/os. × liczba osób —
 // dokładnie ten sam wzór co offerTotal() we froncie (public/index.html), żeby sortowanie
 // po sumie i wyświetlana suma nigdy się nie rozjechały.
@@ -328,18 +341,27 @@ export function applyFilters(list, crit) {
     // Filtry pakietowe: dotyczą tylko ofert typu "package" (lot+hotel).
     // Gdy aktywne, oferty hotel-only odpadają — użytkownik szuka wyjazdu z konkretnego miasta.
     // Wylot z (wiele miast): oferta pakietowa musi startować z któregokolwiek wybranego.
-    if (crit.departures && crit.departures.length && !(h.type === "package" && crit.departures.includes(h.departureCity))) return false;
-    else if (crit.departure && !(h.type === "package" && h.departureCity === crit.departure)) return false;
-    if (crit.transports && crit.transports.length && !(h.type === "package" && crit.transports.includes(h.transport))) return false;
+    // ⚠️ Filtry pakietowe muszą patrzeć na WSZYSTKIE warianty obiektu, nie tylko na ten
+    // wybrany na reprezentanta przez dedupeOffers(). Odkąd jeden hotel ma po kilka
+    // wariantów z różnych lotnisk i od różnych operatorów, sprawdzanie samego
+    // h.departureCity gubiło większość trafień: zmierzone na seedzie demo — 56 hoteli
+    // ma lot z Katowic, a filtr przepuszczał 19. Konsultant, który zaznaczył lotnisko
+    // klienta, tracił 2/3 realnie dostępnych ofert i nie miał jak się o tym dowiedzieć.
+    if (crit.departures && crit.departures.length && !matchesAnyVariant(h, (v) => crit.departures.includes(v.departureCity))) return false;
+    else if (crit.departure && !matchesAnyVariant(h, (v) => v.departureCity === crit.departure)) return false;
+    if (crit.transports && crit.transports.length && !matchesAnyVariant(h, (v) => crit.transports.includes(v.transport))) return false;
     // Atrybuty (Lokalizacja/Obiekt/Aktywność) — wyklucza TYLKO jawne "nie posiada".
     // Brak danych o atrybucie (hasAttribute === undefined) nie wyklucza oferty.
     if (crit.attrs && crit.attrs.length && crit.attrs.some((a) => hasAttribute(h, a) === false)) return false;
     // Dni tygodnia wylotu: filtr twardy jak przy mieście wylotu — dotyczy tylko
     // pakietów ze znaną datą wylotu (hotel-only i pakiet bez daty nie pasują do wyboru).
     if (crit.weekdays && crit.weekdays.length) {
-      if (!(h.type === "package" && h.departDate)) return false;
-      const wd = new Date(`${h.departDate}T00:00:00`).getDay();
-      if (!crit.weekdays.includes(wd)) return false;
+      // Ten sam problem co przy lotnisku: warianty tego samego hotelu wylatują
+      // w różne dni tygodnia, więc dzień reprezentanta nie przesądza o całym obiekcie.
+      if (!matchesAnyVariant(h, (v) => {
+        if (!v.departDate) return false;
+        return crit.weekdays.includes(new Date(`${v.departDate}T00:00:00`).getDay());
+      })) return false;
     }
     return true;
   });
