@@ -223,6 +223,25 @@ test("demo generuje wiele wariantów na hotel, a dedupe składa je w jeden wynik
   }
 });
 
+test("żadne dwa hotele demo nie dzielą nazwy w tym samym kraju", async () => {
+  // Unikalne `id` NIE wystarczy. dedupeOffers() grupuje po nazwie i kraju, więc dwa
+  // wpisy o tej samej nazwie i różnych id scalają się w JEDEN wynik z podwójną liczbą
+  // wariantów i cenami z dwóch różnych obiektów. Złapane 15.08 przy dokładaniu
+  // kierunków: „DIT Evrika Beach Club Hotel" wszedł drugi raz pod innym id i zrobił
+  // sztucznego hotelu z ośmioma terminami — a testy id tego nie widziały.
+  const oferty = await searchPackages({});
+  const widziane = new Map();
+  for (const o of oferty) {
+    const klucz = o.name.toLowerCase() + "|" + o.country.toLowerCase();
+    const bazowe = o.id.replace(/-v\d+$/, "");
+    if (!widziane.has(klucz)) widziane.set(klucz, new Set());
+    widziane.get(klucz).add(bazowe);
+  }
+  const kolizje = [...widziane.entries()].filter(([, ids]) => ids.size > 1);
+  assert.deepEqual(kolizje.map(([k]) => k), [],
+    "ta sama nazwa hotelu pod różnymi id — dedupeOffers scali to w jeden byt z pomieszanymi cenami");
+});
+
 test("suma za grupę nie jest zawsze dwukrotnością ceny za osobę", async () => {
   // To nie jest usterka danych, tylko realny mechanizm rynkowy: część operatorów
   // promuje „drugą osobę taniej", więc oferta droższa „od" bywa tańsza w sumie.

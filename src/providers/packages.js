@@ -28,6 +28,11 @@ const G = {
   it: "linear-gradient(135deg,#7A3B45,#C98A73)", pt: "linear-gradient(135deg,#0A6E5C,#5FBFA6)",
   ex: "linear-gradient(135deg,#0F8B8D,#8FE3CF)", ex2: "linear-gradient(135deg,#1C6E86,#69C6C0)",
   mv: "linear-gradient(135deg,#0E7490,#67E8F9)", as: "linear-gradient(135deg,#2F7D57,#8FD3A6)",
+  mt: "linear-gradient(135deg,#B5772E,#E9CFA0)", bg: "linear-gradient(135deg,#1F6F5C,#7FCBB4)",
+  al: "linear-gradient(135deg,#7A3B45,#D9A08C)", cy: "linear-gradient(135deg,#1E6E8A,#8FD0E0)",
+  // Miasta dostają chłodniejszą, „kamienną" paletę — city break to inny produkt
+  // niż tydzień all inclusive przy plaży i ma się odróżniać już na liście wyników.
+  ct: "linear-gradient(135deg,#4A5568,#A0AEC0)", ct2: "linear-gradient(135deg,#5B4A6A,#B0A0C4)",
 };
 
 // depart: liczba dni od dziś; wszystkie loty w sezonie letnim.
@@ -164,6 +169,63 @@ const DATA = [
   { id: "pl-grand-mirage-bali", name: "Grand Mirage Resort Bali", country: "Indonezja", region: "Bali, Tanjung Benoa", stars: 4, rating: 8.3, reviews: 1420, freshDays: 7, price: 8790, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza", "spa"], beach: 15, operator: "Itaka", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 11, departDate: futureDate(49), photo: G.as },
   { id: "pl-centara-krabi", name: "Centara Grand Beach Resort Krabi", country: "Tajlandia", region: "Krabi, Ao Nang", stars: 5, rating: 8.7, reviews: 1340, freshDays: 8, price: 9190, board: "BB", cap: 4, tags: ["para", "spa", "plaza"], beach: 10, operator: "Rainbow", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 11, departDate: futureDate(51), photo: G.as },
   { id: "pl-meeru-island", name: "Meeru Island Resort & Spa", country: "Malediwy", region: "North Male Atoll", stars: 4, rating: 8.8, reviews: 1990, freshDays: 6, price: 11900, board: "All Inclusive", cap: 3, tags: ["para", "spa", "plaza"], beach: 5, operator: "Coral Travel", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 9, departDate: futureDate(53), photo: G.mv },
+
+  // ---------------- MALTA ----------------
+  // Kierunek dopisany 15.08.2026. Wcześniej NIE BYŁO GO WCALE, mimo że w realnym
+  // portfolio biura to jeden z najliczniejszych kierunków. Malta ma inny profil niż
+  // Egipt czy Turcja: przewaga hoteli 3–4*, wyżywienie BB/HB zamiast all inclusive,
+  // plaże skaliste lub oddalone — i właśnie dlatego jest dobrym testem dla filtrów.
+  { id: "pl-db-seabank", name: "db Seabank Resort & Spa", country: "Malta", region: "Mellieha", stars: 4, rating: 8.4, reviews: 3120, freshDays: 5, price: 3890, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza", "spa"], beach: 120, operator: "Itaka", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(21), photo: G.mt },
+  { id: "pl-radisson-golden", name: "Radisson Blu Resort St. Julian's", country: "Malta", region: "St. Julian's", stars: 5, rating: 8.7, reviews: 2480, freshDays: 6, price: 4790, board: "BB", cap: 3, tags: ["para", "spa"], beach: 250, operator: "TUI", departureCity: "Katowice", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(24), photo: G.mt },
+  { id: "pl-pergola-club", name: "Pergola Hotel & Spa", country: "Malta", region: "Mellieha", stars: 4, rating: 7.9, reviews: 1640, freshDays: 8, price: 2790, board: "HB", cap: 4, tags: ["rodzina", "spa"], beach: 900, operator: "Rainbow", departureCity: "Wrocław", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(19), photo: G.mt },
+  { id: "pl-canifor", name: "Canifor Hotel", country: "Malta", region: "Qawra", stars: 4, rating: 7.7, reviews: 1210, freshDays: 9, price: 2590, board: "BB", cap: 4, tags: ["rodzina"], beach: 600, operator: "Exim Tours", departureCity: "Poznań", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(23), photo: G.mt },
+  { id: "pl-st-julians-bay", name: "St. Julian's Bay Hotel", country: "Malta", region: "St. Julian's", stars: 3, rating: 7.4, reviews: 980, freshDays: 11, price: 2290, board: "BB", cap: 3, tags: ["para"], beach: 150, operator: "Ecco Holiday", departureCity: "Gdańsk", transport: "Samolot", transferIncluded: false, nights: 7, departDate: futureDate(26), photo: G.mt },
+  { id: "pl-dolmen-resort", name: "Dolmen Hotel Malta", country: "Malta", region: "Qawra", stars: 4, rating: 8.1, reviews: 2050, freshDays: 7, price: 3190, board: "HB", cap: 4, tags: ["rodzina", "plaza"], beach: 80, operator: "Coral Travel", departureCity: "Katowice", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(20), photo: G.mt },
+
+  // ---------------- HISZPANIA: COSTY I WYSPY ----------------
+  { id: "pl-zafiro-palace", name: "Zafiro Palace Alcudia", country: "Hiszpania", region: "Majorka, Alcudia", stars: 5, rating: 9.0, reviews: 1930, freshDays: 6, price: 6290, board: "HB", cap: 5, tags: ["rodzina", "spa", "plaza"], beach: 350, operator: "Itaka", departureCity: "Katowice", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(22), photo: G.es2 },
+  { id: "pl-hipotels-mediterraneo", name: "Hipotels Mediterraneo", country: "Hiszpania", region: "Majorka, Sa Coma", stars: 4, rating: 8.3, reviews: 1560, freshDays: 8, price: 4190, board: "All Inclusive", cap: 3, tags: ["para", "plaza"], beach: 100, operator: "Rainbow", departureCity: "Wrocław", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(25), photo: G.es },
+  { id: "pl-golden-taurus", name: "Golden Taurus Park Resort", country: "Hiszpania", region: "Costa Brava, Pineda de Mar", stars: 4, rating: 7.8, reviews: 2240, freshDays: 9, price: 3290, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza"], beach: 250, operator: "Exim Tours", departureCity: "Poznań", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(20), photo: G.es },
+  { id: "pl-aqua-hotel-montagut", name: "Aqua Hotel Montagut Suites", country: "Hiszpania", region: "Costa Brava, Santa Susanna", stars: 4, rating: 8.2, reviews: 1780, freshDays: 7, price: 3490, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza", "spa"], beach: 300, operator: "Coral Travel", departureCity: "Katowice", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(23), photo: G.es2 },
+  { id: "pl-rh-princesa", name: "RH Princesa Hotel & Spa", country: "Hiszpania", region: "Costa Blanca, Benidorm", stars: 4, rating: 8.0, reviews: 1420, freshDays: 10, price: 3190, board: "HB", cap: 3, tags: ["para", "spa"], beach: 90, operator: "Ecco Holiday", departureCity: "Wrocław", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(21), photo: G.es },
+  { id: "pl-magic-villa-benidorm", name: "Magic Villa Benidorm", country: "Hiszpania", region: "Costa Blanca, Benidorm", stars: 4, rating: 7.9, reviews: 1130, freshDays: 12, price: 2990, board: "All Inclusive", cap: 4, tags: ["rodzina", "impreza"], beach: 400, operator: "Itaka", departureCity: "Gdańsk", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(27), photo: G.es2 },
+  { id: "pl-sol-principe", name: "Sol Principe", country: "Hiszpania", region: "Costa del Sol, Torremolinos", stars: 4, rating: 8.1, reviews: 2610, freshDays: 6, price: 3690, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza"], beach: 50, operator: "TUI", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(19), photo: G.es },
+  { id: "pl-melia-costa-sol", name: "Meliá Costa del Sol", country: "Hiszpania", region: "Costa del Sol, Torremolinos", stars: 4, rating: 8.4, reviews: 1890, freshDays: 8, price: 4090, board: "BB", cap: 3, tags: ["para", "plaza"], beach: 30, operator: "Rainbow", departureCity: "Kraków", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(24), photo: G.es2 },
+
+  // ---------------- GRECJA: WYSPY ----------------
+  { id: "pl-atlantica-mikri", name: "Atlantica Mikri Poli Crete", country: "Grecja", region: "Kreta Wschodnia, Sissi", stars: 4, rating: 8.5, reviews: 2130, freshDays: 5, price: 4690, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza"], beach: 150, operator: "Grecos", departureCity: "Katowice", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(20), photo: G.gr },
+  { id: "pl-messonghi-beach", name: "Messonghi Beach Holiday Resort", country: "Grecja", region: "Korfu, Moraitika", stars: 3, rating: 7.6, reviews: 1980, freshDays: 10, price: 3290, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza"], beach: 60, operator: "Exim Tours", departureCity: "Wrocław", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(21), photo: G.gr },
+  { id: "pl-aeolos-beach", name: "Aeolos Beach Resort", country: "Grecja", region: "Korfu, Perama", stars: 4, rating: 8.0, reviews: 2340, freshDays: 8, price: 3990, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza"], beach: 100, operator: "Coral Travel", departureCity: "Poznań", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(25), photo: G.gr2 },
+  { id: "pl-kipriotis-village", name: "Kipriotis Village Resort", country: "Grecja", region: "Kos, Kardamena", stars: 4, rating: 8.3, reviews: 1620, freshDays: 6, price: 4390, board: "All Inclusive", cap: 4, tags: ["rodzina", "plaza", "spa"], beach: 400, operator: "Grecos", departureCity: "Katowice", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(19), photo: G.gr },
+  { id: "pl-portes-beach", name: "Portes Beach Hotel", country: "Grecja", region: "Chalkidiki, Nea Potidea", stars: 4, rating: 8.6, reviews: 1290, freshDays: 9, price: 4890, board: "HB", cap: 4, tags: ["rodzina", "plaza"], beach: 20, operator: "Rainbow", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(26), photo: G.gr2 },
+
+  // ---------------- BUŁGARIA ----------------
+  { id: "pl-kotva", name: "Kotva Hotel", country: "Bułgaria", region: "Słoneczny Brzeg", stars: 4, rating: 7.5, reviews: 1930, freshDays: 11, price: 2290, board: "All Inclusive", cap: 4, tags: ["rodzina", "impreza"], beach: 200, operator: "Exim Tours", departureCity: "Wrocław", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(22), photo: G.bg },
+  { id: "pl-melia-grand-hermitage", name: "Meliá Grand Hermitage", country: "Bułgaria", region: "Złote Piaski", stars: 5, rating: 8.7, reviews: 3240, freshDays: 5, price: 3890, board: "Ultra All Inclusive", cap: 4, tags: ["rodzina", "spa", "plaza"], beach: 40, operator: "TUI", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(20), photo: G.bg },
+  { id: "pl-admiral-golden", name: "Admiral Hotel", country: "Bułgaria", region: "Złote Piaski", stars: 5, rating: 8.4, reviews: 1580, freshDays: 8, price: 3490, board: "Ultra All Inclusive", cap: 3, tags: ["para", "spa", "plaza"], beach: 60, operator: "Coral Travel", departureCity: "Poznań", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(24), photo: G.bg },
+
+  // ---------------- ALBANIA ----------------
+  { id: "pl-mediterranean-ksamil", name: "Mediterranean Resort Ksamil", country: "Albania", region: "Riwiera Albańska, Ksamil", stars: 4, rating: 8.2, reviews: 740, freshDays: 9, price: 3290, board: "HB", cap: 4, tags: ["rodzina", "plaza"], beach: 80, operator: "Itaka", departureCity: "Warszawa", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(25), photo: G.al },
+  { id: "pl-vlora-international", name: "Vlora International Hotel", country: "Albania", region: "Riwiera Albańska, Wlora", stars: 4, rating: 7.9, reviews: 620, freshDays: 12, price: 2890, board: "BB", cap: 3, tags: ["para", "plaza"], beach: 120, operator: "Exim Tours", departureCity: "Wrocław", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(28), photo: G.al },
+
+  // ---------------- CYPR ----------------
+  { id: "pl-atlantica-aeneas", name: "Atlantica Aeneas Resort", country: "Cypr", region: "Ayia Napa", stars: 5, rating: 8.8, reviews: 1870, freshDays: 7, price: 5890, board: "All Inclusive", cap: 4, tags: ["rodzina", "spa", "plaza"], beach: 300, operator: "Coral Travel", departureCity: "Katowice", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(19), photo: G.cy },
+  { id: "pl-louis-imperial", name: "Louis Imperial Beach", country: "Cypr", region: "Pafos", stars: 3, rating: 7.7, reviews: 1340, freshDays: 10, price: 3790, board: "HB", cap: 3, tags: ["para", "plaza"], beach: 50, operator: "Rainbow", departureCity: "Wrocław", transport: "Samolot", transferIncluded: true, nights: 7, departDate: futureDate(26), photo: G.cy },
+
+  // ---------------- CITY BREAK ----------------
+  // Osobny produkt, nie „wakacje przy plaży": krótszy pobyt (3–4 noce), wyżywienie BB
+  // albo bez, brak plaży (pole `beach` CELOWO nieustawione — to brak danych, nie zero),
+  // transfer zwykle poza ceną. Do 15.08.2026 seed nie miał ani jednej takiej oferty,
+  // choć w realnym portfolio miasta to kilkaset pozycji.
+  { id: "pl-rzym-seven-hills", name: "Seven Hills Village", country: "Włochy", region: "Rzym", stars: 3, rating: 7.5, reviews: 1420, freshDays: 8, price: 1290, board: "BB", cap: 3, tags: ["para"], operator: "Itaka", departureCity: "Warszawa", transport: "Samolot", transferIncluded: false, nights: 3, departDate: futureDate(17), photo: G.ct },
+  { id: "pl-rzym-happy-village", name: "Happy Village & Camping", country: "Włochy", region: "Rzym", stars: 3, rating: 7.2, reviews: 890, freshDays: 13, price: 1190, board: "BB", cap: 4, tags: ["rodzina"], operator: "Exim Tours", departureCity: "Katowice", transport: "Samolot", transferIncluded: false, nights: 3, departDate: futureDate(24), photo: G.ct2 },
+  { id: "pl-barcelona-catalonia", name: "Catalonia Barcelona Plaza", country: "Hiszpania", region: "Barcelona", stars: 4, rating: 8.4, reviews: 2740, freshDays: 6, price: 1890, board: "BB", cap: 3, tags: ["para"], operator: "TUI", departureCity: "Warszawa", transport: "Samolot", transferIncluded: false, nights: 4, departDate: futureDate(20), photo: G.ct },
+  { id: "pl-ateny-marina", name: "Marina Hotel Athens", country: "Grecja", region: "Ateny", stars: 3, rating: 7.6, reviews: 1180, freshDays: 9, price: 1390, board: "BB", cap: 3, tags: ["para"], operator: "Grecos", departureCity: "Katowice", transport: "Samolot", transferIncluded: false, nights: 4, departDate: futureDate(23), photo: G.ct2 },
+  { id: "pl-ateny-delphi-art", name: "Delphi Art Hotel", country: "Grecja", region: "Ateny", stars: 3, rating: 7.8, reviews: 940, freshDays: 11, price: 1490, board: "BB", cap: 2, tags: ["para"], operator: "Ecco Holiday", departureCity: "Wrocław", transport: "Samolot", transferIncluded: false, nights: 3, departDate: futureDate(27), photo: G.ct },
+  { id: "pl-budapeszt-mediterran", name: "Hotel Mediterran", country: "Węgry", region: "Budapeszt", stars: 4, rating: 8.0, reviews: 1310, freshDays: 7, price: 1090, board: "BB", cap: 3, tags: ["para"], operator: "Rainbow", departureCity: "Warszawa", transport: "Samolot", transferIncluded: false, nights: 3, departDate: futureDate(19), photo: G.ct2 },
+  { id: "pl-praga-plus", name: "Plus Prague Hotel", country: "Czechy", region: "Praga", stars: 3, rating: 7.9, reviews: 2180, freshDays: 10, price: 890, board: "BB", cap: 4, tags: ["para", "impreza"], operator: "Itaka", departureCity: "Kraków", transport: "Autokar", transferIncluded: false, nights: 3, departDate: futureDate(21), photo: G.ct },
+  { id: "pl-lizbona-olissippo", name: "Olissippo Saldanha", country: "Portugalia", region: "Lizbona", stars: 4, rating: 8.5, reviews: 1560, freshDays: 8, price: 2190, board: "BB", cap: 3, tags: ["para"], operator: "TUI", departureCity: "Warszawa", transport: "Samolot", transferIncluded: false, nights: 4, departDate: futureDate(25), photo: G.ct2 },
+  { id: "pl-paryz-mercure-bercy", name: "Mercure Paris Bercy", country: "Francja", region: "Paryż", stars: 4, rating: 8.2, reviews: 3120, freshDays: 5, price: 2490, board: "BB", cap: 3, tags: ["para"], operator: "Coral Travel", departureCity: "Warszawa", transport: "Samolot", transferIncluded: false, nights: 4, departDate: futureDate(22), photo: G.ct },
 ];
 
 export const meta = { id: "pl-packages", label: "Oferty PL (demo)", needsKeys: false };
@@ -194,7 +256,12 @@ function deriveAmenities(h) {
   if (h.tags.includes("rodzina") || h.tags.includes("impreza")) a.push("animacje");
   if (h.tags.includes("plaza") && h.beach <= 150) a.push("sporty-wodne");
   if (h.board !== "BB") a.push("basen"); // obiekty all-inclusive/HB niemal zawsze mają basen
-  if (h.stars >= 4) a.push("wifi");
+  // Wi-Fi od 3* — wcześniej próg stał na 4*, przez co hotel miejski 3* ze śniadaniem
+  // nie łapał ANI JEDNEGO udogodnienia i deriveAmenities zwracało `undefined`. To nie
+  // jest to samo co „nie wiemy": tu po prostu heurystyka nie miała czego zaczepić,
+  // a każdy hotel miejski w tym standardzie ma dziś Wi-Fi. Ujawniło się dopiero po
+  // dołożeniu city breaków 15.08 — wcześniej seed miał same kurorty 4–5*.
+  if (h.stars >= 3) a.push("wifi");
   if (h.stars >= 5) a.push("silownia");
   return a.length ? a : undefined;
 }
@@ -267,7 +334,8 @@ const PRZYLOTY = {
   Egipt: ["HRG", "SSH"], Turcja: ["AYT"], Grecja: ["RHO", "HER", "CFU"],
   Hiszpania: ["ALC", "PMI", "AGP"], Tunezja: ["MIR", "DJE"], Cypr: ["PFO", "LCA"],
   Portugalia: ["FAO"], Włochy: ["NAP", "CTA"], Chorwacja: ["SPU", "DBV"],
-  Bułgaria: ["BOJ"], Albania: ["TIA"], Maroko: ["RAK", "AGA"], Malta: ["MLA"],
+  Bułgaria: ["BOJ", "VAR"], Albania: ["TIA"], Maroko: ["RAK", "AGA"], Malta: ["MLA"],
+  Czechy: ["PRG"], Węgry: ["BUD"], Francja: ["CDG", "BVA"], Austria: ["VIE"],
 };
 
 const PRZEWOZNICY = [
