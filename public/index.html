@@ -263,6 +263,10 @@
   .price-per{font-size:12px;color:var(--ink-faint)}
   .price-total{font-size:12.5px;color:var(--ink-soft);margin-top:6px}
   .price-total b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .price-variants{margin-top:4px;padding:0;border:0;background:none;font:inherit;font-size:11.5px;color:var(--accent-deep);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;text-align:right}
+  .price-variants:hover{color:var(--accent)}
+  .price-variants b{font-variant-numeric:tabular-nums}
+  @media (max-width:680px){.price-variants{text-align:left}}
   .card-actions{margin-top:13px;display:flex;flex-direction:column;gap:7px;width:100%}
   @media (max-width:680px){.card-actions{flex-direction:row}}
   .btn-script{padding:9px 12px;font-size:13px;font-weight:600;border-radius:var(--radius-sm);border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;gap:6px;flex:1;text-decoration:none}
@@ -426,6 +430,10 @@
   .tc-price{white-space:nowrap;color:var(--accent-deep);font-weight:700}
   .tc-price small,.tc-total small{font-weight:500;color:var(--ink-faint);font-size:10.5px;margin-left:2px}
   .tc-total{white-space:nowrap;font-weight:650;color:var(--ink)}
+  .tc-var{white-space:nowrap;font-size:12px;color:var(--ink-soft)}
+  .tc-var b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .tc-var-sub{display:block;font-size:10.5px;color:var(--ink-faint)}
+  .tc-var-none{color:var(--ink-faint)}
   .tc-act a{color:var(--accent);text-decoration:none;font-weight:700;font-size:15px}
   .tc-act{white-space:nowrap}
   .tc-eta{text-align:center}.tc-eta .rep-verdict{font-size:12px;padding:2px 8px;font-variant-numeric:tabular-nums}
@@ -771,7 +779,7 @@
         <button class="mr-launch" id="mrLaunch" type="button">👨‍👩‍👧 Wspólny wyjazd</button>
         <div class="view-toggle" id="viewToggle"><button class="vt-opt active" data-view="cards" type="button">▦ Karty</button><button class="vt-opt" data-view="table" type="button">▤ Tabela</button></div>
         <div class="sortbar"><label for="sort">Sortuj:</label><select id="sort">
-          <option value="score">Trafność (rekomendacja)</option><option value="value">Jakość / cena (najlepszy deal)</option><option value="price">Cena rosnąco</option><option value="rating">Ocena malejąco</option><option value="trust">Wiarygodność opinii</option>
+          <option value="score">Trafność (rekomendacja)</option><option value="value">Jakość / cena (najlepszy deal)</option><option value="price">Cena rosnąco</option><option value="total">Cena razem za grupę (rosnąco)</option><option value="rating">Ocena malejąco</option><option value="trust">Wiarygodność opinii</option>
         </select></div>
       </div>
     </div>
@@ -897,6 +905,34 @@
   // oferty, porównywarka, koszyk i wydruk czytały surowe (zerowe w trybie demo)
   // h.priceTotal wprost i pokazywały kreskę albo w ogóle nie pokazywały wiersza.
   function offerTotal(h,pax){var hasT=typeof h.priceTotal==="number"&&h.priceTotal>0;return hasT?h.priceTotal:h.price*Math.max(1,pax||1);}
+  // Suma za grupę dla POJEDYNCZEGO wariantu (patrz h.variants[] — providers/index.js:variantOf).
+  // Ten sam wzór co w zakładce „Terminy i operatorzy" (openDetail), jedno miejsce liczące,
+  // żeby karta/tabela i modal szczegółów nigdy nie pokazały dwóch różnych „najtaniej".
+  function variantSuma(v){return v.priceTotal||v.price*2;}
+  // Ile wariantów (terminów/operatorów) ma obiekt i ile kosztuje najtańszy z nich za grupę.
+  // h.variants zawiera WSZYSTKIE warianty łącznie z tym pokazanym na karcie — stąd „inne"
+  // to length-1. Zwraca null, gdy wariant jest tylko jeden — wtedy nie ma czego pokazywać.
+  function variantInfo(h){
+    var V=h.variants||[];
+    if(V.length<2)return null;
+    var sumy=V.map(variantSuma);
+    return {count:V.length,other:V.length-1,minTotal:Math.min.apply(null,sumy)};
+  }
+  // Polska odmiana: 1 termin, 2-4 terminy, 5+ terminów (z wyjątkiem 12-14 — „12 terminów").
+  function odmTerminow(n){
+    var d=n%10,s=n%100;
+    if(n===1)return "termin";
+    if(d>=2&&d<=4&&!(s>=12&&s<=14))return "terminy";
+    return "terminów";
+  }
+  // Przymiotnik „inny" musi się zgadzać z rzeczownikiem z odmTerminow: „1 inny termin",
+  // „2 inne terminy", „5 innych terminów" — samo odmTerminow tego nie załatwia.
+  function odmInny(n){
+    var d=n%10,s=n%100;
+    if(n===1)return "inny";
+    if(d>=2&&d<=4&&!(s>=12&&s<=14))return "inne";
+    return "innych";
+  }
 
   var activeBoards=[],activeTags=[],activeRegions=[],activeTrans=[],activeCountries=[],activeDeps=[],activeAttrs=[],activeWeekdays=[];
   function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag||b.dataset.trans||b.dataset.dep||b.dataset.attr||b.dataset.wd,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
@@ -1688,7 +1724,7 @@
   // w tym modalu (dodanemu po zauważeniu, że widok Tabela + Szczegóły to ślepy zaułek:
   // nie było stąd jak przejść dalej bez przełączania na widok Karty).
   var detailOfferCtx=null;
-  function openDetail(h){
+  function openDetail(h,tabKey){
     detailOfferCtx=h;
     var intel=destIntelClient(h.region,h.country);
     var pract=practGridHtml(h.country);
@@ -1793,8 +1829,13 @@
       {key:"wyzywienie",label:"Wyżywienie",html:tabWyzywienie},
     ].filter(function(t){return t.html;}); // zakładka bez ani jednego wiersza po prostu nie istnieje
 
-    var tabsNav=TABS.length>1?('<div class="det-tabs" role="tablist">'+TABS.map(function(t,i){return '<button type="button" class="det-tab-btn" role="tab" aria-selected="'+(i===0?"true":"false")+'" data-dtab="'+t.key+'">'+t.label+'</button>';}).join("")+'</div>'):"";
-    var tabsPanels=TABS.map(function(t,i){return '<div class="det-tab-panel'+(i===0?" active":"")+'" data-dpanel="'+t.key+'">'+t.html+'</div>';}).join("");
+    // Zakładka startowa: ta podana przez wywołującego (np. „terminy" z karty wyniku),
+    // o ile faktycznie istnieje (przeżyła filtr wyżej) — inaczej pierwsza z listy jak dotąd.
+    // Hotel z jednym wariantem nie ma zakładki „terminy" wcale, więc spada na pierwszą
+    // dostępną zamiast rzucać wyjątkiem albo pokazywać pusty panel.
+    var activeKey=(tabKey&&TABS.some(function(t){return t.key===tabKey;}))?tabKey:(TABS[0]&&TABS[0].key);
+    var tabsNav=TABS.length>1?('<div class="det-tabs" role="tablist">'+TABS.map(function(t){return '<button type="button" class="det-tab-btn" role="tab" aria-selected="'+(t.key===activeKey?"true":"false")+'" data-dtab="'+t.key+'">'+t.label+'</button>';}).join("")+'</div>'):"";
+    var tabsPanels=TABS.map(function(t){return '<div class="det-tab-panel'+(t.key===activeKey?" active":"")+'" data-dpanel="'+t.key+'">'+t.html+'</div>';}).join("");
 
     // Blok „Kierunek" (Destination Intelligence).
     var kier=intel
@@ -1976,10 +2017,14 @@
         '<td class="tc-eta"><span class="rep-verdict '+etaVerdict(h).c+'" title="'+etaVerdict(h).t+'">'+etaValue(h)+'</span></td>'+
         '<td class="tc-price">'+fmt(h.price)+'<small>zł/os</small></td>'+
         '<td class="tc-total">'+fmt(total)+'<small>zł</small></td>'+
+        // Ile terminów ma obiekt i najtańszy z nich za grupę — dotąd widać to było dopiero
+        // po otwarciu szczegółów, a widok tabeli służy właśnie do porównywania wielu ofert
+        // naraz, więc powinno być widoczne od razu. Patrz variantInfo() przy cardEl.
+        '<td class="tc-var">'+(function(){var vi=variantInfo(h);return vi?('<b>'+vi.count+'</b> '+odmTerminow(vi.count)+'<span class="tc-var-sub">od '+fmt(vi.minTotal)+' zł</span>'):'<span class="tc-var-none">—</span>';})()+'</td>'+
         '<td class="tc-act"><button class="row-det" data-cid="'+h.id+'" title="Szczegóły oferty">ⓘ</button>'+(h.bookingUrl?'<a href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer" title="Przejdź do oferty">↗</a>':'')+'</td></tr>';
     }).join("");
     function th(key,label){var a="";if(tableSort&&tableSort.key===key)a=tableSort.dir>0?" ▲":" ▼";return '<th class="th-sort" data-sort="'+key+'">'+label+a+'</th>';}
-    cardsEl.innerHTML='<div class="table-wrap"><table class="res-table"><thead><tr><th></th>'+th("region","Region")+'<th>Hotel</th>'+th("rating","Ocena")+th("eta","ETA")+th("price","Cena / os.")+th("total","Razem")+'<th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    cardsEl.innerHTML='<div class="table-wrap"><table class="res-table"><thead><tr><th></th>'+th("region","Region")+'<th>Hotel</th>'+th("rating","Ocena")+th("eta","ETA")+th("price","Cena / os.")+th("total","Razem")+'<th>Terminy</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
   // Klik gwiazdki w wierszu tabeli = odłóż/zdejmij z koszyka (delegacja).
   document.getElementById("cards").addEventListener("click",function(e){
@@ -2096,7 +2141,13 @@
           '<div class="card-trust-row"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span>'+(function(){var v=etaVerdict(h);return '<span class="card-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="card-eta-n" title="Ocena wartości za pieniądze (ETA)">ETA '+etaValue(h)+'/100</span></span>';})()+'</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
-        '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+(offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
+        '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+
+          // Inne terminy/operatorzy tego samego obiektu — najważniejsza informacja handlowa,
+          // która do tej pory była schowana o jedno kliknięcie za daleko. Pokazywana tylko
+          // gdy jest co pokazać (żaden „+0"); klik otwiera od razu zakładkę „Terminy
+          // i operatorzy", patrz openDetail(h,tabKey).
+          (function(){var vi=variantInfo(h);return vi?('<button type="button" class="price-variants" data-variants>+'+vi.other+' '+odmInny(vi.other)+' '+odmTerminow(vi.other)+', najtaniej <b>'+fmt(vi.minTotal)+' zł</b> za grupę</button>'):'';})()+
+          (offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
           '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
         '</div>'+
       '</div>'+
@@ -2121,6 +2172,9 @@
     fillScript();
     el.querySelector("[data-toggle]").addEventListener("click",function(){sDrawer.classList.toggle("open");if(pDrawer)pDrawer.classList.remove("open");});
     el.querySelector("[data-detail]").addEventListener("click",function(){openDetail(h);});
+    // Osobny atrybut niż [data-detail] celowo: querySelector łapie tylko PIERWSZY pasujący
+    // element, więc wspólny atrybut sprawiłby, że oba przyciski otwierałyby tę samą zakładkę.
+    var viBtn=el.querySelector("[data-variants]");if(viBtn)viBtn.addEventListener("click",function(){openDetail(h,"terminy");});
     var pBtn=el.querySelector("[data-pract]");if(pBtn)pBtn.addEventListener("click",function(){pDrawer.classList.toggle("open");sDrawer.classList.remove("open");});
     var noBtn=el.querySelector("[data-copyno]");if(noBtn)noBtn.addEventListener("click",function(){var nn=noBtn.getAttribute("data-copyno");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(nn).then(function(){toast("Skopiowano nr oferty: "+nn+" ✓");},function(){fallbackCopy(nn);});else fallbackCopy(nn);});
     var cartBtnCard=el.querySelector("[data-cart]");if(cartBtnCard)cartBtnCard.addEventListener("click",function(){var added=toggleCart(h);syncCardButtons();toast(added?"Dodano do koszyka ✓":"Usunięto z koszyka");});

@@ -103,6 +103,30 @@ test("sortowanie działa w każdym trybie", () => {
   assert.equal(list[0].id, "a");
 });
 
+test("sortowanie po sumie za grupę odwraca kolejność, gdy tańsza „od” nie jest tańsza razem", () => {
+  // Scenariusz z docs/struktura-oferty-pakietowej.md: operator B ma wyższą cenę za osobę
+  // (promocja „druga osoba za symboliczną kwotę”), ale niższą sumę. Sortowanie po cenie/os.
+  // stawia go na drugim miejscu, po sumie — na pierwszym. To jest cały powód istnienia
+  // tego trybu: konsultant sprzedaje wyjazd parze, nie jednej osobie.
+  const tanszaZaOsobe = scoreOffer(offer({ id: "operator-a", price: 5349, priceTotal: 10698 }), {});
+  const drozszaZaOsobeTanszaRazem = scoreOffer(offer({ id: "operator-b", price: 9101, priceTotal: 10521 }), {});
+  const list = [tanszaZaOsobe, drozszaZaOsobeTanszaRazem];
+
+  assert.equal(sortOffers(list, "price")[0].id, "operator-a");
+  assert.equal(sortOffers(list, "total")[0].id, "operator-b");
+  assert.equal(list[0].id, "operator-a", "sortowanie nie może modyfikować wejścia");
+});
+
+test("sortowanie po sumie liczy fallback cena/os. × pax, gdy dostawca nie poda priceTotal", () => {
+  // packages.js (dane demo) nie ustawia priceTotal — bez fallbacku tryb „total”
+  // sortowałby po samych zerach i nie różniłby się niczym od kolejności wejściowej.
+  const drozsza = scoreOffer(offer({ id: "drozsza", price: 2000, priceTotal: 0 }), {});
+  const tansza = scoreOffer(offer({ id: "tansza", price: 1200, priceTotal: 0 }), {});
+  assert.equal(sortOffers([drozsza, tansza], "total", 3)[0].id, "tansza");
+  // Bez podanego pax mnożnik schodzi do 1 — kolejność ma zostać ta sama, nie wywalić się.
+  assert.equal(sortOffers([drozsza, tansza], "total")[0].id, "tansza");
+});
+
 test("normalizacja nazw radzi sobie z polskimi znakami i spacjami", () => {
   assert.equal(normalizeName("Dżerba"), "dzerba");
   assert.equal(normalizeName("  Blue   Lagoon "), "blue lagoon");

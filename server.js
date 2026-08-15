@@ -298,7 +298,7 @@ app.get("/api/search", async (req, res) => {
     const { offers, sources } = await searchAll(crit);
     const filtered = applyFilters(offers, crit);
     const scored = filtered.map((o) => scoreOffer(o, crit));
-    const sorted = sortOffers(scored, crit.sort);
+    const sorted = sortOffers(scored, crit.sort, crit.pax);
 
     // attrs: ile wyników POTWIERDZA każdy wybrany atrybut, a ile przeszło z braku
     // danych. Panel może dzięki temu napisać wprost „93 potwierdzone, 30 bez danych”

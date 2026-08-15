@@ -93,10 +93,24 @@ export function scoreOffer(offer, crit) {
   return { ...offer, score, trust: t, adjRating, valueScore };
 }
 
-export function sortOffers(list, mode) {
+// Suma za CAŁĄ GRUPĘ: priceTotal dostawcy, jeśli jest, inaczej cena/os. × liczba osób —
+// dokładnie ten sam wzór co offerTotal() we froncie (public/index.html), żeby sortowanie
+// po sumie i wyświetlana suma nigdy się nie rozjechały.
+function offerGroupTotal(offer, pax) {
+  const hasTotal = typeof offer.priceTotal === "number" && offer.priceTotal > 0;
+  return hasTotal ? offer.priceTotal : offer.price * Math.max(1, pax || 1);
+}
+
+// `pax` (liczba osób z kryteriów wyszukiwania) jest potrzebny tylko dla trybu "total" —
+// część operatorów stosuje promocje typu „druga osoba za symboliczną kwotę", więc oferta
+// droższa za osobę bywa tańsza w sumie dla grupy (patrz docs/struktura-oferty-pakietowej.md).
+// Sortowanie po cenie/os. potrafi wtedy postawić na pierwszym miejscu ofertę, która dla
+// pary jest droższa — stąd osobny tryb.
+export function sortOffers(list, mode, pax) {
   const arr = list.slice();
   arr.sort((a, b) => {
     if (mode === "price") return a.price - b.price;
+    if (mode === "total") return offerGroupTotal(a, pax) - offerGroupTotal(b, pax);
     if (mode === "value") return (b.valueScore || 0) - (a.valueScore || 0);
     if (mode === "rating") return b.rating - a.rating;
     if (mode === "trust") return b.trust - a.trust;

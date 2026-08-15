@@ -265,7 +265,7 @@ test("cena łączna za grupę liczy się jednym wspólnym wzorem (offerTotal), n
   // \r?\n, nie \n — index.html ma końce linii CRLF, więc regex zakotwiczony na samym
   // \n nie łapie tu nic na Windowsie (a na Linuksie łapie — test przechodziłby zależnie
   // od tego, gdzie go uruchomisz).
-  const detailFn = html.match(/function openDetail\(h\)\{[\s\S]*?var naglowek=[\s\S]*?;\r?\n/)?.[0] || "";
+  const detailFn = html.match(/function openDetail\(h,tabKey\)\{[\s\S]*?var naglowek=[\s\S]*?;\r?\n/)?.[0] || "";
   assert.ok(detailFn, "brak funkcji openDetail lub zmieniła kształt — nie znaleziono bloku naglowek");
   assert.match(detailFn, /row\("Razem \(orientacyjnie\)",fmt\(offerTotal\(h,paxCount\(\)\)\)/,
     "openDetail znowu czyta h.priceTotal wprost — w trybie demo wiersz Razem zniknie");
@@ -379,4 +379,137 @@ test("filtr wyżywienia ma chip dla najliczniejszej realnej kategorii, spójny z
   assert.ok(blok, "nie znaleziono bloku #boardChips");
   assert.equal((blok.match(/data-board="/g) || []).length, 5,
     "spodziewane 5 chipów wyżywienia (AI, Ultra AI, HB, BB, Bez wyżywienia)");
+});
+
+// ============================================================
+//  Warianty widoczne na liście, nie tylko po kliknięciu w ofertę.
+//
+//  Backend dokłada h.variants[] do każdej oferty, ale przez pewien czas czytała je
+//  WYŁĄCZNIE zakładka „Terminy i operatorzy" w modalu szczegółów — konsultant musiał
+//  kliknąć w każdą ofertę osobno, żeby się dowiedzieć, że są inne terminy. Ten blok
+//  pilnuje, żeby ta informacja została na karcie i w tabeli, bez dodatkowego kliku.
+// ============================================================
+
+test("variantInfo liczy inne terminy i najtańszą sumę za grupę, a odmiana się zgadza", () => {
+  const html = wczytaj("public/index.html");
+
+  const sumaFn = html.match(/function variantSuma\(v\)\{.*?\}/)?.[0] || "";
+  const infoFn = html.match(/function variantInfo\(h\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const odmFn = html.match(/function odmTerminow\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const odmInnyFn = html.match(/function odmInny\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(sumaFn, "brak funkcji variantSuma — zmieniła nazwę/sygnaturę?");
+  assert.ok(infoFn, "brak funkcji variantInfo — zmieniła nazwę/sygnaturę?");
+  assert.ok(odmFn, "brak funkcji odmTerminow — zmieniła nazwę/sygnaturę?");
+  assert.ok(odmInnyFn, "brak odmInny — przymiotnik przy karcie przestanie się zgadzać z rzeczownikiem");
+
+  const { variantInfo, odmTerminow, odmInny } = new Function(
+    sumaFn + "\n" + infoFn + "\n" + odmFn + "\n" + odmInnyFn + "\nreturn {variantInfo, odmTerminow, odmInny};"
+  )();
+
+  assert.equal(variantInfo({ variants: [{ price: 3000, priceTotal: 6000 }] }), null,
+    "variantInfo zwraca dane przy jednym wariancie — karta pokazałaby „+0 innych”");
+  assert.equal(variantInfo({}), null, "variantInfo nie radzi sobie z ofertą bez pola variants");
+
+  // Trzy warianty jak w docs/struktura-oferty-pakietowej.md: cena za osobę NIE jest
+  // monotoniczna względem sumy (promocja „druga osoba taniej”), więc najtańsza suma
+  // musi wyjść z minimum po sumach, a nie z pierwszego czy ostatniego wariantu.
+  const vi = variantInfo({
+    variants: [
+      { price: 5349, priceTotal: 10698 },
+      { price: 5299, priceTotal: 10598 },
+      { price: 9101, priceTotal: 10521 }, // drożej za osobę, taniej razem
+    ],
+  });
+  assert.ok(vi, "variantInfo zwróciła null dla trzech wariantów");
+  assert.equal(vi.count, 3);
+  assert.equal(vi.other, 2, "„inne” to wszystkie warianty minus ten pokazany na karcie");
+  assert.equal(vi.minTotal, 10521, "najtańsza suma ma wyjść z minimum sum, nie z pierwszego wariantu");
+
+  const bezTotal = variantInfo({ variants: [{ price: 100 }, { price: 200, priceTotal: 0 }] });
+  assert.equal(bezTotal.minTotal, 200, "fallback price*2 nie zadziałał dla wariantu bez priceTotal");
+
+  assert.equal(odmTerminow(1), "termin");
+  assert.equal(odmTerminow(2), "terminy");
+  assert.equal(odmTerminow(5), "terminów");
+  assert.equal(odmTerminow(12), "terminów");
+  assert.equal(odmTerminow(22), "terminy");
+
+  // Przymiotnik musi się zgadzać z rzeczownikiem przy KAŻDEJ z tych liczb —
+  // „1 inne termin” albo „5 inne terminów” to błąd widoczny dla konsultanta.
+  const formy = { 1: "inny termin", 2: "inne terminy", 4: "inne terminy", 5: "innych terminów", 12: "innych terminów", 22: "inne terminy" };
+  for (const [n, oczekiwane] of Object.entries(formy)) {
+    const fraza = odmInny(+n) + " " + odmTerminow(+n);
+    assert.equal(fraza, oczekiwane, `dla ${n} spodziewano się „${oczekiwane}”, wyszło „${fraza}”`);
+  }
+});
+
+test("karta pokazuje inne terminy tylko gdy są, i otwiera od razu zakładkę „terminy”", () => {
+  const html = wczytaj("public/index.html");
+
+  const cardFn = html.match(/function cardEl\(h,i,n,pax\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(cardFn, "brak funkcji cardEl — zmieniła nazwę/sygnaturę?");
+  assert.match(cardFn, /variantInfo\(h\)/, "cardEl nie liczy variantInfo — informacja o terminach znikła z karty");
+  assert.match(cardFn, /var vi=variantInfo\(h\);return vi\?/,
+    "cardEl nie sprawdza, czy jest co pokazać — przy jednym wariancie wyświetli „+0”");
+  assert.match(cardFn, /data-variants/, "brak klikalnego elementu z informacją o innych terminach");
+  assert.match(cardFn, /odmInny\(vi\.other\)\+' '\+odmTerminow\(vi\.other\)/,
+    "karta wkleja „inne” na sztywno — przy jednym innym terminie wyjdzie błąd gramatyczny");
+  assert.match(cardFn, /openDetail\(h,"terminy"\)/,
+    "klik w „inne terminy” nie otwiera zakładki terminów w szczegółach");
+
+  // Pułapka kontrolna: gdyby oba przyciski dostały ten sam atrybut, querySelector
+  // złapałby tylko pierwszy i obydwa otwierałyby tę samą zakładkę.
+  const wywolania = cardFn.match(/openDetail\([^)]*\)/g) || [];
+  assert.ok(wywolania.includes("openDetail(h)") && wywolania.includes('openDetail(h,"terminy")'),
+    "spodziewano się dwóch różnych wywołań openDetail — zwykłego i z zakładką terminy");
+});
+
+test("openDetail przyjmuje zakładkę startową i waliduje ją względem istniejących", () => {
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /function openDetail\(h,tabKey\)\{/,
+    "openDetail nie przyjmuje drugiego argumentu z kluczem zakładki");
+  assert.match(html, /var activeKey=\(tabKey&&TABS\.some\(function\(t\)\{return t\.key===tabKey;\}\)\)\?tabKey:\(TABS\[0\]&&TABS\[0\]\.key\)/,
+    "openDetail nie sprawdza, czy żądana zakładka w ogóle istnieje — oferta z jednym wariantem nie ma zakładki „terminy”");
+  assert.match(html, /aria-selected="'\+\(t\.key===activeKey\?"true":"false"\)\+'"/,
+    "nagłówki zakładek nie czytają aktywności z activeKey — zakładka startowa przestanie działać");
+  assert.match(html, /class="det-tab-panel'\+\(t\.key===activeKey\?" active":""\)\+'"/,
+    "panele nie czytają aktywności z activeKey — treść startowej zakładki się nie pokaże");
+});
+
+test("widok tabeli ma kolumnę „Terminy”, a nagłówki i komórki się nie rozjeżdżają", () => {
+  const html = wczytaj("public/index.html");
+
+  const fn = html.match(/function renderTable\(list,n,pax\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji renderTable — zmieniła nazwę/sygnaturę?");
+  assert.match(fn, /variantInfo\(h\)/, "renderTable nie liczy variantInfo — brak danych o terminach w tabeli");
+  assert.match(fn, /<th>Terminy<\/th>/, "brak nagłówka kolumny „Terminy”");
+
+  // Nagłówek to mieszanka literalnych <th> i wywołań pomocniczego th(key,label)
+  // dla kolumn sortowalnych — liczenie samych "<th" dałoby wynik mniejszy niż liczba
+  // kolumn i test przepuściłby rozjechaną tabelę.
+  const theadMatch = fn.match(/<thead><tr>([\s\S]*?)<\/tr><\/thead>/);
+  assert.ok(theadMatch, "nie znaleziono <thead> w renderTable");
+  const naglowek = theadMatch[1];
+  const liczbaTh = (naglowek.match(/<th/g) || []).length + (naglowek.match(/\bth\(/g) || []).length;
+
+  const rowsBlock = fn.match(/var rows=list\.map\(function\(h,i\)\{[\s\S]*?\n    \}\)\.join\(""\);/)?.[0] || "";
+  assert.ok(rowsBlock, "nie znaleziono budowy wierszy tabeli (var rows=...)");
+  const liczbaTd = (rowsBlock.match(/<td class="tc-/g) || []).length;
+
+  assert.equal(liczbaTh, liczbaTd,
+    `liczba nagłówków (${liczbaTh}) i komórek (${liczbaTd}) w tabeli wyników się rozjechała`);
+});
+
+test("sortowanie po sumie za grupę istnieje i liczy tym samym wzorem co offerTotal", () => {
+  const html = wczytaj("public/index.html");
+  const server = wczytaj("server.js");
+  const ranking = wczytaj("src/ranking.js");
+
+  assert.match(html, /<option value="total">Cena razem za grupę \(rosnąco\)<\/option>/,
+    "brak opcji sortowania po sumie za grupę w #sort");
+  assert.match(server, /sortOffers\(scored, crit\.sort, crit\.pax\)/,
+    "server.js nie przekazuje liczby osób do sortOffers — tryb „total” policzy złą sumę");
+  assert.match(ranking, /if \(mode === "total"\) return offerGroupTotal\(a, pax\) - offerGroupTotal\(b, pax\);/,
+    "sortOffers zgubił tryb „total” albo przestał liczyć przez offerGroupTotal");
 });
