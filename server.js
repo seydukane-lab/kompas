@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
-import { applyFilters, scoreOffer, sortOffers, attributeCoverage, unknownAttrs } from "./src/ranking.js";
+import { applyFilters, promoteMatchingVariant, scoreOffer, sortOffers, attributeCoverage, unknownAttrs } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
@@ -297,7 +297,11 @@ app.get("/api/search", async (req, res) => {
 
     const { offers, sources } = await searchAll(crit);
     const filtered = applyFilters(offers, crit);
-    const scored = filtered.map((o) => scoreOffer(o, crit));
+    // Reprezentanta przestawiamy na wariant, przez który oferta faktycznie przeszła
+    // filtr (patrz ranking.js:promoteMatchingVariant) — PRZED scoreOffer, żeby ranking
+    // i cena liczyły się już na właściwym terminie, nie na przypadkowym reprezentancie.
+    const promoted = filtered.map((o) => promoteMatchingVariant(o, crit));
+    const scored = promoted.map((o) => scoreOffer(o, crit));
     const sorted = sortOffers(scored, crit.sort, crit.pax);
 
     // attrs: ile wyników POTWIERDZA każdy wybrany atrybut, a ile przeszło z braku

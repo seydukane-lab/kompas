@@ -257,6 +257,71 @@ export function hasAttribute(offer, key) {
   return undefined;
 }
 
+// Warunki filtrów pakietowych w KOLEJNOŚCI zgodnej z applyFilters — ta sama logika
+// dopasowania wariantu (departures/departure, transports, weekdays), żeby
+// promoteMatchingVariant wybierał spośród dokładnie tych wariantów, przez które
+// oferta w ogóle przeszła filtr. Zwraca [] gdy żaden filtr pakietowy nie jest aktywny.
+function activeVariantPredicates(crit) {
+  const preds = [];
+  if (crit.departures && crit.departures.length) {
+    preds.push((v) => crit.departures.includes(v.departureCity));
+  } else if (crit.departure) {
+    preds.push((v) => v.departureCity === crit.departure);
+  }
+  if (crit.transports && crit.transports.length) {
+    preds.push((v) => crit.transports.includes(v.transport));
+  }
+  if (crit.weekdays && crit.weekdays.length) {
+    preds.push((v) => v.departDate && crit.weekdays.includes(new Date(`${v.departDate}T00:00:00`).getDay()));
+  }
+  return preds;
+}
+
+// Pola WARIANTU (konkretnego terminu/lotu) — dane HOTELU (nazwa, kraj, region,
+// gwiazdki, ocena, plaża, zdjęcia...) tu celowo nie występują i zostają nietknięte.
+const VARIANT_FIELDS = [
+  "departureCity", "departureCode", "arrivalCode", "departDate", "returnDate",
+  "price", "priceTotal", "operator", "carrier", "flightNo", "board",
+  "nights", "days", "seatsLeft", "transport",
+];
+
+// Po applyFilters oferta na liście PASUJE do filtrów pakietowych (patrz
+// matchesAnyVariant), ale reprezentant wybrany przez dedupeOffers() bywa INNYM
+// wariantem niż ten, który faktycznie pasował. Efekt: konsultant zaznacza
+// „Wylot z: Katowice", dostaje hotel na liście — i widzi na karcie „Wylot:
+// Warszawa" plus cenę tamtego wariantu. Oferta jest, ale opisana nie tym, o co
+// pytał konsultant. Zmierzone na seedzie demo: z 56 hoteli pasujących do „Wylot
+// z: Katowice" aż 37 pokazywało na reprezentancie inne miasto wylotu.
+//
+// promoteMatchingVariant przestawia pola WIERZCHNIE oferty na NAJTAŃSZY (po sumie
+// za grupę — patrz offerGroupTotal) wariant spełniający WSZYSTKIE aktywne filtry
+// pakietowe NARAZ. Gdy żaden filtr pakietowy nie jest aktywny, albo żaden wariant
+// nie spełnia ich wszystkich jednocześnie, oferta wraca nietknięta — nie ma
+// jednoznacznego wariantu, na który dałoby się bezpiecznie przestawić.
+// h.variants ZOSTAJE kompletną listą (konsultant dalej widzi wszystkie terminy
+// w zakładce „Terminy i operatorzy") — podmieniane są tylko pola na wierzchu oferty.
+export function promoteMatchingVariant(offer, crit) {
+  if (offer.type !== "package") return offer;
+  if (!offer.variants || offer.variants.length < 2) return offer;
+
+  const preds = activeVariantPredicates(crit);
+  if (!preds.length) return offer;
+
+  const matching = offer.variants.filter((v) => preds.every((p) => p(v)));
+  if (!matching.length) return offer;
+
+  let best = matching[0];
+  let bestTotal = offerGroupTotal(best, crit.pax);
+  for (let i = 1; i < matching.length; i++) {
+    const total = offerGroupTotal(matching[i], crit.pax);
+    if (total < bestTotal) { best = matching[i]; bestTotal = total; }
+  }
+
+  const promoted = { ...offer };
+  for (const key of VARIANT_FIELDS) promoted[key] = best[key];
+  return promoted;
+}
+
 // Filtrowanie po kryteriach (wspólne dla wszystkich dostawców).
 export function applyFilters(list, crit) {
   // Wyszukiwanie po NAZWIE hotelu jest dominujące: gdy podano nazwę,

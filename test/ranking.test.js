@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs,
 } from "../src/ranking.js";
 import { mapBoard } from "../src/providers/hotelbeds.js";
 
@@ -137,6 +137,117 @@ test("filtr wylotu patrzy na WSZYSTKIE warianty obiektu, nie tylko na reprezenta
   const samNocleg = offer({ id: "hotel-only", type: "hotel", departureCity: undefined, variants: [] });
   assert.equal(applyFilters([samNocleg], { departures: ["Katowice"] }).length, 0,
     "oferta bez lotu nie może przechodzić filtru miasta wylotu");
+});
+
+// Hotel z trzema wariantami: reprezentant (Warszawa) NIE pasuje do filtru „Wylot z:
+// Katowice", ale dwa inne warianty pasują — droższy w sumie i tańszy w sumie.
+// Współdzielony przez testy promoteMatchingVariant, żeby nie powielać danych.
+function hotelZWariantami() {
+  return offer({
+    id: "wielolotniskowy",
+    name: "Rixos Premium Belek",
+    country: "Turcja",
+    stars: 5,
+    rating: 9.1,
+    beach: 80,
+    photos: ["https://przyklad.pl/zdjecie.jpg"],
+    departureCity: "Warszawa",
+    departureCode: "WAW",
+    arrivalCode: "AYT",
+    price: 4000,
+    priceTotal: 8000,
+    operator: "TUI",
+    carrier: "LOT",
+    flightNo: "LO123",
+    board: "HB",
+    nights: 7,
+    days: 8,
+    seatsLeft: 5,
+    departDate: "2026-09-07",
+    returnDate: "2026-09-14",
+    variants: [
+      {
+        departureCity: "Warszawa", departureCode: "WAW", arrivalCode: "AYT", transport: "Samolot",
+        price: 4000, priceTotal: 8000, operator: "TUI", carrier: "LOT", flightNo: "LO123",
+        board: "HB", nights: 7, days: 8, seatsLeft: 5, departDate: "2026-09-07", returnDate: "2026-09-14",
+      },
+      {
+        // droższa w sumie mimo pozornie zbliżonej ceny/os. — sortowanie musi patrzeć na priceTotal
+        departureCity: "Katowice", departureCode: "KTW", arrivalCode: "AYT", transport: "Samolot",
+        price: 3800, priceTotal: 9000, operator: "Coral Travel", carrier: "Ryanair", flightNo: "FR789",
+        board: "AI", nights: 7, days: 8, seatsLeft: 1, departDate: "2026-09-10", returnDate: "2026-09-17",
+      },
+      {
+        // najtańsza w sumie spośród pasujących do Katowic — TA ma zostać reprezentantem
+        departureCity: "Katowice", departureCode: "KTW", arrivalCode: "AYT", transport: "Samolot",
+        price: 3500, priceTotal: 7000, operator: "Itaka", carrier: "Enter Air", flightNo: "ENT456",
+        board: "AI", nights: 7, days: 8, seatsLeft: 2, departDate: "2026-09-09", returnDate: "2026-09-16",
+      },
+    ],
+  });
+}
+
+test("promoteMatchingVariant: bez aktywnego filtru pakietowego nic się nie zmienia", () => {
+  const hotel = hotelZWariantami();
+  const out = promoteMatchingVariant(hotel, {});
+  assert.equal(out, hotel, "brak filtrów pakietowych = ta sama oferta (nawet ta sama referencja)");
+  assert.equal(out.departureCity, "Warszawa");
+});
+
+test("promoteMatchingVariant: przy aktywnym filtrze wybiera NAJTAŃSZY pasujący wariant po sumie za grupę", () => {
+  const hotel = hotelZWariantami();
+  const out = promoteMatchingVariant(hotel, { departures: ["Katowice"], pax: 2 });
+
+  // Wariant za 9000 pasuje też do Katowic, ale wariant za 7000 jest tańszy w sumie — ten ma wygrać.
+  assert.equal(out.departureCity, "Katowice");
+  assert.equal(out.priceTotal, 7000);
+  assert.equal(out.price, 3500);
+  assert.equal(out.operator, "Itaka");
+  assert.equal(out.carrier, "Enter Air");
+  assert.equal(out.flightNo, "ENT456");
+  assert.equal(out.board, "AI");
+  assert.equal(out.seatsLeft, 2);
+  assert.equal(out.departDate, "2026-09-09");
+  assert.equal(out.returnDate, "2026-09-16");
+  assert.equal(out.departureCode, "KTW");
+});
+
+test("promoteMatchingVariant: nie rusza danych HOTELU, tylko pola wariantu", () => {
+  const hotel = hotelZWariantami();
+  const out = promoteMatchingVariant(hotel, { departures: ["Katowice"], pax: 2 });
+  assert.equal(out.name, "Rixos Premium Belek");
+  assert.equal(out.country, "Turcja");
+  assert.equal(out.stars, 5);
+  assert.equal(out.rating, 9.1);
+  assert.equal(out.beach, 80);
+  assert.deepEqual(out.photos, ["https://przyklad.pl/zdjecie.jpg"]);
+});
+
+test("promoteMatchingVariant: h.variants zostaje kompletną listą (wszystkie terminy)", () => {
+  const hotel = hotelZWariantami();
+  const out = promoteMatchingVariant(hotel, { departures: ["Katowice"], pax: 2 });
+  assert.equal(out.variants.length, 3, "konsultant ma dalej widzieć wszystkie warianty w zakładce");
+  assert.deepEqual(out.variants, hotel.variants);
+});
+
+test("promoteMatchingVariant: oferty bez wariantów (np. Hotelbeds) przechodzą bez zmian", () => {
+  const bezWariantow = offer({ id: "hb", source: "Hotelbeds", departureCity: "Warszawa" });
+  delete bezWariantow.variants;
+  const out1 = promoteMatchingVariant(bezWariantow, { departures: ["Katowice"], pax: 2 });
+  assert.equal(out1, bezWariantow, "brak pola variants = oferta wraca nietknięta");
+
+  const jedenWariant = offer({
+    id: "jw", departureCity: "Warszawa",
+    variants: [{ departureCity: "Warszawa", transport: "Samolot" }],
+  });
+  const out2 = promoteMatchingVariant(jedenWariant, { departures: ["Katowice"], pax: 2 });
+  assert.equal(out2, jedenWariant, "jeden wariant = nie ma z czego wybierać, oferta wraca nietknięta");
+});
+
+test("promoteMatchingVariant: oferta typu hotel (bez lotu) przechodzi bez zmian", () => {
+  const hotelOnly = offer({ id: "ho", type: "hotel", departureCity: "", variants: [] });
+  const out = promoteMatchingVariant(hotelOnly, { departures: ["Katowice"], pax: 2 });
+  assert.equal(out, hotelOnly);
 });
 
 test("sortowanie po sumie za grupę odwraca kolejność, gdy tańsza „od” nie jest tańsza razem", () => {
