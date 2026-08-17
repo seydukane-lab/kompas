@@ -2457,6 +2457,39 @@
     var m=MIESIACE_PL[Number(cz[1])-1];
     return m?(m+" "+cz[0]):PRACT_UPDATED;
   }
+  /* ---------- Focus w oknach modalnych ----------
+     Panel jest narzędziem pracy na całą zmianę i sporo osób prowadzi go klawiaturą.
+     Modale mają role="dialog", ale po otwarciu focus zostawał na tle — czyli Tab
+     wędrował po elementach POD modalem, a czytnik ekranu w ogóle nie ogłaszał, że
+     coś się otworzyło. Po zamknięciu focus również przepadał, zamiast wrócić do
+     przycisku, którym konsultant modal otworzył.
+
+     Obsługa jest CENTRALNA (obserwator atrybutu `hidden`), bo modale otwierane są
+     w kilkunastu miejscach przez `hidden=false` — dopisywanie tego przy każdym
+     wywołaniu skończyłoby się tym, że któreś zostanie pominięte. */
+  (function(){
+    var poprzedniFocus=null;
+    function pilnujFocusu(m){
+      new MutationObserver(function(){
+        var panel=m.querySelector('[role="dialog"]')||m;
+        if(!m.hidden){
+          poprzedniFocus=document.activeElement;
+          panel.setAttribute("aria-modal","true");
+          var cel=m.querySelector(".cmp-head h3, .cart-head h3")||panel;
+          if(!cel.hasAttribute("tabindex"))cel.setAttribute("tabindex","-1");
+          cel.focus({preventScroll:true});
+        } else {
+          panel.removeAttribute("aria-modal");
+          // Wracamy tam, skąd konsultant wszedł — o ile ten element nadal istnieje
+          // (lista wyników potrafi się w międzyczasie przerenderować).
+          if(poprzedniFocus&&document.contains(poprzedniFocus))poprzedniFocus.focus({preventScroll:true});
+          poprzedniFocus=null;
+        }
+      }).observe(m,{attributes:true,attributeFilter:["hidden"]});
+    }
+    document.querySelectorAll(".cmp-modal, #cartDrawer").forEach(pilnujFocusu);
+  })();
+
   function praktStopka(){
     var data=praktDataTekst();
     var stare=PRACT_WIEK>=6

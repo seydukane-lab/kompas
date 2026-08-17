@@ -666,6 +666,29 @@ test("przy zerze wyników panel podpowiada, który filtr zdjąć, i pozwala to z
 //  All Inclusive i HB — więc oferta BEZ danych o wyżywieniu i oferta z jawnym
 //  „bez wyżywienia" (Hotelbeds RO) dostawały to samo zdanie: „Śniadania w cenie".
 // ============================================================
+// Panel jest narzędziem pracy na całą zmianę i sporo osób prowadzi go klawiaturą.
+// Modale mają role="dialog", ale po otwarciu focus zostawał na tle: Tab wędrował
+// po elementach POD modalem, a czytnik ekranu nie ogłaszał, że coś się otworzyło.
+test("otwarcie modala przenosi focus do środka, a zamknięcie oddaje go z powrotem", () => {
+  const html = wczytaj("public/index.html");
+  const blok = html.match(/function pilnujFocusu\(m\)\{[\s\S]*?\n    \}/)?.[0] || "";
+  assert.ok(blok, "brak centralnej obsługi focusu w modalach");
+
+  assert.match(blok, /MutationObserver/,
+    "focus obsługiwany przy każdym wywołaniu zamiast centralnie — któreś okno zostanie pominięte");
+  assert.match(blok, /attributeFilter:\["hidden"\]/, "obserwator nie patrzy na atrybut hidden");
+  assert.match(blok, /poprzedniFocus=document\.activeElement/, "nie zapamiętujemy, skąd konsultant wszedł");
+  assert.match(blok, /panel\.setAttribute\("aria-modal","true"\)/, "brak aria-modal przy otwarciu");
+  assert.match(blok, /panel\.removeAttribute\("aria-modal"\)/, "aria-modal zostaje po zamknięciu");
+  assert.match(blok, /cel\.focus\(\{preventScroll:true\}\)/, "focus nie trafia do wnętrza modala");
+  assert.match(blok, /document\.contains\(poprzedniFocus\)/,
+    "powrót focusu bez sprawdzenia, czy element nadal istnieje — lista wyników bywa przerenderowana");
+
+  // Mechanizm musi obejmować wszystkie okna, łącznie z szufladą koszyka.
+  assert.match(html, /document\.querySelectorAll\("\.cmp-modal, #cartDrawer"\)\.forEach\(pilnujFocusu\)/,
+    "obsługa focusu nie obejmuje wszystkich okien modalnych");
+});
+
 test("front dopasowuje wiedzę o kierunku po całym słowie, tak samo jak backend", () => {
   const html = wczytaj("public/index.html");
   const fn = html.match(/function pasujeKluczIntel\(hay,klucz\)\{[\s\S]*?\n  \}/)?.[0] || "";
