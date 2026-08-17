@@ -101,14 +101,18 @@ const COUNTRY_PL = {
   bulgaria: "Bułgaria", bułgaria: "Bułgaria", albania: "Albania", cypr: "Cypr",
 };
 
-function normalize(o) {
+export function normalize(o) {
   const name = pick(o, "hotelName", "hotel", "nazwa", "name", "title");
   const priceRaw = Number(pick(o, "price", "cena", "priceTotal", "pricePerPerson")) || 0;
   if (!name || !priceRaw) return null; // bez nazwy/ceny oferta jest bezużyteczna
 
   const countryRaw = String(pick(o, "country", "kraj", "destinationCountry") || "");
   const country = COUNTRY_PL[countryRaw.toLowerCase()] || countryRaw;
-  const stars = Number(String(pick(o, "stars", "category", "kategoria", "gwiazdki") || "3").replace(/\D/g, "")) || 3;
+  // Brak kategorii to BRAK DANYCH, nie „trzy gwiazdki" — ta sama zasada co w
+  // mapStars() z hotelbeds.js. Domyślne 3★ trafiały wprost na kartę i do filtra
+  // kategorii jako fakt o hotelu, którego nikt nie potwierdził.
+  const starsRaw = Number(String(pick(o, "stars", "category", "kategoria", "gwiazdki") || "").replace(/\D/g, ""));
+  const stars = starsRaw >= 1 && starsRaw <= 5 ? starsRaw : undefined;
   const rating = Number(pick(o, "rating", "ocena", "opinion")) || 0;
   const photo = pick(o, "photo", "image", "zdjecie", "imageUrl", "photoUrl") || "";
 
@@ -120,18 +124,28 @@ function normalize(o) {
     country,
     region: String(pick(o, "region", "resort", "city", "miasto", "destination") || ""),
     stars,
-    rating: rating || Math.min(9.5, 6 + stars * 0.6),
+    // Ocena szacowana z kategorii tylko wtedy, gdy kategorię ZNAMY. Przy reviews:0
+    // panel i tak opisze to jako „brak danych o opiniach" (patrz ranking.js:trustLabel).
+    rating: rating || (stars ? Math.min(9.5, 6 + stars * 0.6) : 0),
     reviews: Number(pick(o, "reviews", "reviewsCount", "opinie")) || 0,
     freshDays: null,
     price: Math.round(priceRaw),
     board: mapBoard(pick(o, "board", "wyzywienie", "boardType", "maintenance")),
-    cap: Number(pick(o, "maxPax", "maxPersons")) || (stars >= 4 ? 4 : 3),
+    // Pojemność: gdy feed jej nie podaje, mówimy o tym wprost (capUnknown), zamiast
+    // zgadywać z gwiazdek — konsultant sadza po tej liczbie realną rodzinę.
+    cap: Number(pick(o, "maxPax", "maxPersons")) || Math.max(2, Number(pick(o, "adults")) || 4),
+    capUnknown: !Number(pick(o, "maxPax", "maxPersons")),
     tags: [],
-    beach: Number(pick(o, "beachDistance", "odlegloscOdPlazy")) || 300,
+    // Odległość od plaży: BRAK danych zostaje brakiem. Domyślne 300 m pokazywało się
+    // na karcie jako „🏖 plaża 300 m" — liczba wzięta z powietrza, którą konsultant
+    // powtarzał klientowi i na której podstawie działał filtr „przy plaży".
+    beach: Number(pick(o, "beachDistance", "odlegloscOdPlazy")) || null,
     operator: String(pick(o, "operator", "tourOperator", "organizator") || "Wakacje.pl"),
     departureCity: String(pick(o, "departureCity", "departure", "wylotZ", "airport") || ""),
     transport: mapTransport(pick(o, "transport", "transportType", "dojazd")),
-    transferIncluded: true,
+    // Transfer: „w cenie" tylko wtedy, gdy feed to potwierdza. Domyślne `true`
+    // dokładało klientowi do oferty usługę, za którą realnie płaci osobno.
+    transferIncluded: pick(o, "transferIncluded", "transfer") === true || undefined,
     nights: Number(pick(o, "nights", "duration", "liczbaNocy", "days")) || 7,
     departDate: String(pick(o, "departureDate", "dateFrom", "dataWyjazdu", "termin") || ""),
     bookingUrl: affiliateUrl(String(pick(o, "url", "link", "deeplink", "offerUrl") || "")),
@@ -146,7 +160,10 @@ function mapBoard(v) {
   if (/all/.test(s) || /\bai\b/.test(s)) return "All Inclusive";
   if (/hb|half|2 posiłki|obiadokolacj/.test(s)) return "HB";
   if (/bb|śniadani|sniadani|breakfast/.test(s)) return "BB";
-  return v ? String(v) : "BB";
+  // Brak informacji o wyżywieniu NIE jest śniadaniem — ta sama zasada co w
+  // mapBoard() z hotelbeds.js (3d5cc3f). Panel pokaże wtedy „brak danych",
+  // a filtr wyżywienia takiej oferty nie odsieje.
+  return v ? String(v) : undefined;
 }
 
 function mapTransport(v) {

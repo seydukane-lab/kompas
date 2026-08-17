@@ -97,7 +97,7 @@ function parseResponse(raw) {
 
 // --- Mapowanie oferty MerlinX -> nasz znormalizowany kształt (pakiet) ---
 // GOTOWE: dostosuj tylko nazwy pól źródłowych (o) do faktycznej odpowiedzi.
-function normalize(o) {
+export function normalize(o) {
   if (!o) return null;
   const priceRaw = Number(o.price ?? o.priceTotal ?? 0);
   const currency = o.currency || "PLN";
@@ -110,22 +110,32 @@ function normalize(o) {
     name: o.hotelName || o.name || "",
     country: o.country || "",
     region: o.region || o.resort || o.city || "",
-    stars: Number(o.stars || o.category || 3),
+    // Brak kategorii to BRAK DANYCH, nie „trzy gwiazdki" — jak mapStars() w hotelbeds.js.
+    stars: Number(o.stars || o.category) || undefined,
     // Oceny gości: MerlinX zwykle nie dostarcza wiarygodnych recenzji —
     // reviews:0 sprawia, że wskaźnik wiarygodności pokaże „brak opinii"
     // (spójne z Hotelbeds; recenzje dopinamy osobnym źródłem — patrz README).
-    rating: Number(o.rating || 0) || Math.min(9.5, 6 + Number(o.stars || 3) * 0.6),
+    // Ocena szacowana z kategorii wyłącznie wtedy, gdy kategorię znamy — inaczej
+    // zgadnięte 3★ rodziły „ocenę" 7,8, której nikt nigdy nie wystawił.
+    rating: Number(o.rating || 0) || (Number(o.stars || o.category) ? Math.min(9.5, 6 + Number(o.stars || o.category) * 0.6) : 0),
     reviews: Number(o.reviewsCount || 0),
     freshDays: o.reviewsFreshDays ?? null,
     price: pricePerPerson,
     board: mapBoard(o.board || o.boardCode),
-    cap: Number(o.maxPax || o.roomCapacity || (Number(o.stars || 3) >= 4 ? 4 : 3)),
+    // Pojemność zgadywana z gwiazdek to liczba, po której konsultant sadza realną
+    // rodzinę — gdy jej nie znamy, mówimy o tym wprost (capUnknown ukrywa plakietkę).
+    cap: Number(o.maxPax || o.roomCapacity) || 4,
+    capUnknown: !Number(o.maxPax || o.roomCapacity),
     tags: Array.isArray(o.tags) ? o.tags : [],
-    beach: Number(o.beachDistance || 300),
+    // Domyślne 300 m trafiało na kartę jako „🏖 plaża 300 m" i zasilało filtr
+    // „przy plaży" — twierdzenie o hotelu, którego nikt nie sprawdził.
+    beach: Number(o.beachDistance) || null,
     operator: o.operator || o.tourOperator || "",
     departureCity: o.departureCity || o.departureAirport || "",
     transport: o.transport || "Samolot",
-    transferIncluded: o.transferIncluded !== false,
+    // „Transfer w cenie" tylko na potwierdzenie z feedu. Zapis `!== false` sprawiał,
+    // że BRAK informacji stawał się obietnicą usługi, za którą klient płaci osobno.
+    transferIncluded: o.transferIncluded === true || undefined,
     nights: Number(o.nights || o.duration || 7),
     departDate: o.departureDate || o.dateFrom || "",
     photo: o.image || o.photo || "linear-gradient(135deg,#0F6B68,#3FB0AB)",
@@ -139,5 +149,7 @@ function mapBoard(code) {
   if (/AI|ALL/.test(c)) return "All Inclusive";
   if (/HB|FB/.test(c)) return "HB";
   if (/BB/.test(c)) return "BB";
-  return code || "BB";
+  // Nieznany kod wyżywienia zostaje nieznany — „BB" byłoby obietnicą śniadań,
+  // których nikt nie potwierdził (ta sama zasada co mapBoard w hotelbeds.js).
+  return code || undefined;
 }
