@@ -257,6 +257,9 @@
   .trust.high{color:var(--good);background:var(--good-soft)}
   .trust.mid{color:var(--warn);background:var(--warn-soft)}
   .trust.low{color:var(--crit);background:var(--crit-soft)}
+  /* Nie znamy liczby opinii — to niewiedza, nie ocena, więc neutralnie, bez koloru
+     sugerującego dobrą albo złą wiadomość. */
+  .trust.unknown{color:var(--ink-faint);background:var(--surface-2)}
   .trust .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 
   .card-price{padding:16px 18px;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right;min-width:158px}
@@ -499,6 +502,8 @@
   .rep-verdict.mid{background:#F4E9D6;color:#8A5A2B}
   .rep-verdict.bad{background:#F6DFDC;color:#A3352C}
   .rep-verdict.warn{background:#F3EFD8;color:#7A6A2B}
+  /* Niewiedza, nie ocena — bez koloru sugerującego dobrą ani złą wiadomość. */
+  .rep-verdict.unk{background:var(--surface-2);color:var(--ink-faint)}
   @media (prefers-color-scheme:dark){.rep-verdict.mid{background:#3A2E1C;color:#D6A05C}.rep-verdict.bad{background:#3A1F1C;color:#E39A90}.rep-verdict.warn{background:#332E18;color:#D8C87A}}
   .rep-score{font-size:19px;font-weight:750;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
   .rep-score small{font-size:11px;color:var(--ink-faint);font-weight:500}
@@ -1114,7 +1119,10 @@
   minRate.addEventListener("input",function(){minRateVal.textContent=(+minRate.value).toFixed(1).replace(".",",");rangeFill(minRate);});
   rangeFill(budget);rangeFill(minRate); // wypełnienie startowe, zanim ktokolwiek dotknie suwaka
 
-  function trustLabel(t){if(t>=0.7)return{cls:"high",txt:"Opinie wiarygodne"};if(t>=0.45)return{cls:"mid",txt:"Opinie umiarkowane"};return{cls:"low",txt:"Mało / stare opinie"};}
+  // Bliźniak trustLabel() z src/ranking.js — oba muszą mówić to samo. Oferta bez ZNANEJ
+  // liczby opinii nie dostaje podpisu o wolumenie („mało / stare"), bo tego nie wiemy:
+  // część źródeł podaje samą ocenę, bez liczby recenzji.
+  function trustLabel(t,h){if(h&&!(h.reviews>0))return{cls:"unknown",txt:"Brak danych o opiniach"};if(t>=0.7)return{cls:"high",txt:"Opinie wiarygodne"};if(t>=0.45)return{cls:"mid",txt:"Opinie umiarkowane"};return{cls:"low",txt:"Mało / stare opinie"};}
 
   /* ---------- Skrypt sprzedażowy (po stronie panelu) ---------- */
   // GRUPY DOCELOWE — konsultant może przełączać na karcie, skrypt szyje się „na miarę".
@@ -1720,7 +1728,12 @@
   }
   function etaVerdict(h){
     var s=etaValue(h),t=h.trust||0,adj=etaAdj(h);
-    if(t<0.25)return {t:"⚠️ Mało/starych opinii",c:"warn"};
+    // Niski wskaźnik zaufania ma DWIE różne przyczyny i nie wolno ich mylić:
+    // realnie mało (albo starych) opinii to wiedza o hotelu, a brak podanej liczby
+    // opinii to nasza niewiedza o danych. Karta pokazywała jedno i drugie jako
+    // „Mało/starych opinii" — obok plakietki „Brak danych o opiniach", czyli
+    // przecząc sama sobie. Logika oceny bez zmian, poprawiona tylko treść werdyktu.
+    if(t<0.25)return (h&&!(h.reviews>0))?{t:"ℹ️ Brak danych o opiniach",c:"unk"}:{t:"⚠️ Mało/starych opinii",c:"warn"};
     if(s>=etaTop)return {t:"🏆 Najlepszy value",c:"top"};
     if((h.price||0)>7000&&adj<8)return {t:"❌ Drogo jak na oceny",c:"bad"};
     if(s>=72)return {t:"✅ Warto",c:"good"};
@@ -2210,7 +2223,7 @@
 
   function cardEl(h,i,n,pax){
     var el=document.createElement("article");el.className="card";
-    var tl=trustLabel(h.trust||0);
+    var tl=trustLabel(h.trust||0,h);
     var cur={aud:detectAudience(h),variant:0};  // aktualna grupa docelowa + wariant skryptu (przełączane na karcie)
     // Kwota łączna: suma od dostawcy tylko wtedy, gdy dotyczy TEGO składu
     // (offerTotal/sumaDokladna) — inaczej szacunek cena/os. × liczba osób.

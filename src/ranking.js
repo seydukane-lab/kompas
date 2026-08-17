@@ -14,7 +14,14 @@ export function trustScore(offer) {
   return 0.6 * volume + 0.4 * fresh;
 }
 
-export function trustLabel(t) {
+// Etykieta wiarygodności opinii. Drugi argument (oferta) jest opcjonalny, ale bez
+// niego etykieta potrafi skłamać: część źródeł podaje ocenę, NIE podając liczby
+// opinii (Hotelbeds Content API ich nie ma, wakacje.pl daje samą ocenę). Taka
+// oferta ma trust = 0 i dostawała podpis „Mało / stare opinie" — czyli twierdzenie
+// o wolumenie, którego nie znamy. Konsultant powtarzał to klientowi jako fakt
+// („ten hotel ma mało opinii"), choć prawdą jest tylko tyle, że ich nie policzyliśmy.
+export function trustLabel(t, offer) {
+  if (offer && !(offer.reviews > 0)) return { cls: "unknown", txt: "Brak danych o opiniach" };
   if (t >= 0.7) return { cls: "high", txt: "Opinie wiarygodne" };
   if (t >= 0.45) return { cls: "mid", txt: "Opinie umiarkowane" };
   return { cls: "low", txt: "Mało / stare opinie" };

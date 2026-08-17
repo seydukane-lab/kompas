@@ -612,6 +612,38 @@ test("tabela terminów liczy sumy dla realnego składu, nie dla zaszytych dwóch
   assert.equal(odmOsob(22), "osoby");
 });
 
+test("plakietka opinii we froncie mówi to samo co backend i nie zgaduje wolumenu", () => {
+  const html = wczytaj("public/index.html");
+
+  const fn = html.match(/function trustLabel\(t,h\)\{.*?\}\r?\n/)?.[0] || "";
+  assert.ok(fn, "brak funkcji trustLabel we froncie albo zmieniła sygnaturę");
+  assert.match(fn, /h&&!\(h\.reviews>0\)/,
+    "front nie sprawdza, czy liczba opinii jest w ogóle znana");
+  assert.match(fn, /cls:"unknown",txt:"Brak danych o opiniach"/,
+    "brak neutralnego podpisu dla ofert bez znanej liczby opinii");
+
+  // Wywołanie musi PRZEKAZYWAĆ ofertę — inaczej nowa gałąź nigdy się nie uruchomi.
+  assert.match(html, /var tl=trustLabel\(h\.trust\|\|0,h\)/,
+    "karta woła trustLabel bez oferty, więc plakietka dalej zgaduje wolumen opinii");
+  assert.match(html, /\.trust\.unknown\{[^}]+\}/, "brak stylu neutralnej plakietki");
+
+  const { trustLabel } = new Function(fn + "\nreturn {trustLabel};")();
+  assert.equal(trustLabel(0, { reviews: 0 }).cls, "unknown");
+  assert.equal(trustLabel(0.2, { reviews: 3 }).cls, "low");
+  assert.equal(trustLabel(0.8, { reviews: 4000 }).cls, "high");
+
+  // Werdykt ETA to DRUGIE miejsce na tej samej karcie, które mówiło o opiniach —
+  // i mówiło co innego niż plakietka obok, twierdząc „Mało/starych opinii" przy
+  // ofercie opisanej jednocześnie jako „Brak danych o opiniach".
+  const verdict = html.match(/function etaVerdict\(h\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(verdict, "brak funkcji etaVerdict");
+  assert.match(verdict, /\(h&&!\(h\.reviews>0\)\)\?\{t:"ℹ️ Brak danych o opiniach",c:"unk"\}/,
+    "werdykt przy nieznanej liczbie opinii dalej twierdzi, że opinii jest mało");
+  assert.match(verdict, /:\{t:"⚠️ Mało\/starych opinii",c:"warn"\}/,
+    "werdykt dla realnie małej liczby opinii zniknął — a to prawdziwa informacja o hotelu");
+  assert.match(html, /\.rep-verdict\.unk\{[^}]+\}/, "brak stylu neutralnego werdyktu");
+});
+
 // Backend oddaje dane z cache (providers/index.js) i podaje ich wiek. Front, który
 // tego nie mówi, pokazuje ceny sprzed kilku minut jako świeże — a konsultant czyta
 // z ekranu konkretną kwotę do klienta.

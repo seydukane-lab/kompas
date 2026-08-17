@@ -51,6 +51,26 @@ test("etykieta wiarygodności zgadza się z progami", () => {
   assert.equal(trustLabel(0.2).cls, "low");
 });
 
+// Część źródeł podaje ocenę, ale NIE podaje liczby opinii (Hotelbeds Content API
+// ich nie ma, wakacje.pl daje samą ocenę). Taka oferta ma trust = 0 i dostawała
+// podpis „Mało / stare opinie" — czyli twierdzenie o wolumenie, którego nie znamy.
+// Konsultant powtarzał to klientowi jako fakt o hotelu.
+test("brak ZNANEJ liczby opinii nie udaje informacji, że opinii jest mało", () => {
+  const bezWolumenu = { rating: 9.0, reviews: 0, freshDays: null };
+  const etykieta = trustLabel(trustScore(bezWolumenu), bezWolumenu);
+  assert.equal(etykieta.cls, "unknown");
+  assert.match(etykieta.txt, /brak danych/i,
+    "podpis ma mówić o braku danych, a nie o tym, że opinii jest mało albo są stare");
+
+  // Oferta z realnie małą liczbą świeżych opinii to CO INNEGO i ma zostać jak było.
+  const maloOpinii = { rating: 9.8, reviews: 3, freshDays: 200 };
+  assert.equal(trustLabel(trustScore(maloOpinii), maloOpinii).cls, "low",
+    "trzy stare opinie to wiedza, nie niewiedza — tego podpisu nie wolno rozmyć");
+
+  // Bez podanej oferty (stare wywołania) progi działają jak dotąd.
+  assert.equal(trustLabel(0.2).cls, "low");
+});
+
 test("ANTY-PRZEKOLORYZACJA: hotel 9,8 z trzech opinii przegrywa z 8,7 z tysięcy", () => {
   const podejrzany = scoreOffer(offer({ rating: 9.8, reviews: 3, freshDays: 200 }), {});
   const solidny = scoreOffer(offer({ rating: 8.7, reviews: 4000, freshDays: 4 }), {});

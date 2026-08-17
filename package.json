@@ -13,6 +13,7 @@
     "dev": "node --watch server.js",
     "test": "node --test",
     "test:watch": "node --test --watch",
+    "audyt": "node scripts/audyt.js",
     "user": "node scripts/user.js",
     "user:add": "node scripts/user.js add",
     "user:list": "node scripts/user.js list",
