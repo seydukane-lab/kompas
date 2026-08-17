@@ -415,6 +415,29 @@ test("awaria jednego źródła nie trafia do cache — kolejne zapytanie próbuj
 });
 
 // ------------------------------------------------------------------
+//  Warianty a cena łączna.
+//
+//  Wariant powstaje z oferty przy scalaniu duplikatów. Wcześniej brak sumy
+//  zapisywał się jako `priceTotal: 0` — czyli «0 zł za grupę», nieprawda, którą
+//  każdy odbiorca musiał osobno odsiewać. A suma bez informacji, dla ilu osób
+//  ją policzono, kłamie przy każdym składzie innym niż para.
+// ------------------------------------------------------------------
+test("wariant bez ceny łącznej nie dostaje zera zamiast braku danych", () => {
+  const [scalona] = dedupeOffers([
+    offer({ source: "hotelbeds", price: 3000, __prio: 1 }),          // Hotelbeds nie podaje sumy
+    offer({ source: "demo", price: 2800, priceTotal: 5600, priceTotalPax: 2, departDate: "2026-09-04", __prio: 5 }),
+  ]);
+  const bezSumy = scalona.variants.find((v) => v.price === 3000);
+  assert.ok(bezSumy, "zgubiono wariant źródła, które nie podaje sumy");
+  assert.equal(bezSumy.priceTotal, undefined,
+    "brak sumy zapisany jako 0 — «0 zł za grupę» to nieprawda, a każdy odbiorca musiałby to zero odsiewać");
+
+  const zSuma = scalona.variants.find((v) => v.price === 2800);
+  assert.equal(zSuma.priceTotal, 5600);
+  assert.equal(zSuma.priceTotalPax, 2, "wariant zgubił informację, dla ilu osób jest suma");
+});
+
+// ------------------------------------------------------------------
 //  Cache jest PER DOSTAWCA, nie na całą odpowiedź.
 //
 //  Zmierzone 17.08.2026 na lokalnym zestawie źródeł: cache całościowy zapisywał

@@ -419,6 +419,11 @@ function buildVariants(h) {
     const priceTotal = promocjaDrugiej
       ? Math.round((cenaOs * 1.35) / 10) * 10
       : cenaOs * 2;
+    // Suma dotyczy DWÓCH osób — tak jak w realnych feedach operatorów, gdzie „cena
+    // za wyjazd" jest podawana dla pary. Bez tej deklaracji suma za parę pokazywała
+    // się rodzinie 2+3 jako „razem za grupę" (zmierzone 17.08.2026: 12 z 12 ofert,
+    // np. 9 340 zł zamiast ~23 350 zł). Patrz ranking.js:offerGroupTotal.
+    const priceTotalPax = 2;
 
     const startMin = 300 + Math.floor(r() * 900);
     const lot = 150 + Math.floor(r() * 120);
@@ -431,6 +436,7 @@ function buildVariants(h) {
       source: operator,
       price: cenaOs,
       priceTotal,
+      priceTotalPax,
       departDate,
       returnDate: przesun(departDate, days - 1),
       nights,

@@ -383,6 +383,10 @@ function normalizeMultiroom(code, c, rates, rooms, totalPax) {
     roomsCount: rooms.length,
     roomsBreakdown: breakdown,
     priceTotal,
+    // Dla ILU OSÓB jest ta suma. Tu policzona z realnych stawek za wszystkie pokoje
+    // składu, więc dotyczy całej grupy — inaczej niż w źródłach pakietowych, gdzie
+    // „cena razem" to standardowo cena za dwie osoby (patrz ranking.js:offerGroupTotal).
+    priceTotalPax: totalPax,
     price: Math.round(priceTotal / Math.max(1, totalPax)),
   };
 }

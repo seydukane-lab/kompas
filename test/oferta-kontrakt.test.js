@@ -78,6 +78,34 @@ test("cena łączna jest spójna z ceną za osobę", () => {
   }
 });
 
+// Suma bez deklaracji, dla ilu osób ją policzono, jest liczbą bez znaczenia:
+// dla pary bywa prawdziwa, dla rodziny 2+3 zaniża rachunek ponad dwukrotnie
+// (zmierzone 17.08.2026). Dostawca, który podaje `priceTotal`, MUSI podać skład.
+test("każda podana cena łączna mówi, dla ilu osób jest policzona", () => {
+  const zSuma = oferty.filter((o) => typeof o.priceTotal === "number" && o.priceTotal > 0);
+  assert.ok(zSuma.length > 0, "żadna oferta nie ma ceny łącznej — test nie miałby czego pilnować");
+  for (const o of zSuma) {
+    assert.equal(typeof o.priceTotalPax, "number",
+      `${o.name}: podaje priceTotal ${o.priceTotal} zł, ale nie mówi, dla ilu osób`);
+    assert.ok(o.priceTotalPax >= 1, `${o.name}: priceTotalPax musi być dodatnie`);
+  }
+});
+
+test("warianty niosą sumę razem z jej składem, a brak sumy zostaje brakiem", () => {
+  const zWariantami = oferty.filter((o) => (o.variants || []).length > 0);
+  assert.ok(zWariantami.length > 0, "brak ofert z wariantami — test nie miałby czego pilnować");
+  for (const o of zWariantami) {
+    for (const v of o.variants) {
+      assert.notEqual(v.priceTotal, 0,
+        `${o.name}: wariant ma priceTotal 0 — «0 zł za grupę» to nieprawda, brak sumy ma być brakiem`);
+      if (typeof v.priceTotal === "number") {
+        assert.equal(typeof v.priceTotalPax, "number",
+          `${o.name}: wariant podaje sumę bez informacji, dla ilu osób`);
+      }
+    }
+  }
+});
+
 test("oferty pakietowe mają komplet danych wyjazdu", () => {
   for (const o of oferty.filter((x) => x.type === "package")) {
     assert.ok(o.departureCity, `pakiet bez miasta wylotu: ${o.name}`);

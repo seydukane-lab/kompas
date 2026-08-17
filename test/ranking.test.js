@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, offerGroupTotal, isGroupTotalExact,
 } from "../src/ranking.js";
 import { mapBoard } from "../src/providers/hotelbeds.js";
 
@@ -255,13 +255,52 @@ test("sortowanie po sumie za grupę odwraca kolejność, gdy tańsza „od” ni
   // (promocja „druga osoba za symboliczną kwotę”), ale niższą sumę. Sortowanie po cenie/os.
   // stawia go na drugim miejscu, po sumie — na pierwszym. To jest cały powód istnienia
   // tego trybu: konsultant sprzedaje wyjazd parze, nie jednej osobie.
-  const tanszaZaOsobe = scoreOffer(offer({ id: "operator-a", price: 5349, priceTotal: 10698 }), {});
-  const drozszaZaOsobeTanszaRazem = scoreOffer(offer({ id: "operator-b", price: 9101, priceTotal: 10521 }), {});
+  // priceTotalPax: 2 — operatorzy podają „cenę za wyjazd" dla pary i tak też ją tu czytamy.
+  const tanszaZaOsobe = scoreOffer(offer({ id: "operator-a", price: 5349, priceTotal: 10698, priceTotalPax: 2 }), {});
+  const drozszaZaOsobeTanszaRazem = scoreOffer(offer({ id: "operator-b", price: 9101, priceTotal: 10521, priceTotalPax: 2 }), {});
   const list = [tanszaZaOsobe, drozszaZaOsobeTanszaRazem];
 
   assert.equal(sortOffers(list, "price")[0].id, "operator-a");
-  assert.equal(sortOffers(list, "total")[0].id, "operator-b");
+  assert.equal(sortOffers(list, "total", 2)[0].id, "operator-b");
   assert.equal(list[0].id, "operator-a", "sortowanie nie może modyfikować wejścia");
+});
+
+// ------------------------------------------------------------------
+//  Suma od operatora dotyczy DWÓCH osób — dla większego składu jest nieprawdą.
+//
+//  Zmierzone 17.08.2026 na seedzie demo: przy rodzinie 2+3 wszystkie 12 ofert
+//  pokazywały „Razem" za parę (np. 9 340 zł zamiast ~23 350 zł), bo kod ufał
+//  polu priceTotal niezależnie od składu. Konsultant przekleja tę liczbę
+//  klientowi — pomyłka tej klasy podważa całe narzędzie.
+// ------------------------------------------------------------------
+test("suma podana dla pary nie jest podawana jako suma za większą grupę", () => {
+  const paraOferta = offer({ id: "para", price: 4670, priceTotal: 9340, priceTotalPax: 2 });
+
+  assert.equal(offerGroupTotal(paraOferta, 2), 9340,
+    "dla pary suma operatora jest dokładna i ma być użyta");
+  assert.equal(offerGroupTotal(paraOferta, 5), 4670 * 5,
+    "dla pięciu osób suma za parę musi ustąpić szacunkowi z ceny za osobę");
+  assert.equal(isGroupTotalExact(paraOferta, 2), true);
+  assert.equal(isGroupTotalExact(paraOferta, 5), false,
+    "interfejs musi wiedzieć, że to szacunek, a nie liczba od operatora");
+});
+
+test("suma bez deklaracji, dla ilu osób, nie jest brana za pewnik", () => {
+  // Źródło, które podaje samą liczbę bez kontekstu składu, jest niewiadomą —
+  // liczymy wtedy z ceny za osobę zamiast zgadywać, co ta suma obejmuje.
+  const bezDeklaracji = offer({ id: "nieznane", price: 3000, priceTotal: 6000 });
+  assert.equal(offerGroupTotal(bezDeklaracji, 4), 12000);
+  assert.equal(isGroupTotalExact(bezDeklaracji, 4), false);
+  assert.equal(isGroupTotalExact(bezDeklaracji, 2), false,
+    "brak deklaracji to brak wiedzy także dla pary");
+});
+
+test("suma policzona dla całej grupy (multiroom) jest używana wprost", () => {
+  // Hotelbeds w trybie wspólnego wyjazdu sumuje realne stawki wszystkich pokoi,
+  // więc jego priceTotal dotyczy całego składu i nie wolno go zastępować szacunkiem.
+  const grupowa = offer({ id: "multiroom", price: 2000, priceTotal: 10000, priceTotalPax: 5 });
+  assert.equal(offerGroupTotal(grupowa, 5), 10000);
+  assert.equal(isGroupTotalExact(grupowa, 5), true);
 });
 
 test("sortowanie po sumie liczy fallback cena/os. × pax, gdy dostawca nie poda priceTotal", () => {

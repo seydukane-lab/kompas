@@ -258,7 +258,16 @@ test("cena łączna za grupę liczy się jednym wspólnym wzorem (offerTotal), n
 
   const totalFn = html.match(/function offerTotal\(h,pax\)\{[\s\S]*?\}/)?.[0] || "";
   assert.ok(totalFn, "brak funkcji offerTotal — wspólny licznik totalu zniknął?");
-  assert.match(totalFn, /h\.price\*Math\.max\(1,pax/, "offerTotal nie ma fallbacku cena/os. × liczba osób");
+  assert.match(totalFn, /var os=Math\.max\(1,pax\|\|1\)/, "offerTotal nie ustala liczby osób");
+  assert.match(totalFn, /h\.price\*os/, "offerTotal nie ma fallbacku cena/os. × liczba osób");
+  // Suma od dostawcy wolno użyć tylko dla składu, dla którego ją podano — inaczej
+  // rodzina 2+3 dostaje sumę za parę (patrz sumaDokladna i ranking.js:offerGroupTotal).
+  assert.match(totalFn, /sumaDokladna\(h,os\)/,
+    "offerTotal bierze h.priceTotal bez sprawdzenia, dla ilu osób jest ta suma");
+  const dokladnaFn = html.match(/function sumaDokladna\(o,pax\)\{[\s\S]*?\}/)?.[0] || "";
+  assert.ok(dokladnaFn, "brak funkcji sumaDokladna");
+  assert.match(dokladnaFn, /o\.priceTotalPax===Math\.max\(1,pax\|\|1\)/,
+    "sumaDokladna nie porównuje składu, dla którego podano sumę, z realnym składem");
 
   // Szczegóły oferty (openDetail): wiersz „Razem” musi się pokazywać ZAWSZE (przez fallback),
   // a nie tylko gdy dostawca akurat poda realny priceTotal.
@@ -267,8 +276,8 @@ test("cena łączna za grupę liczy się jednym wspólnym wzorem (offerTotal), n
   // od tego, gdzie go uruchomisz).
   const detailFn = html.match(/function openDetail\(h,tabKey\)\{[\s\S]*?var naglowek=[\s\S]*?;\r?\n/)?.[0] || "";
   assert.ok(detailFn, "brak funkcji openDetail lub zmieniła kształt — nie znaleziono bloku naglowek");
-  assert.match(detailFn, /row\("Razem \(orientacyjnie\)",fmt\(offerTotal\(h,paxCount\(\)\)\)/,
-    "openDetail znowu czyta h.priceTotal wprost — w trybie demo wiersz Razem zniknie");
+  assert.match(detailFn, /row\("Razem za "\+paxCount\(\)\+" "\+odmOsob\(paxCount\(\)\),fmt\(offerTotal\(h,paxCount\(\)\)\)/,
+    "openDetail znowu czyta h.priceTotal wprost albo przestał mówić, dla ilu osób jest suma");
   assert.ok(!/h\.priceTotal>0\?row\("Razem/.test(detailFn),
     "wiersz Razem w openDetail nadal jest warunkowy na surowe h.priceTotal");
 
@@ -393,40 +402,55 @@ test("filtr wyżywienia ma chip dla najliczniejszej realnej kategorii, spójny z
 test("variantInfo liczy inne terminy i najtańszą sumę za grupę, a odmiana się zgadza", () => {
   const html = wczytaj("public/index.html");
 
-  const sumaFn = html.match(/function variantSuma\(v\)\{.*?\}/)?.[0] || "";
-  const infoFn = html.match(/function variantInfo\(h\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const sumaFn = html.match(/function variantSuma\(v,pax\)\{.*?\}/)?.[0] || "";
+  const totalFn = html.match(/function offerTotal\(h,pax\)\{[\s\S]*?\}/)?.[0] || "";
+  const dokladnaFn = html.match(/function sumaDokladna\(o,pax\)\{[\s\S]*?\}/)?.[0] || "";
+  const infoFn = html.match(/function variantInfo\(h,pax\)\{[\s\S]*?\n  \}/)?.[0] || "";
   const odmFn = html.match(/function odmTerminow\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
   const odmInnyFn = html.match(/function odmInny\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
   assert.ok(sumaFn, "brak funkcji variantSuma — zmieniła nazwę/sygnaturę?");
+  assert.ok(totalFn, "brak funkcji offerTotal — variantSuma nie ma na czym stanąć");
+  assert.ok(dokladnaFn, "brak funkcji sumaDokladna");
   assert.ok(infoFn, "brak funkcji variantInfo — zmieniła nazwę/sygnaturę?");
   assert.ok(odmFn, "brak funkcji odmTerminow — zmieniła nazwę/sygnaturę?");
   assert.ok(odmInnyFn, "brak odmInny — przymiotnik przy karcie przestanie się zgadzać z rzeczownikiem");
 
-  const { variantInfo, odmTerminow, odmInny } = new Function(
-    sumaFn + "\n" + infoFn + "\n" + odmFn + "\n" + odmInnyFn + "\nreturn {variantInfo, odmTerminow, odmInny};"
+  // paxCount() czyta pola formularza, których tu nie ma — podstawiamy sterowaną atrapę,
+  // żeby dało się sprawdzić TO SAMO wyliczenie dla pary i dla większej grupy.
+  const zbuduj = (pax) => new Function(
+    `function paxCount(){return ${pax};}\n` + dokladnaFn + "\n" + totalFn + "\n" + sumaFn + "\n" + infoFn + "\n" + odmFn + "\n" + odmInnyFn +
+    "\nreturn {variantInfo, variantSuma, odmTerminow, odmInny};"
   )();
+  const { variantInfo, odmTerminow, odmInny } = zbuduj(2);
 
-  assert.equal(variantInfo({ variants: [{ price: 3000, priceTotal: 6000 }] }), null,
+  assert.equal(variantInfo({ variants: [{ price: 3000, priceTotal: 6000, priceTotalPax: 2 }] }), null,
     "variantInfo zwraca dane przy jednym wariancie — karta pokazałaby „+0 innych”");
   assert.equal(variantInfo({}), null, "variantInfo nie radzi sobie z ofertą bez pola variants");
 
   // Trzy warianty jak w docs/struktura-oferty-pakietowej.md: cena za osobę NIE jest
   // monotoniczna względem sumy (promocja „druga osoba taniej”), więc najtańsza suma
   // musi wyjść z minimum po sumach, a nie z pierwszego czy ostatniego wariantu.
-  const vi = variantInfo({
+  const trzyWarianty = {
     variants: [
-      { price: 5349, priceTotal: 10698 },
-      { price: 5299, priceTotal: 10598 },
-      { price: 9101, priceTotal: 10521 }, // drożej za osobę, taniej razem
+      { price: 5349, priceTotal: 10698, priceTotalPax: 2 },
+      { price: 5299, priceTotal: 10598, priceTotalPax: 2 },
+      { price: 9101, priceTotal: 10521, priceTotalPax: 2 }, // drożej za osobę, taniej razem
     ],
-  });
+  };
+  const vi = variantInfo(trzyWarianty);
   assert.ok(vi, "variantInfo zwróciła null dla trzech wariantów");
   assert.equal(vi.count, 3);
   assert.equal(vi.other, 2, "„inne” to wszystkie warianty minus ten pokazany na karcie");
   assert.equal(vi.minTotal, 10521, "najtańsza suma ma wyjść z minimum sum, nie z pierwszego wariantu");
 
+  // Ta sama oferta dla pięciu osób: sumy operatora dotyczą PARY, więc nie wolno ich
+  // podać jako sumy za grupę. Najtańszy staje się wariant o najniższej cenie za osobę.
+  const dlaPieciu = zbuduj(5).variantInfo(trzyWarianty);
+  assert.equal(dlaPieciu.minTotal, 5299 * 5,
+    "suma za parę użyta jako suma za pięć osób — dokładnie ten błąd, który naprawiono 17.08.2026");
+
   const bezTotal = variantInfo({ variants: [{ price: 100 }, { price: 200, priceTotal: 0 }] });
-  assert.equal(bezTotal.minTotal, 200, "fallback price*2 nie zadziałał dla wariantu bez priceTotal");
+  assert.equal(bezTotal.minTotal, 200, "fallback cena/os. × liczba osób nie zadziałał dla wariantu bez priceTotal");
 
   assert.equal(odmTerminow(1), "termin");
   assert.equal(odmTerminow(2), "terminy");
@@ -556,6 +580,48 @@ test("tabWarianty wyróżnia wariant pokazany na karcie i wycisza te poza aktywn
   // Style muszą istnieć, inaczej klasy nic nie zmieniają wizualnie.
   assert.match(html, /\.wr-shown\{[^}]+\}/, "brak stylu .wr-shown");
   assert.match(html, /\.wr-excluded\{[^}]+\}/, "brak stylu .wr-excluded");
+});
+
+test("tabela terminów liczy sumy dla realnego składu, nie dla zaszytych dwóch osób", () => {
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/var tabWarianty=\(function\(\)\{[\s\S]*?\n {4}\}\)\(\);/)?.[0] || "";
+  assert.ok(fn, "brak bloku tabWarianty");
+
+  // Zaszyte ×2 dawało rodzinie 2+3 sumy za parę — i to w tabeli, z której konsultant
+  // wybiera termin, więc porównywał ze sobą kwoty dotyczące różnych składów.
+  assert.ok(!/price\*2/.test(fn),
+    "w tabeli terminów wrócił zaszyty mnożnik 2 zamiast liczby osób z wyszukiwarki");
+  assert.match(fn, /var osobWyjazd=paxCount\(\)/, "tabela nie czyta liczby osób z wyszukiwarki");
+  assert.match(fn, /var suma=variantSuma\(v,osobWyjazd\)/, "wiersz nie liczy sumy wspólnym wzorem");
+  assert.match(fn, /variantSuma\(a,osobWyjazd\)-variantSuma\(b,osobWyjazd\)/,
+    "sortowanie wariantów nie używa sumy dla realnego składu");
+
+  // Nagłówek kolumny i podpis komórki mają mówić, czego dotyczy liczba i czy to szacunek.
+  assert.match(fn, /Razem'\+\(osobWyjazd\?' <span class="wr-th-sub">\('\+osobWyjazd\+' '\+odmOsob\(osobWyjazd\)/,
+    "nagłówek „Razem” nie mówi, dla ilu osób jest suma");
+  assert.match(fn, /sumaDokladna\(v,osobWyjazd\)\?"razem":"szacunek"/,
+    "komórka sumy nie odróżnia ceny operatora od naszego szacunku");
+
+  const odm = html.match(/function odmOsob\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(odm, "brak funkcji odmOsob");
+  const { odmOsob } = new Function(odm + "\nreturn {odmOsob};")();
+  assert.equal(odmOsob(1), "osoba");
+  assert.equal(odmOsob(2), "osoby");
+  assert.equal(odmOsob(5), "osób");
+  assert.equal(odmOsob(12), "osób");
+  assert.equal(odmOsob(22), "osoby");
+});
+
+test("karta wyniku nie opisuje sumy za parę jako sumy za całą rodzinę", () => {
+  const html = wczytaj("public/index.html");
+  // Podpis pod kwotą na karcie brał się z tego, czy dostawca podał priceTotal —
+  // przy rodzinie 2+3 pisał „(2 doros.)” pod liczbą, o którą nikt nie pytał.
+  assert.match(html, /var hasSrcTotal=sumaDokladna\(h,pax\)/,
+    "karta znowu ufa surowemu h.priceTotal zamiast sprawdzić skład");
+  assert.ok(!/var totalWho=hasSrcTotal\?"2 doros\."/.test(html),
+    "podpis na karcie znowu twierdzi, że kwota dotyczy dwóch dorosłych");
+  assert.match(html, /hasSrcTotal\?"":", szacunek"/,
+    "karta nie oznacza kwoty oszacowanej z ceny za osobę");
 });
 
 test("sortowanie po sumie za grupę istnieje i liczy tym samym wzorem co offerTotal", () => {

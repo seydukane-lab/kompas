@@ -106,12 +106,33 @@ export function matchesAnyVariant(offer, warunek) {
   return warianty.some((v) => warunek(v));
 }
 
-// Suma za CAŁĄ GRUPĘ: priceTotal dostawcy, jeśli jest, inaczej cena/os. × liczba osób —
-// dokładnie ten sam wzór co offerTotal() we froncie (public/index.html), żeby sortowanie
-// po sumie i wyświetlana suma nigdy się nie rozjechały.
-function offerGroupTotal(offer, pax) {
-  const hasTotal = typeof offer.priceTotal === "number" && offer.priceTotal > 0;
-  return hasTotal ? offer.priceTotal : offer.price * Math.max(1, pax || 1);
+// Suma za CAŁĄ GRUPĘ: priceTotal dostawcy, ale TYLKO gdy dotyczy tylu osób, ilu
+// faktycznie jedzie. Inaczej cena/os. × liczba osób — ten sam wzór co offerTotal()
+// we froncie (public/index.html), żeby sortowanie po sumie i wyświetlana suma nigdy
+// się nie rozjechały.
+//
+// Skąd warunek na liczbę osób: źródła pakietowe (demo, wakacje.pl) podają „cenę za
+// wyjazd" dla DWÓCH osób, bo tak wygląda standardowa oferta operatora. Kod czytał ją
+// jako sumę za grupę niezależnie od składu. Zmierzone 17.08.2026 na seedzie demo:
+// dla rodziny 2+3 wszystkie 12 ofert pokazywały sumę za parę — np. Royal Wings
+// 9 340 zł zamiast ~23 350 zł. Konsultant przekleja tę liczbę klientowi, więc to
+// najgroźniejszy rodzaj pomyłki, jaki może zrobić narzędzie sprzedażowe.
+//
+// Brak `priceTotalPax` traktujemy jak brak wiedzy, dla ilu osób jest suma — wtedy
+// liczymy szacunek z ceny za osobę zamiast ufać liczbie nieznanego pochodzenia.
+export function offerGroupTotal(offer, pax) {
+  const osob = Math.max(1, pax || 1);
+  const suma = typeof offer.priceTotal === "number" && offer.priceTotal > 0;
+  const dlaIlu = offer.priceTotalPax;
+  if (suma && dlaIlu === osob) return offer.priceTotal;
+  return offer.price * osob;
+}
+
+// Czy „Razem” to liczba od operatora, czy nasz szacunek z ceny za osobę. Interfejs
+// ma prawo to rozróżnić i napisać wprost, zamiast podawać oszacowanie jako fakt.
+export function isGroupTotalExact(offer, pax) {
+  return typeof offer.priceTotal === "number" && offer.priceTotal > 0
+    && offer.priceTotalPax === Math.max(1, pax || 1);
 }
 
 // `pax` (liczba osób z kryteriów wyszukiwania) jest potrzebny tylko dla trybu "total" —

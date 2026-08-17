@@ -302,7 +302,12 @@ function variantOf(o) {
     departDate: o.departDate || "",
     nights: o.nights || 0,
     price: o.price,
-    priceTotal: o.priceTotal || 0,
+    // Brak sumy zostaje BRAKIEM (undefined), nie zerem: „0 zł za grupę" to nieprawda,
+    // a każdy odbiorca musiałby pamiętać, żeby to zero odsiać. Razem z sumą idzie
+    // deklaracja, dla ilu osób jest liczona — bez niej wariant kłamie przy składzie
+    // innym niż para (patrz ranking.js:offerGroupTotal).
+    priceTotal: typeof o.priceTotal === "number" && o.priceTotal > 0 ? o.priceTotal : undefined,
+    priceTotalPax: o.priceTotalPax,
     board: o.board || "",
     departureCity: o.departureCity || "",
     transport: o.transport || "",
