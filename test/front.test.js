@@ -666,6 +666,29 @@ test("przy zerze wyników panel podpowiada, który filtr zdjąć, i pozwala to z
 //  All Inclusive i HB — więc oferta BEZ danych o wyżywieniu i oferta z jawnym
 //  „bez wyżywienia" (Hotelbeds RO) dostawały to samo zdanie: „Śniadania w cenie".
 // ============================================================
+test("front dopasowuje wiedzę o kierunku po całym słowie, tak samo jak backend", () => {
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/function pasujeKluczIntel\(hay,klucz\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak frontowego bliźniaka dopasowania kierunku — wróci indexOf po podłańcuchu");
+
+  const normFn = html.match(/function normD\(s\)\{.*?\}/)?.[0] || "";
+  assert.ok(normFn, "brak funkcji normD");
+  const { pasujeKluczIntel, normD } = new Function(normFn + "\n" + fn + "\nreturn {pasujeKluczIntel, normD};")();
+
+  assert.equal(pasujeKluczIntel(normD("Kosta Rika Kostaryka"), "kos"), false,
+    "klucz złapał się w środku cudzej nazwy");
+  assert.equal(pasujeKluczIntel(normD("Salou Hiszpania"), "sal"), false);
+  assert.equal(pasujeKluczIntel(normD("Kos Grecja"), "kos"), true);
+  assert.equal(pasujeKluczIntel(normD("Marsa Alam Egipt"), "marsa alam"), true,
+    "klucz wielowyrazowy przestał pasować");
+
+  // Sama funkcja nie wystarczy — musi być UŻYWANA przez dopasowanie kierunku.
+  const uzycie = html.match(/function destIntelClient\(region,country\)\{.*?\}/)?.[0] || "";
+  assert.ok(uzycie, "brak funkcji destIntelClient");
+  assert.match(uzycie, /pasujeKluczIntel\(hay,k\)/,
+    "destIntelClient nie korzysta z dopasowania po całym słowie — wrócił indexOf po podłańcuchu");
+});
+
 test("skrypt sprzedażowy nie obiecuje wyżywienia ani pojemności, których nie znamy", () => {
   const html = wczytaj("public/index.html");
   const fn = html.match(/function featureBenefits\(h\)\{[\s\S]*?\n  \}/)?.[0] || "";

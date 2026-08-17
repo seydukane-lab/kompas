@@ -80,11 +80,32 @@ function norm(s) {
   return String(s || "").toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// Dopasowanie po CAŁYM SŁOWIE, nie po podłańcuchu. Zwykłe `includes` sprawiało,
+// że krótkie klucze trafiały w cudze nazwy: „kos" (grecka wyspa) łapało się na
+// „Kostaryce", „lara" (turecki kurort) na „Larnace", „sal" (Wyspy Zielonego
+// Przylądka) złapałoby „Salou" w Hiszpanii. Efektem jest wiedza o zupełnie innym
+// kierunku — pokazywana klientowi jako opis MIEJSCA, do którego leci.
+// Zmierzone 17.08.2026: „Kosta Rika / Kostaryka" dostawała opis wyspy Kos.
+export function pasujeKlucz(hay, klucz) {
+  const k = norm(klucz);
+  if (!k) return false;
+  let od = 0;
+  for (;;) {
+    const i = hay.indexOf(k, od);
+    if (i < 0) return false;
+    const przed = i === 0 ? "" : hay[i - 1];
+    const po = hay[i + k.length] || "";
+    // Granica słowa: po obu stronach litera/cyfra nie może kontynuować nazwy.
+    if (!/[a-z0-9]/.test(przed) && !/[a-z0-9]/.test(po)) return true;
+    od = i + 1;
+  }
+}
+
 // Zwraca intel dla regionu/kraju (pierwsze trafienie) albo null.
 export function destIntel(region, country) {
   const hay = norm(region) + " " + norm(country);
   for (const d of DEST) {
-    if (d.keys.some((k) => hay.includes(norm(k)))) {
+    if (d.keys.some((k) => pasujeKlucz(hay, k))) {
       return { vibe: d.vibe, forWho: d.forWho, watch: d.watch, tip: d.tip };
     }
   }

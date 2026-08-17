@@ -1778,7 +1778,22 @@
   var DEST_INTEL=[];
   api("/api/destinations").then(function(r){return r.json();}).then(function(d){DEST_INTEL=d.destinations||[];if(lastList&&lastList.length&&typeof render==="function")render(lastList);}).catch(function(){});
   function normD(s){return String(s||"").toLowerCase().replace(/ł/g,"l").normalize("NFD").replace(/[̀-ͯ]/g,"");}
-  function destIntelClient(region,country){var hay=normD(region)+" "+normD(country);for(var i=0;i<DEST_INTEL.length;i++){var d=DEST_INTEL[i];if((d.keys||[]).some(function(k){return hay.indexOf(normD(k))>-1;}))return d;}return null;}
+  // Bliźniak destIntel()/pasujeKlucz() z src/destinations.js — dopasowanie po CAŁYM
+  // SŁOWIE. Zwykłe indexOf sprawiało, że klucz „kos" (grecka wyspa) trafiał w
+  // „Kostarykę", a „lara" (Turcja) w „Larnakę" — i klient dostawał opis zupełnie
+  // innego kierunku niż ten, do którego leci.
+  function pasujeKluczIntel(hay,klucz){
+    var k=normD(klucz);
+    if(!k)return false;
+    for(var od=0;;){
+      var i=hay.indexOf(k,od);
+      if(i<0)return false;
+      var przed=i===0?"":hay.charAt(i-1),po=hay.charAt(i+k.length);
+      if(!/[a-z0-9]/.test(przed)&&!/[a-z0-9]/.test(po))return true;
+      od=i+1;
+    }
+  }
+  function destIntelClient(region,country){var hay=normD(region)+" "+normD(country);for(var i=0;i<DEST_INTEL.length;i++){var d=DEST_INTEL[i];if((d.keys||[]).some(function(k){return pasujeKluczIntel(hay,k);}))return d;}return null;}
 
   // ETA OS: oferta „zajebista" = dobra wartość i wiarygodne opinie (nie drogi przypał, nie ciemna liczba opinii).
   function etaGreat(h){var v=etaVerdict(h);return etaValue(h)>=70 && v.c!=="bad" && v.c!=="warn";}

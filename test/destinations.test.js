@@ -62,6 +62,27 @@ test("nieznany kierunek zwraca brak wiedzy, a nie przypadkowy wpis", () => {
   assert.equal(destIntel(null, undefined), null);
 });
 
+// Wiedza o kierunku trafia do klienta jako opis MIEJSCA, do którego leci — więc
+// dopasowanie musi iść po całym słowie. Zwykłe `includes` sprawiało, że krótkie
+// klucze łapały się na cudzych nazwach: „kos" (grecka wyspa) na „Kostaryce",
+// „lara" (turecki kurort) na „Larnace", „sal" (Wyspy Zielonego Przylądka) na „Salou".
+test("krótki klucz kierunku nie łapie się na cudzej nazwie", () => {
+  assert.equal(destIntel("Kosta Rika", "Kostaryka"), null,
+    "„kos” złapało się w środku innej nazwy — klient dostałby opis greckiej wyspy");
+  assert.equal(destIntel("Salou", "Hiszpania"), null,
+    "„sal” złapało się na Salou — to opis Wysp Zielonego Przylądka");
+  assert.equal(destIntel("Maleme", "Grecja"), null,
+    "„male” złapało się na kreteńskim Maleme — to opis Malediwów");
+
+  // …a właściwe kierunki muszą dalej działać.
+  assert.match(destIntel("Kos", "Grecja").vibe, /rowerowa|plaże/i);
+  assert.match(destIntel("Sal", "Wyspy Zielonego Przylądka").vibe, /słońce/i);
+  assert.match(destIntel("Lara", "Turcja").vibe, /resort/i);
+  assert.match(destIntel("Hurghada", "Egipt").vibe, /wybór|ceny/i);
+  // Klucz wielowyrazowy też ma trafiać.
+  assert.ok(destIntel("Marsa Alam", "Egipt"), "wielowyrazowy klucz przestał pasować");
+});
+
 test("ostrzeżenia o kierunku są konkretne, nie ogólnikowe", () => {
   for (const d of allDestinations()) {
     assert.ok(d.watch.length > 15, `ostrzeżenie dla ${d.keys[0]} jest zbyt ogólne: „${d.watch}"`);
