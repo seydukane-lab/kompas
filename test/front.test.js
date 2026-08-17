@@ -501,6 +501,63 @@ test("widok tabeli ma kolumnę „Terminy”, a nagłówki i komórki się nie r
     `liczba nagłówków (${liczbaTh}) i komórek (${liczbaTd}) w tabeli wyników się rozjechała`);
 });
 
+// ============================================================
+// Zakładka „Terminy i operatorzy” po promoteMatchingVariant.
+//
+// Karta wyniku pokazuje KONKRETNY wariant (ten pasujący do filtrów), a tabela
+// terminów wyglądała dokładnie tak samo jak przedtem — konsultant nie wiedział,
+// o którym wierszu mówi karta ani które terminy są poza jego kryteriami.
+// Test pilnuje trzech rzeczy naraz: wyróżnienia, wyciszenia i tego, że
+// dopasowanie idzie po polach wariantu, a NIE po indeksie w tablicy (tabela
+// jest przesortowana po sumie za grupę, więc indeks nic nie znaczy).
+// ============================================================
+test("tabWarianty wyróżnia wariant pokazany na karcie i wycisza te poza aktywnymi filtrami", () => {
+  const html = wczytaj("public/index.html");
+
+  const fn = html.match(/var tabWarianty=\(function\(\)\{[\s\S]*?\n {4}\}\)\(\);/)?.[0] || "";
+  assert.ok(fn, "brak bloku tabWarianty — zmienił nazwę/strukturę?");
+
+  // Wyróżnienie wiersza z karty: klasa + podpis, żeby działało też bez koloru.
+  // Sprawdzamy CAŁY warunek razem z flagą, nie samo cls.push — podmiana warunku na
+  // if(false) zostawia ten sam podciąg i przeszłaby przez luźniejszą asercję.
+  assert.match(fn, /if\(pokazany\)cls\.push\("wr-shown"\)/,
+    "klasa wr-shown nie jest wiązana z flagą pokazany — wyróżnienie może być martwe");
+  assert.match(fn, /var pokazany=\(i===iPokazany\)/,
+    "flaga pokazany nie wynika z wyliczonego wiersza — wyróżnienie może być zawsze fałszywe");
+  assert.match(fn, /pokazany\?'<span class="wr-tag wr-tag-shown">pokazany na karcie<\/span>':''/,
+    "brak podpisu „pokazany na karcie” zależnego od flagi");
+
+  // Dopasowanie po polach wariantu, nie po pozycji na liście.
+  const dopasowanie = fn.match(/V\[vi\]\.departDate===h\.departDate[\s\S]{0,160}/)?.[0] || "";
+  assert.ok(dopasowanie, "brak dopasowania wariantu po departDate — szukamy po indeksie?");
+  assert.match(dopasowanie, /departureCity===h\.departureCity/, "dopasowanie nie sprawdza miasta wylotu");
+  assert.match(dopasowanie, /operator===h\.operator/, "dopasowanie nie sprawdza operatora");
+
+  // Wyciszenie wariantów poza filtrem — stonowanie plus tytuł z powodem,
+  // ale NIE ukrywanie (żadnego display:none ani filtrowania listy).
+  assert.match(fn, /if\(powod\)cls\.push\("wr-excluded"\)/,
+    "klasa wr-excluded nie jest wiązana z powodem odrzucenia — wyciszenie może być martwe");
+  assert.match(fn, /if\(!filtry\[fi\]\.test\(v\)\)\{powod=filtry\[fi\]\.reason;break;\}/,
+    "powód nie pochodzi z niespełnionego predykatu filtra");
+  assert.match(fn, /title="Poza aktywnym filtrem: /, "brak wyjaśnienia, dlaczego wariant jest poza filtrem");
+  assert.ok(!/V=V\.filter|wiersze=V\.filter/.test(fn),
+    "warianty poza filtrem są usuwane z listy zamiast oznaczane — konsultant ma widzieć wszystkie terminy");
+
+  // Bez aktywnych filtrów pakietowych lista ma wyglądać jak dotąd: predykaty
+  // powstają wyłącznie z zaznaczonych chipów, więc pusta lista = zero wyciszeń.
+  const filtry = html.match(/function wrAktywneFiltry\(\)\{[\s\S]*?\n {4}\}/)?.[0] || "";
+  assert.ok(filtry, "brak funkcji wrAktywneFiltry");
+  assert.match(filtry, /if\(activeDeps\.length\)/, "filtr miasta wylotu nie jest warunkowy");
+  assert.match(filtry, /if\(activeTrans\.length\)/, "filtr transportu nie jest warunkowy");
+  assert.match(filtry, /if\(activeWeekdays\.length\)/, "filtr dnia tygodnia nie jest warunkowy");
+  // activeWeekdays to stringi z data-wd, getDay() to liczba — bez String() filtr byłby martwy.
+  assert.match(filtry, /String\(new Date\(/, "dzień tygodnia porównywany bez konwersji typu — filtr nigdy nie zadziała");
+
+  // Style muszą istnieć, inaczej klasy nic nie zmieniają wizualnie.
+  assert.match(html, /\.wr-shown\{[^}]+\}/, "brak stylu .wr-shown");
+  assert.match(html, /\.wr-excluded\{[^}]+\}/, "brak stylu .wr-excluded");
+});
+
 test("sortowanie po sumie za grupę istnieje i liczy tym samym wzorem co offerTotal", () => {
   const html = wczytaj("public/index.html");
   const server = wczytaj("server.js");

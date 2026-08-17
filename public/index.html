@@ -581,6 +581,13 @@
   .wr-sub{display:block;font-size:11px;color:var(--ink-faint);font-weight:500;margin-top:2px}
   .wr-best{background:var(--accent-soft)}
   .wr-tag{display:inline-block;margin-left:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--accent-deep);border:1px solid var(--accent);border-radius:10px;padding:1px 7px;vertical-align:middle}
+  /* Wiersz wariantu pokazanego na karcie wyniku — inny kolor niż „najtaniej za grupę”,
+     bo to dwie różne informacje i bywają na dwóch różnych wierszach. */
+  .wr-shown{background:var(--sand-soft);box-shadow:inset 3px 0 0 var(--sand)}
+  .wr-tag-shown{color:var(--sand);border-color:var(--sand)}
+  /* Wariant poza aktywnymi filtrami: stonowany, ale NIE ukryty — konsultant
+     świadomie ogląda wszystkie terminy, ma tylko widzieć, które są poza kryteriami. */
+  .wr-excluded{opacity:.5}
   .wr-unk{color:var(--ink-faint);font-style:italic;border-bottom:1px dashed var(--line-strong);cursor:help}
   /* Wykres ceny wg dnia wylotu — najmocniejszy argument sprzedażowy w tym widoku:
      „dzień później i jest taniej o…". */
@@ -1777,12 +1784,33 @@
       var d=n%10,s=n%100;
       return (d>=2&&d<=4&&(s<12||s>14))?"miejsca":"miejsc";
     }
+    // Filtry pakietowe zaznaczone w panelu, po stronie klienta — ta sama logika co
+    // activeVariantPredicates() w ranking.js (miasto wylotu, transport, dzień wylotu),
+    // tyle że z powodem po polsku, żeby wiersz mógł wyjaśnić, dlaczego jest poza
+    // kryteriami. Pusta lista = żaden filtr pakietowy nie jest aktywny.
+    function wrAktywneFiltry(){
+      var preds=[];
+      if(activeDeps.length)preds.push({test:function(v){return activeDeps.indexOf(v.departureCity)>-1;},reason:"inne miasto wylotu niż w filtrze"});
+      if(activeTrans.length)preds.push({test:function(v){return activeTrans.indexOf(v.transport)>-1;},reason:"inny środek transportu niż w filtrze"});
+      // activeWeekdays trzyma stringi z data-wd ("0"–"6"), getDay() daje liczbę — porównujemy przez String().
+      if(activeWeekdays.length)preds.push({test:function(v){return !!v.departDate&&activeWeekdays.indexOf(String(new Date(v.departDate+"T00:00:00").getDay()))>-1;},reason:"wylot w innym dniu tygodnia niż w filtrze"});
+      return preds;
+    }
     var tabWarianty=(function(){
       var V=(h.variants||[]).slice();
       if(V.length<2)return "";
       V.sort(function(a,b){return (a.priceTotal||a.price*2)-(b.priceTotal||b.price*2);});
       var naj=V[0].priceTotal||V[0].price*2;
-      var wiersze=V.map(function(v){
+      var filtry=wrAktywneFiltry();
+      // Który wiersz odpowiada temu, co widać na karcie. Po promoteMatchingVariant
+      // (ranking.js) wierzch oferty to konkretny wariant, więc dopasowujemy po
+      // TRZECH polach naraz — nie po indeksie w tablicy, bo tabela jest przesortowana
+      // po sumie za grupę i kolejność z h.variants już nie obowiązuje.
+      var iPokazany=-1;
+      for(var vi=0;vi<V.length;vi++){
+        if(V[vi].departDate===h.departDate&&V[vi].departureCity===h.departureCity&&V[vi].operator===h.operator){iPokazany=vi;break;}
+      }
+      var wiersze=V.map(function(v,i){
         var suma=v.priceTotal||v.price*2;
         var trasa=(v.departureCode||v.departureCity||"")+(v.arrivalCode?" → "+v.arrivalCode:"");
         var godz=(v.outboundDep&&v.outboundArr)?(v.outboundDep+"–"+v.outboundArr):"";
@@ -1791,8 +1819,15 @@
         // Liczba wolnych miejsc bywa nieznana — „brak danych", nigdy 0 (zero
         // znaczyłoby „wyprzedane", czyli dokładną odwrotność prawdy).
         var miejsca=(typeof v.seatsLeft==="number")?(v.seatsLeft+" "+odmMiejsca(v.seatsLeft)):'<span class="wr-unk" title="Operator nie podał liczby wolnych miejsc — to nie znaczy, że ich nie ma.">brak danych</span>';
-        return '<tr'+(suma===naj?' class="wr-best"':'')+'>'+
-          '<td><b>'+(v.operator||"—")+'</b>'+(suma===naj?'<span class="wr-tag">najtaniej za grupę</span>':'')+'</td>'+
+        var pokazany=(i===iPokazany);
+        var powod=null;
+        for(var fi=0;fi<filtry.length;fi++){ if(!filtry[fi].test(v)){powod=filtry[fi].reason;break;} }
+        var cls=[];
+        if(suma===naj)cls.push("wr-best");
+        if(pokazany)cls.push("wr-shown");
+        if(powod)cls.push("wr-excluded");
+        return '<tr'+(cls.length?' class="'+cls.join(" ")+'"':'')+(powod?' title="Poza aktywnym filtrem: '+powod+'"':'')+'>'+
+          '<td><b>'+(v.operator||"—")+'</b>'+(suma===naj?'<span class="wr-tag">najtaniej za grupę</span>':'')+(pokazany?'<span class="wr-tag wr-tag-shown">pokazany na karcie</span>':'')+'</td>'+
           '<td>'+(v.departDate?fmtDate(v.departDate):"—")+(dl?'<span class="wr-sub">'+dl+'</span>':'')+'</td>'+
           '<td>'+trasa+(godz?'<span class="wr-sub">'+godz+'</span>':'')+(przelot?'<span class="wr-sub">'+przelot+'</span>':'')+'</td>'+
           '<td class="wr-num">'+fmt(v.price)+' zł<span class="wr-sub">za osobę</span></td>'+
