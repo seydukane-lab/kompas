@@ -11,6 +11,12 @@
 //  potwierdzone dane w środowisku testowym (konto SPAIN).
 // ============================================================
 
+// Kiedy warunki wjazdowe zostały ostatnio zebrane. JEDNO miejsce, z którego panel
+// bierze datę i liczy jej wiek — do tej pory „lipiec 2026" był wpisany na sztywno
+// w dwóch miejscach frontu, więc za rok konsultant podawałby klientowi przepisy
+// wizowe sprzed roku, opisane jako aktualne. Przy aktualizacji danych ZMIEŃ TĘ DATĘ.
+export const PRACTICAL_DATA_DATE = "2026-07";
+
 export const COUNTRIES = {
   Hiszpania: {
     flag: "🇪🇸",
@@ -192,4 +198,13 @@ export function clientData() {
     };
   }
   return out;
+}
+
+// Ile pełnych miesięcy minęło od zebrania warunków wjazdowych. Panel pokazuje tę
+// liczbę wprost, gdy dane się zestarzeją — przepisy wizowe i wymogi zdrowotne
+// zmieniają się w ciągu roku, a konsultant czyta je klientowi jako fakt.
+export function practicalDataAgeMonths(teraz = new Date()) {
+  const [rok, mies] = String(PRACTICAL_DATA_DATE).split("-").map(Number);
+  if (!rok || !mies) return 0;
+  return Math.max(0, (teraz.getFullYear() - rok) * 12 + (teraz.getMonth() + 1 - mies));
 }

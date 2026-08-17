@@ -378,6 +378,9 @@
   .pract-note b{color:var(--ink)}
   .pract-source{padding:10px 16px;font-size:11.5px;color:var(--ink-faint);border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
   .pract-source a{color:var(--accent-deep)}
+  /* Wiek danych o warunkach wjazdowych — przepisy zmieniają się w ciągu roku,
+     a konsultant czyta je klientowi jako fakt. */
+  .pract-stale{display:block;margin-top:3px;color:var(--warn);font-weight:650}
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
   /* Atrybut hidden ZAWSZE ukrywa — inaczej reguły display:flex (.cmp-modal,.op-filter…) nadpisują [hidden] i element wisi na ekranie. */
@@ -2438,12 +2441,35 @@
 
   // Siatka „informacji praktycznych" dla danego kraju — używana i w karcie kraju,
   // i w rozwijaczu na karcie oferty. Pusty string, gdy brak danych o kraju.
+  // Stopka pod warunkami wjazdowymi — JEDNO miejsce dla obu widoków (rozwijacz na
+  // karcie i modal „Informacje praktyczne"). Data pochodzi z backendu
+  // (countries.js:PRACTICAL_DATA_DATE), więc nie starzeje się niezauważona w dwóch
+  // kopiach tekstu. Gdy dane mają pół roku i więcej, mówimy o tym wprost: przepisy
+  // wizowe i wymogi zdrowotne zmieniają się w ciągu roku, a konsultant czyta je
+  // klientowi jako fakt.
+  var PRACT_UPDATED="", PRACT_WIEK=0;
+  // Mianownik, bo tekst brzmi „stan: lipiec 2026" — dopełniacz („stan: lipca")
+  // czyta się jak niedokończone zdanie.
+  var MIESIACE_PL=["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"];
+  function praktDataTekst(){
+    var cz=String(PRACT_UPDATED||"").split("-");
+    if(cz.length<2)return "";
+    var m=MIESIACE_PL[Number(cz[1])-1];
+    return m?(m+" "+cz[0]):PRACT_UPDATED;
+  }
+  function praktStopka(){
+    var data=praktDataTekst();
+    var stare=PRACT_WIEK>=6
+      ? '<span class="pract-stale">dane sprzed '+PRACT_WIEK+" "+odmiana(PRACT_WIEK,"miesiąca","miesięcy","miesięcy")+' — koniecznie sprawdź na gov.pl</span>'
+      : "";
+    return '<div class="pract-source"><span>Źródło: gov.pl / MSZ'+(data?" (stan: "+data+")":"")+' — <b>zawsze zweryfikuj przed wyjazdem</b>'+stare+'</span><a href="https://www.gov.pl/web/dyplomacja/informacje-dla-podrozujacych" target="_blank" rel="noopener">gov.pl ↗</a></div>';
+  }
   function practGridHtml(country){
     var c=COUNTRY_DATA[country];
     if(!c||!c.practical)return"";
     var p=c.practical,keys=["documents","visa","currency","time","language","emergency","plug","health"];
     var grid=keys.map(function(k){return '<div class="pract-item"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(PRACT_ICONS[k]||"")+'</svg>'+PRACT_LABELS[k]+'</div><div class="v">'+p[k]+'</div></div>';}).join("");
-    return '<div class="practical-grid">'+grid+'</div>'+(p.note?'<div class="pract-note"><b>Dobrze wiedzieć:</b> '+p.note+'</div>':'')+'<div class="pract-source"><span>Źródło: gov.pl / MSZ (lipiec 2026) — <b>zawsze zweryfikuj przed wyjazdem</b></span><a href="https://www.gov.pl/web/dyplomacja/informacje-dla-podrozujacych" target="_blank" rel="noopener">gov.pl ↗</a></div>';
+    return '<div class="practical-grid">'+grid+'</div>'+(p.note?'<div class="pract-note"><b>Dobrze wiedzieć:</b> '+p.note+'</div>':'')+praktStopka();
   }
 
   // Budowa drzewa kierunków: kraje z regionami + kraje-ekstra (cały kraj).
@@ -2530,13 +2556,14 @@
     document.getElementById("pracTitle").textContent="Informacje praktyczne — "+country+" (warunki wjazdowe)";
     var p=c.practical,keys=["documents","visa","currency","time","language","emergency","plug","health"];
     var grid=keys.map(function(k){return '<div class="pract-item"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(PRACT_ICONS[k]||"")+'</svg>'+PRACT_LABELS[k]+'</div><div class="v">'+p[k]+'</div></div>';}).join("");
-    document.getElementById("practicalBody").innerHTML='<div class="practical-grid">'+grid+'</div>'+(p.note?'<div class="pract-note"><b>Dobrze wiedzieć:</b> '+p.note+'</div>':'')+'<div class="pract-source"><span>Źródło: gov.pl / MSZ (stan: lipiec 2026) — <b>zawsze zweryfikuj przed wyjazdem</b></span><a href="https://www.gov.pl/web/dyplomacja/informacje-dla-podrozujacych" target="_blank" rel="noopener">gov.pl — informacje dla podróżujących ↗</a></div>';
+    document.getElementById("practicalBody").innerHTML='<div class="practical-grid">'+grid+'</div>'+(p.note?'<div class="pract-note"><b>Dobrze wiedzieć:</b> '+p.note+'</div>':'')+praktStopka();
     practical.classList.add("show");
   }
   document.getElementById("practicalHead").addEventListener("click",function(){practical.classList.toggle("open");});
 
   api("/api/countries").then(function(r){return r.json();}).then(function(d){
     COUNTRY_DATA=d.countries||{};
+    PRACT_UPDATED=d.updated||"";PRACT_WIEK=Number(d.wiekMiesiecy)||0;
     // Indeks region → kraj (z danych krajów).
     Object.keys(COUNTRY_DATA).forEach(function(country){(COUNTRY_DATA[country].regions||[]).forEach(function(r){REGION_TO_COUNTRY[r]=country;});});
     buildGeoTree();

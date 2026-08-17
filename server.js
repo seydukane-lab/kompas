@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
 import { applyFilters, promoteMatchingVariant, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia } from "./src/ranking.js";
-import { clientData } from "./src/countries.js";
+import { clientData, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
 import { refreshRate, fxStatus } from "./src/fx.js";
@@ -193,7 +193,7 @@ app.get("/api/destinations", (req, res) => {
 
 // --- Kraje: regiony + informacje praktyczne / warunki wjazdowe ---
 app.get("/api/countries", (req, res) => {
-  res.json({ countries: clientData(), updated: "2026-07" });
+  res.json({ countries: clientData(), updated: PRACTICAL_DATA_DATE, wiekMiesiecy: practicalDataAgeMonths() });
 });
 
 // --- Multiroom Finder: kilka pokoi/składów, wspólny hotel+termin ---

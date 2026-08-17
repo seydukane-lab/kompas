@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { allDestinations, destIntel } from "../src/destinations.js";
-import { clientData, regionInfo } from "../src/countries.js";
+import { clientData, regionInfo, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "../src/countries.js";
 
 test("baza kierunków nie jest pusta", () => {
   const wszystkie = allDestinations();
@@ -87,6 +87,20 @@ test("ostrzeżenia o kierunku są konkretne, nie ogólnikowe", () => {
   for (const d of allDestinations()) {
     assert.ok(d.watch.length > 15, `ostrzeżenie dla ${d.keys[0]} jest zbyt ogólne: „${d.watch}"`);
   }
+});
+
+// Warunki wjazdowe (wizy, dokumenty, wymogi zdrowotne) konsultant czyta klientowi
+// jako fakt. Data ich zebrania była wpisana na sztywno w trzech miejscach — więc
+// za rok panel podawałby przepisy sprzed roku, opisane tak samo jak świeże.
+test("wiek danych o warunkach wjazdowych liczy się z jednego źródła", () => {
+  assert.match(PRACTICAL_DATA_DATE, /^\d{4}-\d{2}$/, "data danych praktycznych w złym formacie");
+
+  const [rok, mies] = PRACTICAL_DATA_DATE.split("-").map(Number);
+  assert.equal(practicalDataAgeMonths(new Date(rok, mies - 1, 15)), 0, "w miesiącu zebrania wiek to zero");
+  assert.equal(practicalDataAgeMonths(new Date(rok, mies + 5, 15)), 6, "sześć miesięcy później — sześć");
+  assert.equal(practicalDataAgeMonths(new Date(rok + 1, mies - 1, 15)), 12, "rok później — dwanaście");
+  // Data z przyszłości (świeżo zaktualizowane dane) nie może dawać ujemnego wieku.
+  assert.equal(practicalDataAgeMonths(new Date(rok - 1, mies - 1, 15)), 0);
 });
 
 test("baza krajów zawiera kierunki, na których stoi polski rynek", () => {
