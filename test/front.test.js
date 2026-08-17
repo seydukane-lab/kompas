@@ -406,8 +406,10 @@ test("variantInfo liczy inne terminy i najtańszą sumę za grupę, a odmiana si
   const totalFn = html.match(/function offerTotal\(h,pax\)\{[\s\S]*?\}/)?.[0] || "";
   const dokladnaFn = html.match(/function sumaDokladna\(o,pax\)\{[\s\S]*?\}/)?.[0] || "";
   const infoFn = html.match(/function variantInfo\(h,pax\)\{[\s\S]*?\n  \}/)?.[0] || "";
-  const odmFn = html.match(/function odmTerminow\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
-  const odmInnyFn = html.match(/function odmInny\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const odmWspolna = html.match(/function odmiana\(n,poj,mn24,mn5\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const odmFn = html.match(/function odmTerminow\(n\)\{.*?\}/)?.[0] || "";
+  const odmInnyFn = html.match(/function odmInny\(n\)\{.*?\}/)?.[0] || "";
+  assert.ok(odmWspolna, "brak wspólnej funkcji odmiana() — pozostałe są jej opakowaniami");
   assert.ok(sumaFn, "brak funkcji variantSuma — zmieniła nazwę/sygnaturę?");
   assert.ok(totalFn, "brak funkcji offerTotal — variantSuma nie ma na czym stanąć");
   assert.ok(dokladnaFn, "brak funkcji sumaDokladna");
@@ -418,7 +420,7 @@ test("variantInfo liczy inne terminy i najtańszą sumę za grupę, a odmiana si
   // paxCount() czyta pola formularza, których tu nie ma — podstawiamy sterowaną atrapę,
   // żeby dało się sprawdzić TO SAMO wyliczenie dla pary i dla większej grupy.
   const zbuduj = (pax) => new Function(
-    `function paxCount(){return ${pax};}\n` + dokladnaFn + "\n" + totalFn + "\n" + sumaFn + "\n" + infoFn + "\n" + odmFn + "\n" + odmInnyFn +
+    `function paxCount(){return ${pax};}\n` + odmWspolna + "\n" + dokladnaFn + "\n" + totalFn + "\n" + sumaFn + "\n" + infoFn + "\n" + odmFn + "\n" + odmInnyFn +
     "\nreturn {variantInfo, variantSuma, odmTerminow, odmInny};"
   )();
   const { variantInfo, odmTerminow, odmInny } = zbuduj(2);
@@ -602,9 +604,11 @@ test("tabela terminów liczy sumy dla realnego składu, nie dla zaszytych dwóch
   assert.match(fn, /sumaDokladna\(v,osobWyjazd\)\?"razem":"szacunek"/,
     "komórka sumy nie odróżnia ceny operatora od naszego szacunku");
 
-  const odm = html.match(/function odmOsob\(n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const odm = html.match(/function odmOsob\(n\)\{.*?\}/)?.[0] || "";
+  const wspolna = html.match(/function odmiana\(n,poj,mn24,mn5\)\{[\s\S]*?\n  \}/)?.[0] || "";
   assert.ok(odm, "brak funkcji odmOsob");
-  const { odmOsob } = new Function(odm + "\nreturn {odmOsob};")();
+  assert.ok(wspolna, "brak wspólnej funkcji odmiana() — pozostałe odmiany są jej opakowaniami");
+  const { odmOsob } = new Function(wspolna + "\n" + odm + "\nreturn {odmOsob};")();
   assert.equal(odmOsob(1), "osoba");
   assert.equal(odmOsob(2), "osoby");
   assert.equal(odmOsob(5), "osób");
@@ -645,7 +649,9 @@ test("przy zerze wyników panel podpowiada, który filtr zdjąć, i pozwala to z
   assert.match(html, /budgetMax:budget\.max,minRateMin:minRate\.min/,
     "zapytanie nie niesie granic suwaków — podpowiedź będzie obiecywać nieosiągalny stan");
 
-  const { odmOfert } = new Function(html.match(/function odmOfert\(n\)\{[\s\S]*?\n  \}/)[0] + "\nreturn {odmOfert};")();
+  const { odmOfert } = new Function(
+    html.match(/function odmiana\(n,poj,mn24,mn5\)\{[\s\S]*?\n  \}/)[0] + "\n" +
+    html.match(/function odmOfert\(n\)\{.*?\}/)[0] + "\nreturn {odmOfert};")();
   assert.equal(odmOfert(1), "oferta");
   assert.equal(odmOfert(3), "oferty");
   assert.equal(odmOfert(12), "ofert");

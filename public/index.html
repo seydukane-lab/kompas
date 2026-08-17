@@ -949,11 +949,17 @@
   function sumaDokladna(o,pax){return typeof o.priceTotal==="number"&&o.priceTotal>0&&o.priceTotalPax===Math.max(1,pax||1);}
   // Odmiana: 1 osoba, 2-4 osoby, 5+ osób (12-14 też „osób"). Nagłówek „Razem (5 osób)"
   // czyta konsultant i przekleja klientowi — „5 osoba" wygląda na maszynowy błąd.
-  function odmOsob(n){
-    if(n===1)return "osoba";
+  // Polska odmiana przez liczebnik — JEDNO miejsce liczące, bo reguła jest zawsze ta
+  // sama: 1 termin, 2-4 terminy, 5+ terminów, a nastolatki (12-14) idą z formą mnogą
+  // „terminów". Wcześniej ten sam warunek był przepisany sześć razy, w tym raz błędnie
+  // (dwie gałęzie dawały ten sam wynik) — i to jest dokładnie ten rodzaj miejsca,
+  // w którym literówka wychodzi dopiero u konsultanta jako „1 ofert".
+  function odmiana(n,poj,mn24,mn5){
+    if(n===1)return poj;
     var d=n%10,s=n%100;
-    return (d>=2&&d<=4&&(s<12||s>14))?"osoby":"osób";
+    return (d>=2&&d<=4&&!(s>=12&&s<=14))?mn24:mn5;
   }
+  function odmOsob(n){return odmiana(n,"osoba","osoby","osób");}
   // Suma za grupę dla POJEDYNCZEGO wariantu (patrz h.variants[] — providers/index.js:variantOf).
   // Ten sam wzór co w zakładce „Terminy i operatorzy" (openDetail), jedno miejsce liczące,
   // żeby karta/tabela i modal szczegółów nigdy nie pokazały dwóch różnych „najtaniej".
@@ -971,20 +977,10 @@
     return {count:V.length,other:V.length-1,minTotal:Math.min.apply(null,sumy)};
   }
   // Polska odmiana: 1 termin, 2-4 terminy, 5+ terminów (z wyjątkiem 12-14 — „12 terminów").
-  function odmTerminow(n){
-    var d=n%10,s=n%100;
-    if(n===1)return "termin";
-    if(d>=2&&d<=4&&!(s>=12&&s<=14))return "terminy";
-    return "terminów";
-  }
+  function odmTerminow(n){return odmiana(n,"termin","terminy","terminów");}
   // Przymiotnik „inny" musi się zgadzać z rzeczownikiem z odmTerminow: „1 inny termin",
   // „2 inne terminy", „5 innych terminów" — samo odmTerminow tego nie załatwia.
-  function odmInny(n){
-    var d=n%10,s=n%100;
-    if(n===1)return "inny";
-    if(d>=2&&d<=4&&!(s>=12&&s<=14))return "inne";
-    return "innych";
-  }
+  function odmInny(n){return odmiana(n,"inny","inne","innych");}
 
   var activeBoards=[],activeTags=[],activeRegions=[],activeTrans=[],activeCountries=[],activeDeps=[],activeAttrs=[],activeWeekdays=[];
   function wireChips(c,arr){c.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;var k=b.dataset.board||b.dataset.tag||b.dataset.trans||b.dataset.dep||b.dataset.attr||b.dataset.wd,i=arr.indexOf(k);if(i>-1){arr.splice(i,1);b.setAttribute("aria-pressed","false");}else{arr.push(k);b.setAttribute("aria-pressed","true");}});}
@@ -1866,11 +1862,7 @@
     // Odmiana przez przypadki: „1 miejsce", „3 miejsca", „7 miejsc". Panel czyta
     // konsultant, który przekleja to klientowi — „1 miejsc" wygląda na maszynowy błąd
     // i podważa staranność całej reszty.
-    function odmMiejsca(n){
-      if(n===1)return "miejsce";
-      var d=n%10,s=n%100;
-      return (d>=2&&d<=4&&(s<12||s>14))?"miejsca":"miejsc";
-    }
+    function odmMiejsca(n){return odmiana(n,"miejsce","miejsca","miejsc");}
     // Filtry pakietowe zaznaczone w panelu, po stronie klienta — ta sama logika co
     // activeVariantPredicates() w ranking.js (miasto wylotu, transport, dzień wylotu),
     // tyle że z powodem po polsku, żeby wiersz mógł wyjaśnić, dlaczego jest poza
@@ -2049,12 +2041,7 @@
   // Świadomie opisujemy WYNIKI WYSZUKIWANIA, nie to, co zostało po filtrach operatora —
   // przy zerze potwierdzeń zdanie i tak pozostaje prawdziwe dla każdego podzbioru.
   // Polska odmiana: 1 oferta, 2-4 oferty, 5+ ofert (z wyjątkiem nastek: 12 ofert, nie 12 oferty).
-  function odmianaOfert(n){
-    var d=n%10,s=n%100;
-    if(n===1)return "1 oferta";
-    if(d>=2&&d<=4&&!(s>=12&&s<=14))return n+" oferty";
-    return n+" ofert";
-  }
+  function odmianaOfert(n){return n+" "+odmOfert(n);}
   // Nazwa atrybutu do wyświetlenia (bez emoji) — czytana z etykiety chipa filtra,
   // żeby nie duplikować nazw atrybutów w drugim miejscu w kodzie.
   function attrChipLabel(key){
@@ -2088,11 +2075,7 @@
   // Przy kliencie liczy się jedno zdanie: nie „poluzuj kryteria", tylko
   // „bez budżetu 900 zł/os. jest 47 ofert" — i przycisk, który to robi od razu.
   var ostatnieRozluznienia=[];
-  function odmOfert(n){
-    if(n===1)return "oferta";
-    var d=n%10,s=n%100;
-    return (d>=2&&d<=4&&(s<12||s>14))?"oferty":"ofert";
-  }
+  function odmOfert(n){return odmiana(n,"oferta","oferty","ofert");}
   function podpowiedziHtml(){
     if(!ostatnieRozluznienia.length)return "";
     var pozycje=ostatnieRozluznienia.slice(0,4).map(function(p){

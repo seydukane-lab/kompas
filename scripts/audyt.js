@@ -80,7 +80,15 @@ for (const s of SCENARIUSZE) {
     if (typeof o.priceTotal === "number" && o.priceTotal > 0 && typeof o.priceTotalPax !== "number") {
       zglos("WYSOKA", "cena łączna bez informacji, dla ilu osób", `${o.name}: ${o.priceTotal} zł (${o.source || "?"})`);
     }
-    if (o.reviews === 0 && o.rating >= 9) zglos("WYSOKA", "wysoka ocena przy zerze opinii", `${o.name}: ${o.rating}`);
+    // Ocena bez liczby opinii to NORMALNY stan części źródeł (Hotelbeds Content API
+    // nie ma recenzji, wakacje.pl podaje samą ocenę) — panel oznacza takie oferty
+    // jako „brak danych o opiniach", więc to informacja o zasięgu danych, nie błąd.
+    // Błędem byłoby dopiero twierdzenie o wolumenie, którego nie znamy.
+    if (o.reviews === 0 && o.rating >= 9) zglos("INFO", "ocena bez potwierdzenia liczbą opinii", `${o.name}: ${o.rating} (${o.source || "?"})`);
+    // Ocena poza skalą albo NaN po serializacji — to już realny błąd danych.
+    if (o.rating != null && !(o.rating >= 0 && o.rating <= 10)) {
+      zglos("WYSOKA", "ocena poza skalą 0-10", `${o.name}: ${o.rating}`);
+    }
     for (const v of o.variants || []) {
       if (v.priceTotal === 0) zglos("ŚREDNIA", "wariant z sumą 0 zł", `${o.name} / ${v.operator || "?"}`);
       if (v.departDate && v.returnDate && v.returnDate < v.departDate) {
