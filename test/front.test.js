@@ -612,6 +612,46 @@ test("tabela terminów liczy sumy dla realnego składu, nie dla zaszytych dwóch
   assert.equal(odmOsob(22), "osoby");
 });
 
+// Zero wyników to moment, w którym konsultant siedzi przy kliencie i nie wie,
+// co zdjąć. Backend liczy podpowiedzi (ranking.js:podpowiedziRozluznienia), front
+// ma je pokazać KONKRETNIE i dać zdjąć filtr jednym kliknięciem.
+test("przy zerze wyników panel podpowiada, który filtr zdjąć, i pozwala to zrobić", () => {
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /ostatnieRozluznienia=data\.rozluznienia\|\|\[\]/,
+    "front nie odbiera podpowiedzi z odpowiedzi API");
+  const pusty = html.match(/Nic nie pasuje do tych kryteriów[\s\S]{0,400}?<\/div>'/)?.[0] || "";
+  assert.match(pusty, /\+podpowiedziHtml\(\)\+/,
+    "komunikat o zerze wyników nie pokazuje podpowiedzi");
+
+  const htmlFn = html.match(/function podpowiedziHtml\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(htmlFn, "brak funkcji podpowiedziHtml");
+  assert.match(htmlFn, /slice\(0,4\)/, "brak ograniczenia liczby podpowiedzi — pustka zamieni się w ścianę tekstu");
+  assert.match(htmlFn, /data-rozluznij="'\+p\.klucz\+'"/, "przycisk nie niesie klucza filtra do zdjęcia");
+  assert.match(htmlFn, /p\.ofert\+' '\+odmOfert\(p\.ofert\)/, "brak odmiany „oferta/oferty/ofert”");
+
+  // Zdjęcie filtra musi ruszyć TĘ SAMĄ kontrolkę, którą widzi konsultant, i przeszukać
+  // ponownie — inaczej wyniki rozjadą się z formularzem po lewej.
+  const zdejmij = html.match(/function zdejmijFiltr\(klucz\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(zdejmij, "brak funkcji zdejmijFiltr");
+  for (const klucz of ["budget", "minRate", "minStars", "onlyReviewed", "nights", "boards", "tags", "attrs", "departures", "transports", "weekdays", "regions"]) {
+    assert.ok(zdejmij.includes(`"${klucz}"`), `zdejmijFiltr nie obsługuje klucza „${klucz}” — przycisk nic nie zrobi`);
+  }
+  assert.match(zdejmij, /search\(\);\r?\n  \}/, "po zdjęciu filtra nie ma ponownego wyszukania");
+
+  // Panel musi powiedzieć backendowi, NA CO ustawi suwaki po kliknięciu — inaczej
+  // podpowiedź liczy filtr wyłączony do zera, a suwak oceny siada na swoim minimum
+  // i konsultant dostaje mniej ofert, niż mu obiecano (zmierzone 17.08.2026: 4 → 1).
+  assert.match(html, /budgetMax:budget\.max,minRateMin:minRate\.min/,
+    "zapytanie nie niesie granic suwaków — podpowiedź będzie obiecywać nieosiągalny stan");
+
+  const { odmOfert } = new Function(html.match(/function odmOfert\(n\)\{[\s\S]*?\n  \}/)[0] + "\nreturn {odmOfert};")();
+  assert.equal(odmOfert(1), "oferta");
+  assert.equal(odmOfert(3), "oferty");
+  assert.equal(odmOfert(12), "ofert");
+  assert.equal(odmOfert(47), "ofert");
+});
+
 test("plakietka opinii we froncie mówi to samo co backend i nie zgaduje wolumenu", () => {
   const html = wczytaj("public/index.html");
 

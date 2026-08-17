@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
-import { applyFilters, promoteMatchingVariant, scoreOffer, sortOffers, attributeCoverage, unknownAttrs } from "./src/ranking.js";
+import { applyFilters, promoteMatchingVariant, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia } from "./src/ranking.js";
 import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
@@ -293,7 +293,22 @@ app.get("/api/search", async (req, res) => {
     // filtr z braku danych, nie z jawnego dopasowania) — karta oznacza to znacznikiem.
     const withAttrUnknown = sorted.map((o) => ({ ...o, attrUnknown: unknownAttrs(o, crit.attrs) }));
 
-    res.json({ offers: withAttrUnknown, sources, count: withAttrUnknown.length, attrs: attributeCoverage(sorted, crit) });
+    // Zero wyników mówi konsultantowi tylko tyle, że trzeba coś zdjąć — ale nie co.
+    // Liczymy więc na JUŻ POBRANEJ liście, ile ofert odblokowałoby zdjęcie każdego
+    // pojedynczego filtra. Zero dodatkowych zapytań do dostawców.
+    // Granice suwaków przychodzą z panelu, bo tylko on wie, na co realnie ustawi
+    // kontrolkę po kliknięciu „Zdejmij" (ocena nie schodzi poniżej swojego minimum,
+    // budżet idzie na maksimum). Bez nich podpowiedź obiecuje nieosiągalny stan.
+    const granice = {};
+    if (q.budgetMax) granice.budget = Number(q.budgetMax) || 0;
+    if (q.minRateMin) granice.minRate = Number(q.minRateMin) || 0;
+    const rozluznienia = withAttrUnknown.length === 0 ? podpowiedziRozluznienia(offers, crit, granice) : [];
+
+    res.json({
+      offers: withAttrUnknown, sources, count: withAttrUnknown.length,
+      attrs: attributeCoverage(sorted, crit),
+      ...(rozluznienia.length ? { rozluznienia } : {}),
+    });
   } catch (err) {
     console.error("search error:", err);
     res.status(500).json({ error: "Błąd wyszukiwania", detail: err.message });

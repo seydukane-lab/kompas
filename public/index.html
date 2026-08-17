@@ -339,6 +339,18 @@
   .empty,.loading{text-align:center;padding:60px 24px;background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--radius);color:var(--ink-faint)}
   .empty svg{width:40px;height:40px;color:var(--line-strong);margin-bottom:12px}
   .empty h3{font-size:16px;color:var(--ink-soft);margin-bottom:6px}
+  /* Podpowiedzi przy zerze wyników: który filtr zdjąć i ile ofert to odblokuje.
+     Wyrównane do lewej mimo wyśrodkowanego bloku — to lista do przeczytania,
+     nie hasło. Maks. 4 pozycje, żeby nie zamienić pustki w ścianę tekstu. */
+  .pp-wrap{max-width:430px;margin:18px auto 0;text-align:left;border-top:1px solid var(--line);padding-top:14px}
+  .pp-head{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);margin-bottom:9px}
+  .pp-list{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .pp-list li{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft)}
+  .pp-btn{flex:0 0 auto;font-size:11.5px;font-weight:650;padding:3px 10px;border-radius:20px;border:1px solid var(--accent);background:var(--surface);color:var(--accent-deep);cursor:pointer}
+  .pp-btn:hover{background:var(--accent-soft)}
+  .pp-txt{min-width:0}
+  .pp-txt b{color:var(--ink)}
+  .pp-val{color:var(--ink-faint)}
   .spinner{width:30px;height:30px;border:3px solid var(--line-strong);border-top-color:var(--accent);border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -2071,6 +2083,52 @@
     box.hidden=false;
   }
 
+  // Podpowiedzi „co zdjąć, żeby coś było" — liczone przez backend na już pobranej
+  // liście (ranking.js:podpowiedziRozluznienia), więc nie kosztują zapytań.
+  // Przy kliencie liczy się jedno zdanie: nie „poluzuj kryteria", tylko
+  // „bez budżetu 900 zł/os. jest 47 ofert" — i przycisk, który to robi od razu.
+  var ostatnieRozluznienia=[];
+  function odmOfert(n){
+    if(n===1)return "oferta";
+    var d=n%10,s=n%100;
+    return (d>=2&&d<=4&&(s<12||s>14))?"oferty":"ofert";
+  }
+  function podpowiedziHtml(){
+    if(!ostatnieRozluznienia.length)return "";
+    var pozycje=ostatnieRozluznienia.slice(0,4).map(function(p){
+      var co=p.etykieta+(p.wartosc?' <span class="pp-val">'+p.wartosc+'</span>':'');
+      return '<li><button type="button" class="pp-btn" data-rozluznij="'+p.klucz+'">Zdejmij</button>'+
+        '<span class="pp-txt">'+co+' → <b>'+p.ofert+' '+odmOfert(p.ofert)+'</b></span></li>';
+    }).join("");
+    return '<div class="pp-wrap"><div class="pp-head">Co odblokuje wyniki:</div><ul class="pp-list">'+pozycje+'</ul></div>';
+  }
+  // Zdjęcie filtra = wyzerowanie TEJ SAMEJ kontrolki, którą widzi konsultant,
+  // i ponowne wyszukanie — inaczej panel pokazywałby wyniki niezgodne z formularzem.
+  function zdejmijFiltr(klucz){
+    function odznacz(sel,tablica){
+      document.querySelectorAll(sel).forEach(function(b){b.setAttribute("aria-pressed","false");});
+      tablica.length=0;
+    }
+    if(klucz==="budget"){budget.value=budget.max;budget.dispatchEvent(new Event("input",{bubbles:true}));}
+    else if(klucz==="minRate"){minRate.value=minRate.min||0;minRate.dispatchEvent(new Event("input",{bubbles:true}));}
+    else if(klucz==="minStars"){activeMinStars=0;document.querySelectorAll("[data-stars]").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.stars==="0"?"true":"false");});}
+    else if(klucz==="onlyReviewed"){onlyReviewed=false;document.querySelectorAll("#reviewChips .chip").forEach(function(b){b.setAttribute("aria-pressed","false");});}
+    else if(klucz==="nights"){activeNights=0;document.querySelectorAll("[data-nights]").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.nights==="0"?"true":"false");});}
+    else if(klucz==="boards")odznacz("[data-board]",activeBoards);
+    else if(klucz==="tags")odznacz("[data-tag]",activeTags);
+    else if(klucz==="attrs")odznacz("[data-attr]",activeAttrs);
+    else if(klucz==="departures")odznacz("[data-dep]",activeDeps);
+    else if(klucz==="transports")odznacz("[data-trans]",activeTrans);
+    else if(klucz==="weekdays")odznacz("[data-wd]",activeWeekdays);
+    else if(klucz==="regions"){document.querySelectorAll(".geo-reg-cb:checked").forEach(function(cb){cb.click();});}
+    else return;
+    search();
+  }
+  cardsEl.addEventListener("click",function(e){
+    var b=e.target.closest("[data-rozluznij]");
+    if(b)zdejmijFiltr(b.getAttribute("data-rozluznij"));
+  });
+
   function render(list){
     lastList=list;
     ustawProgETA(list); // próg plakietki liczony raz, na pełnym wyniku wyszukiwania
@@ -2081,7 +2139,7 @@
     if(!list.length){summary.hidden=true;var nm=document.getElementById("hotelName").value.trim();
       if(nm){document.getElementById("resSub").textContent='Brak hotelu o nazwie zawierającej „'+nm+'".';cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nie znaleziono „'+nm+'"</h3><p>Sprawdź pisownię lub wpisz fragment nazwy. W trybie danych na żywo szukaj w obrębie wybranego kierunku.</p></div>';}
       else if(!activeCountries.length&&!activeRegions.length){document.getElementById("resSub").textContent="Wybierz kierunek po lewej, żeby zobaczyć oferty.";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Zacznij od kierunku</h3><p>Zaznacz kraj lub region po lewej (albo kliknij „🌍 Cały świat") i kliknij „Szukaj ofert". Reszta ustawień jest opcjonalna.</p></div>';}
-      else{document.getElementById("resSub").textContent="Brak dopasowań — poluzuj kryteria (budżet, ocena lub wyżywienie).";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nic nie pasuje do tych kryteriów</h3><p>Podnieś budżet, obniż minimalną ocenę albo odznacz część filtrów.</p></div>';}
+      else{document.getElementById("resSub").textContent="Brak dopasowań — poluzuj kryteria (budżet, ocena lub wyżywienie).";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nic nie pasuje do tych kryteriów</h3><p>Podnieś budżet, obniż minimalną ocenę albo odznacz część filtrów.</p>'+podpowiedziHtml()+'</div>';}
       return;}
     buildOpFilter(list);
     var shown=list.filter(function(h){
@@ -2321,8 +2379,8 @@
     // Zapamiętane kryteria = te, na których serwer policzy ETA. Patrz clientFit().
     lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
-    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",sort:document.getElementById("sort").value});
-    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderAttrCover(data.attrs);render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
+    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
+    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderAttrCover(data.attrs);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
   document.getElementById("sort").addEventListener("change",search);

@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, offerGroupTotal, isGroupTotalExact,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, offerGroupTotal, isGroupTotalExact, podpowiedziRozluznienia,
 } from "../src/ranking.js";
 import { mapBoard } from "../src/providers/hotelbeds.js";
 
@@ -331,6 +331,89 @@ test("sortowanie po sumie liczy fallback cena/os. × pax, gdy dostawca nie poda 
   assert.equal(sortOffers([drozsza, tansza], "total", 3)[0].id, "tansza");
   // Bez podanego pax mnożnik schodzi do 1 — kolejność ma zostać ta sama, nie wywalić się.
   assert.equal(sortOffers([drozsza, tansza], "total")[0].id, "tansza");
+});
+
+// ------------------------------------------------------------------
+//  Podpowiedzi przy zerze wyników.
+//
+//  „Nic nie pasuje do tych kryteriów" jest prawdziwe i bezużyteczne: konsultant
+//  siedzi przy kliencie i nie wie, czy zawadza budżet, ocena, czy dzień wylotu.
+//  Lista ofert jest już pobrana, więc policzenie „ile byłoby BEZ tego filtra"
+//  nie kosztuje ani jednego zapytania do dostawcy.
+// ------------------------------------------------------------------
+test("podpowiedź wskazuje filtr, który realnie wyciął wyniki", () => {
+  const lista = [
+    offer({ id: "a", price: 2000, rating: 8.0, stars: 4 }),
+    offer({ id: "b", price: 2500, rating: 8.2, stars: 4 }),
+    offer({ id: "c", price: 2800, rating: 9.6, stars: 5 }),
+  ];
+  // Każdy z tych dwóch filtrów Z OSOBNA przepuszcza coś, ale RAZEM dają zero:
+  // budżet 2600 zł odcina ofertę „c", a ocena 9,5 odcina „a" i „b".
+  const crit = { budget: 2600, budgetMode: "person", minRate: 9.5 };
+  assert.equal(applyFilters(lista, crit).length, 0, "scenariusz założycielski: zero wyników");
+
+  const p = podpowiedziRozluznienia(lista, crit);
+  assert.equal(p.length, 2, "spodziewano się podpowiedzi dla budżetu i dla oceny");
+  assert.equal(p[0].klucz, "minRate", "najpierw ten filtr, który odblokowuje najwięcej ofert");
+  assert.equal(p[0].ofert, 2, "bez progu oceny mieszczą się dwie oferty w budżecie");
+
+  const budzet = p.find((x) => x.klucz === "budget");
+  assert.equal(budzet.ofert, 1, "bez budżetu zostaje jedna oferta z oceną ≥ 9,5");
+  assert.match(budzet.wartosc, /2600 zł \/os\./, "podpowiedź ma przypomnieć, jaka wartość filtra przeszkadza");
+});
+
+test("podpowiedź nie proponuje zdjęcia filtra, który sam z siebie nic nie odblokuje", () => {
+  // Budżet 900 zł nie przepuszcza NICZEGO, więc zdjęcie samej oceny dalej daje zero —
+  // podpowiadanie tego wysyłałoby konsultanta w ślepy zaułek przy kliencie.
+  const lista = [offer({ price: 2000, rating: 8.0 }), offer({ price: 2500, rating: 9.6 })];
+  const p = podpowiedziRozluznienia(lista, { budget: 900, budgetMode: "person", minRate: 9.5 });
+  assert.deepEqual(p.map((x) => x.klucz), ["budget"],
+    "jedyna sensowna podpowiedź to budżet — zdjęcie oceny zostawia zero ofert");
+});
+
+test("podpowiedź nie proponuje zdejmowania kierunku ani filtrów, które nic nie dają", () => {
+  const lista = [offer({ country: "Grecja", price: 5000 }), offer({ country: "Egipt", price: 5200 })];
+  // Kierunek Turcja + budżet 1000: zdjęcie budżetu NIC nie da, bo kraj i tak nie pasuje.
+  const crit = { countries: ["Turcja"], budget: 1000, budgetMode: "person" };
+  const p = podpowiedziRozluznienia(lista, crit);
+
+  assert.ok(!p.some((x) => x.klucz === "countries"),
+    "kierunek to pytanie klienta, nie filtr do zdjęcia — nie proponujemy „poszukaj gdziekolwiek”");
+  assert.equal(p.length, 0,
+    "zdjęcie budżetu nie odblokowuje żadnej oferty, więc nie ma czego podpowiadać");
+});
+
+// Zmierzone 17.08.2026 na żywym panelu: podpowiedź obiecywała „bez oceny 4 oferty",
+// a po kliknięciu „Zdejmij" wychodziła 1. Powód: liczyła filtr wyłączony do ZERA,
+// a suwak oceny nie schodzi poniżej swojego minimum (6) — czyli obiecywała stan,
+// którego interfejs nie potrafi osiągnąć. Liczba niezgodna z tym, co widać po
+// kliknięciu, jest gorsza niż jej brak.
+test("podpowiedź liczy stan, który panel realnie ustawi po kliknięciu", () => {
+  const lista = [
+    offer({ id: "bezOceny", rating: 0, reviews: 0, price: 2000 }),
+    offer({ id: "slaba", rating: 5.2, price: 2100 }),
+    offer({ id: "dobra", rating: 8.4, price: 2200 }),
+  ];
+  const crit = { minRate: 9.5 };
+
+  // Bez granic: „wyłączony filtr" przepuszcza nawet oferty bez oceny.
+  assert.equal(podpowiedziRozluznienia(lista, crit)[0].ofert, 3);
+
+  // Z granicą suwaka (6) — tyle ofert konsultant realnie zobaczy po kliknięciu.
+  const zGranica = podpowiedziRozluznienia(lista, crit, { minRate: 6 });
+  assert.equal(zGranica[0].ofert, 1,
+    "podpowiedź nie uwzględnia minimum suwaka — obiecuje oferty, których po kliknięciu nie będzie");
+
+  // Granica równa obecnej wartości = nie ma czego zdejmować.
+  assert.deepEqual(podpowiedziRozluznienia(lista, { minRate: 6 }, { minRate: 6 }), [],
+    "filtr ustawiony już na swoim minimum nie jest podpowiedzią");
+});
+
+test("podpowiedzi liczą się tylko wtedy, gdy filtr jest realnie włączony", () => {
+  const lista = [offer({ price: 3000, rating: 8.0 })];
+  const bezFiltrow = podpowiedziRozluznienia(lista, { minRate: 0, budget: 0, boards: [], tags: [] });
+  assert.deepEqual(bezFiltrow, [], "wyłączone filtry nie mogą się pojawiać jako podpowiedzi");
+  assert.deepEqual(podpowiedziRozluznienia([], { budget: 100 }), [], "pusta lista nie ma czego podpowiadać");
 });
 
 test("normalizacja nazw radzi sobie z polskimi znakami i spacjami", () => {

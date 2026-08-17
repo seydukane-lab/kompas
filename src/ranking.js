@@ -201,6 +201,60 @@ export function unknownAttrs(offer, attrs) {
   return attrs.filter((key) => hasAttribute(offer, key) === undefined);
 }
 
+// ------------------------------------------------------------------
+//  Który filtr wyciął wyniki (podpowiedź przy zerze ofert)
+//
+//  „Nic nie pasuje do tych kryteriów" jest prawdziwe, ale bezużyteczne przy
+//  kliencie: konsultant nie wie, czy zawadza budżet, ocena, czy dzień wylotu,
+//  i zaczyna zdejmować filtry po kolei. Tymczasem lista ofert jest już pobrana,
+//  więc policzenie „ile byłoby BEZ tego jednego filtra" nic nie kosztuje —
+//  ani jednego zapytania do dostawcy.
+//
+//  Efekt przy stole: „dla 900 zł/os. nie ma nic, ale przy zdjęciu budżetu
+//  mamy 47 ofert" to zdanie, które od razu prowadzi rozmowę dalej.
+//
+//  Kierunku (countries) świadomie NIE proponujemy do zdjęcia — klient pyta
+//  o konkretne miejsce, a nie o „cokolwiek gdziekolwiek". Regiony owszem:
+//  zdjęcie zawężenia do regionu zostawia wybrany kraj.
+// ------------------------------------------------------------------
+const FILTRY_DO_ROZLUZNIENIA = [
+  { klucz: "budget", pusty: 0, etykieta: "budżet", opis: (c) => `${c.budget} zł ${c.budgetMode === "total" ? "za grupę" : "/os."}` },
+  { klucz: "minRate", pusty: 0, etykieta: "minimalna ocena", opis: (c) => String(c.minRate).replace(".", ",") },
+  { klucz: "minStars", pusty: 0, etykieta: "kategoria obiektu", opis: (c) => `min. ${c.minStars}★` },
+  { klucz: "onlyReviewed", pusty: false, etykieta: "tylko z realnymi opiniami", opis: () => "" },
+  { klucz: "nights", pusty: 0, etykieta: "długość pobytu", opis: (c) => `${c.nights} nocy` },
+  { klucz: "boards", pusty: [], etykieta: "wyżywienie", opis: (c) => c.boards.join(", ") },
+  { klucz: "tags", pusty: [], etykieta: "profil wyjazdu", opis: (c) => c.tags.join(", ") },
+  { klucz: "attrs", pusty: [], etykieta: "atrybuty obiektu", opis: (c) => c.attrs.join(", ") },
+  { klucz: "regions", pusty: [], etykieta: "zawężenie do regionów", opis: (c) => c.regions.join(", ") },
+  { klucz: "departures", pusty: [], etykieta: "miasto wylotu", opis: (c) => c.departures.join(", ") },
+  { klucz: "transports", pusty: [], etykieta: "środek transportu", opis: (c) => c.transports.join(", ") },
+  { klucz: "weekdays", pusty: [], etykieta: "dzień wylotu", opis: (c) => c.weekdays.join(", ") },
+];
+
+const aktywny = (wartosc) => Array.isArray(wartosc) ? wartosc.length > 0 : !!wartosc;
+
+// `granice` to wartości, jakie panel USTAWI po kliknięciu „Zdejmij" — bo część
+// filtrów nie da się wyłączyć do zera: suwak oceny zaczyna się od 6, budżet kończy
+// na swoim maksimum. Bez tego podpowiedź obiecywała stan nieosiągalny w interfejsie:
+// zmierzone 17.08.2026 — „bez oceny 4 oferty", a po kliknięciu wychodziła 1, bo suwak
+// siadał na 6, nie na 0. Liczba, która nie zgadza się z tym, co widać po kliknięciu,
+// jest gorsza niż jej brak.
+export function podpowiedziRozluznienia(list, crit, granice = {}) {
+  if (!list || !list.length || !crit) return [];
+  const wynik = [];
+  for (const f of FILTRY_DO_ROZLUZNIENIA) {
+    if (!aktywny(crit[f.klucz])) continue;
+    const po = granice[f.klucz] !== undefined ? granice[f.klucz] : f.pusty;
+    // Granica równa obecnej wartości znaczy, że nie ma czego zdejmować.
+    if (po === crit[f.klucz]) continue;
+    const ile = applyFilters(list, { ...crit, [f.klucz]: po }).length;
+    if (ile > 0) wynik.push({ klucz: f.klucz, etykieta: f.etykieta, wartosc: f.opis(crit), ofert: ile });
+  }
+  // Najpierw ten, który odblokowuje najwięcej — konsultant czyta pierwszą linijkę.
+  return wynik.sort((a, b) => b.ofert - a.ofert);
+}
+
 export function normalizeName(s) {
   return String(s || "")
     .toLowerCase()
