@@ -45,10 +45,34 @@ musi pokazywać obie liczby, nigdy samej ceny „od".
 | termin | 19.08 – 26.08.2026 |
 | długość | 8d / 7n — **dni ≠ noce**, i bywa 9d/7n |
 | cena za osobę | 5349 PLN |
-| suma | 10698 PLN |
+| suma | 10698 PLN — **zawsze razem z informacją, dla ilu osób** (patrz niżej) |
 | lot bezpośredni | tak/nie |
 | gwarancja TFG | znacznik bezpieczeństwa (Turystyczny Fundusz Gwarancyjny) |
 | rezerwacja opcjonalna do | data + godzina — opcja wygasa |
+
+### Suma zawsze mówi, dla ilu osób jest policzona (`priceTotalPax`)
+
+To jest wymóg kontraktu, nie wygoda — pilnuje go `test/oferta-kontrakt.test.js`.
+
+Operatorzy podają „cenę za wyjazd" **dla dwóch osób**, bo tak wygląda standardowa
+oferta pakietowa. Hotelbeds w trybie wspólnego wyjazdu sumuje realne stawki wszystkich
+pokoi, więc jego suma dotyczy **całego składu**. Ta sama nazwa pola, dwa różne znaczenia.
+
+Kompas czytał je jednakowo i 17.08.2026 wyszło, co z tego wynika: przy rodzinie 2+3
+**wszystkie 12 ofert** pokazywało „Razem" za parę — Royal Wings 9 340 zł zamiast
+~23 350 zł. Konsultant przekleja tę liczbę klientowi.
+
+Reguła:
+
+- dostawca, który podaje `priceTotal`, **musi** podać `priceTotalPax`;
+- `offerGroupTotal()` (backend) i `offerTotal()` (front) używają sumy dostawcy **tylko
+  wtedy, gdy `priceTotalPax` równa się liczbie osób z wyszukiwarki**; inaczej liczą
+  cena/os. × liczba osób;
+- **brak `priceTotalPax` to brak wiedzy**, nie domyślne 2 — wtedy też liczymy szacunek;
+- interfejs rozróżnia jedno od drugiego (`isGroupTotalExact` / `sumaDokladna`) i pisze
+  przy kwocie „szacunek", zamiast podawać oszacowanie jako cenę operatora;
+- brak sumy zapisujemy jako brak (`undefined`), nigdy jako `0` — „0 zł za grupę" to
+  nieprawda, którą każdy odbiorca musiałby osobno odsiewać.
 
 ### Przelot (osobno tam i z powrotem)
 
