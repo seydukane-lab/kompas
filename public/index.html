@@ -1188,6 +1188,15 @@
       function(h){return h.name+" w "+h.region+" to bezpieczny, sprawdzony wybór — dobra ocena gości, wygodny standard i lokalizacja, która sprawdza się od pierwszego dnia.";},
       function(h){return"Jeśli szuka Pan czegoś pewnego, bez niespodzianek — "+h.name+" jest właśnie taką propozycją. Dobre opinie, uczciwa cena i wszystko na swoim miejscu.";},
       function(h){return"Nie każdy wyjazd musi być pod konkretny klucz — czasem chodzi po prostu o udane wakacje. "+h.name+" w "+h.region+" daje to bez kombinowania.";}
+    ],
+    // Wariant dla ofert, dla których NIE ZNAMY opinii (część źródeł podaje sam obiekt,
+    // bez recenzji). Teksty uniwersalne wprost powołują się na „dobrą ocenę gości"
+    // i „dobre opinie" — przeczytane przy hotelu bez ani jednej znanej opinii są
+    // po prostu nieprawdą, a to zdanie idzie do klienta jako argument za zakupem.
+    uniwersalny_bez_opinii:[
+      function(h){return h.name+" w "+h.region+" to spokojny, wygodny standard i lokalizacja, która sprawdza się od pierwszego dnia.";},
+      function(h){return"Jeśli szuka Pan czegoś bez kombinowania — "+h.name+" jest właśnie taką propozycją: uczciwa cena i wszystko na swoim miejscu.";},
+      function(h){return"Nie każdy wyjazd musi być pod konkretny klucz — czasem chodzi po prostu o udane wakacje. "+h.name+" w "+h.region+" daje to bez kombinowania.";}
     ]
   };
   // Cecha → korzyść, ale KAŻDE zdanie napisane tak, żeby konsultant mógł je
@@ -1196,16 +1205,23 @@
   // tylko, gdy znamy realny dystans (wakacje.pl daje beach=null → pomijamy).
   function featureBenefits(h){
     var l=[],t=h.tags||[];
+    // Wyżywienie: zdanie leci TYLKO dla potwierdzonego kodu. Gałąź `else` łapała
+    // wcześniej wszystko — także oferty BEZ danych o wyżywieniu i te z jawnym
+    // „bez wyżywienia" (Hotelbeds RO) — i obiecywała klientowi śniadania, których
+    // nie ma w cenie. To zdanie konsultant CZYTA klientowi, a klient płaci i jedzie.
     if((h.board||"").indexOf("All Inclusive")>-1)l.push({f:h.board==="Ultra All Inclusive"?"Ultra All Inclusive":"All Inclusive",b:"ma Pan wszystko w cenie — posiłki, napoje i przekąski o każdej porze. Płaci Pan raz, a na miejscu już o nic nie musi się martwić."});
     else if(h.board==="HB")l.push({f:"Śniadania i obiadokolacje",b:"dwa spokojne posiłki w hotelu, a porę obiadu zostawiamy wolną — idealny moment, żeby wyjść i spróbować lokalnej kuchni."});
-    else l.push({f:"Śniadania w cenie",b:"dzień zaczyna się na spokojnie, przy dobrym śniadaniu, a resztę planuje Pan już całkiem po swojemu."});
+    else if(h.board==="BB")l.push({f:"Śniadania w cenie",b:"dzień zaczyna się na spokojnie, przy dobrym śniadaniu, a resztę planuje Pan już całkiem po swojemu."});
     if(typeof h.beach==="number"){
       if(h.beach<=100)l.push({f:"Plaża "+h.beach+" m od hotelu",b:"rano ręcznik na piasku, w południe drzemka w pokoju — morze ma Pan praktycznie pod nosem, bez dojazdów."});
       else if(h.beach<=250)l.push({f:"Plaża ok. "+h.beach+" m",b:"kilka minut spacerem do morza, a hotel na tyle z boku, że wieczorem jest naprawdę cicho."});
       else l.push({f:"Spokojna lokalizacja",b:"z dala od zgiełku pierwszej linii — kameralnie i cicho, dla tych, którzy cenią spokój."});
     }
     if(t.indexOf("spa")>-1)l.push({f:"Strefa spa & wellness",b:"sauna i masaż na miejscu — po całym dniu na słońcu to najlepszy sposób, żeby wieczorem naprawdę odpocząć."});
-    if(t.indexOf("rodzina")>-1&&h.cap>=4)l.push({f:"Pokoje rodzinne nawet dla "+h.cap+" osób",b:"cała rodzina w jednej przestrzeni, animacje dla dzieci i basen, przy którym maluchy mają zajęcie — a Państwo w końcu łapią oddech."});
+    // Pojemność pokoju wolno obiecać tylko wtedy, gdy dostawca ją PODAŁ (capUnknown).
+    // Zmierzone 17.08.2026: dwie oferty dostawały zdanie „nawet dla 4 osób" wyłącznie
+    // z domyślnej wartości — a to jest liczba, po której konsultant sadza realną rodzinę.
+    if(t.indexOf("rodzina")>-1&&h.cap>=4&&!h.capUnknown)l.push({f:"Pokoje rodzinne nawet dla "+h.cap+" osób",b:"cała rodzina w jednej przestrzeni, animacje dla dzieci i basen, przy którym maluchy mają zajęcie — a Państwo w końcu łapią oddech."});
     if(t.indexOf("impreza")>-1)l.push({f:"Życie nocne pod ręką",b:"kluby, bary i plażowe imprezy tuż obok — nigdzie nie trzeba jechać, żeby wieczór się rozkręcił."});
     if(h.stars===5&&l.length<4)l.push({f:"Standard 5 gwiazdek",b:"przestrzeń, jakość i obsługę czuć już od progu — to ten poziom, który zapamiętuje się na długo."});
     return l.slice(0,4);
@@ -1241,13 +1257,23 @@
     uniwersalny:[
       "To bezpieczny, sprawdzony wybór — dobre opinie, uczciwa cena i żadnych niespodzianek na miejscu. Spokojnie mogę go Panu polecić.",
       "Trudno tu o rozczarowanie — solidny hotel w dobrej cenie. Jeśli termin pasuje, zarezerwuję go dla Pana."
+    ],
+    // Domknięcia bez powoływania się na opinie — patrz LEADS.uniwersalny_bez_opinii.
+    uniwersalny_bez_opinii:[
+      "To spokojny wybór w uczciwej cenie. Jeśli termin pasuje, zarezerwuję go dla Pana.",
+      "Standard i cena się tu zgadzają. Chce Pan, żebym sprawdził dostępność na Państwa termin?"
     ]
   };
   function leadCount(aud){return (LEADS[aud]||LEADS.uniwersalny).length;}
   // Buduje skrypt dla wybranej grupy i wariantu (variant „zawija się" modulo).
   function buildScript(h,aud,variant){
     aud=aud||detectAudience(h);
-    var leads=LEADS[aud]||LEADS.uniwersalny,closers=CLOSERS[aud]||CLOSERS.uniwersalny;
+    // Grupa „uniwersalna" sprzedaje hotel jego opiniami. Gdy opinii NIE ZNAMY,
+    // sięgamy po warianty, które się na nie nie powołują — inaczej konsultant czyta
+    // klientowi „dobra ocena gości" przy obiekcie bez ani jednej znanej recenzji.
+    // Pozostałe grupy (rodzina, para, premium…) mówią o charakterze wyjazdu, nie o ocenach.
+    var kluczTekstow=(aud==="uniwersalny"&&!(h.reviews>0))?"uniwersalny_bez_opinii":aud;
+    var leads=LEADS[kluczTekstow]||LEADS.uniwersalny,closers=CLOSERS[kluczTekstow]||CLOSERS.uniwersalny;
     var v=variant||0;v=((v%leads.length)+leads.length)%leads.length;
     return {aud:aud,variant:v,lead:leads[v](h),cb:featureBenefits(h),closer:closers[v%closers.length]};
   }

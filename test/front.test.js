@@ -658,6 +658,64 @@ test("przy zerze wyników panel podpowiada, który filtr zdjąć, i pozwala to z
   assert.equal(odmOfert(47), "ofert");
 });
 
+// ============================================================
+//  Skrypt sprzedażowy — zdania, które konsultant CZYTA KLIENTOWI.
+//
+//  To najgorsze możliwe miejsce na zgadywanie: klient słyszy obietnicę, płaci
+//  i przyjeżdża. Generator miał gałąź `else`, która łapała wszystko poza
+//  All Inclusive i HB — więc oferta BEZ danych o wyżywieniu i oferta z jawnym
+//  „bez wyżywienia" (Hotelbeds RO) dostawały to samo zdanie: „Śniadania w cenie".
+// ============================================================
+test("skrypt sprzedażowy nie obiecuje wyżywienia ani pojemności, których nie znamy", () => {
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/function featureBenefits\(h\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji featureBenefits");
+
+  const { featureBenefits } = new Function(fn + "\nreturn {featureBenefits};")();
+  const cechy = (o) => featureBenefits(o).map((x) => x.f).join(" | ");
+
+  // Wyżywienie
+  assert.ok(!/Śniadania w cenie/.test(cechy({ tags: [] })),
+    "oferta BEZ danych o wyżywieniu dostaje obietnicę śniadań");
+  assert.ok(!/Śniadania w cenie/.test(cechy({ board: "Bez wyżywienia", tags: [] })),
+    "oferta JAWNIE bez wyżywienia dostaje obietnicę śniadań — klient zapłaci i przyjedzie");
+  assert.match(cechy({ board: "BB", tags: [] }), /Śniadania w cenie/,
+    "potwierdzone BB ma nadal dawać zdanie o śniadaniach");
+  assert.match(cechy({ board: "All Inclusive", tags: [] }), /All Inclusive/);
+  assert.match(cechy({ board: "HB", tags: [] }), /Śniadania i obiadokolacje/);
+
+  // Pojemność pokoju — liczba, po której konsultant sadza realną rodzinę.
+  assert.ok(!/Pokoje rodzinne/.test(cechy({ board: "BB", tags: ["rodzina"], cap: 4, capUnknown: true })),
+    "obietnica pokoi rodzinnych na podstawie domyślnej pojemności, której nikt nie podał");
+  assert.match(cechy({ board: "BB", tags: ["rodzina"], cap: 4 }), /Pokoje rodzinne nawet dla 4 osób/,
+    "przy POTWIERDZONEJ pojemności zdanie ma zostać");
+
+  // Plaża — tylko przy znanym dystansie (reguła sprzed dzisiejszej sesji, pilnujemy dalej).
+  assert.ok(!/Plaża/.test(cechy({ board: "BB", tags: [] })), "zdanie o plaży bez znanego dystansu");
+  assert.match(cechy({ board: "BB", tags: [], beach: 80 }), /Plaża 80 m/);
+});
+
+test("skrypt nie powołuje się na opinie hotelu, którego opinii nie znamy", () => {
+  const html = wczytaj("public/index.html");
+  // Teksty uniwersalne sprzedają hotel jego oceną („dobra ocena gości", „Dobre opinie").
+  assert.match(html, /uniwersalny_bez_opinii:\[/, "brak wariantu tekstów dla ofert bez znanych opinii");
+  assert.match(html, /var kluczTekstow=\(aud==="uniwersalny"&&!\(h\.reviews>0\)\)\?"uniwersalny_bez_opinii":aud;/,
+    "buildScript nie przełącza się na teksty niepowołujące się na opinie");
+
+  const bezOpinii = html.match(/uniwersalny_bez_opinii:\[[\s\S]*?\n    \]/g) || [];
+  assert.equal(bezOpinii.length, 2, "spodziewano się wariantów bez opinii i w LEADS, i w CLOSERS");
+  for (const blok of bezOpinii) {
+    // Sama nazwa klucza zawiera „opinii" — badamy wyłącznie treść zdań.
+    const tresc = blok.slice(blok.indexOf("["));
+    assert.ok(!/ocen[aęy]|opini/i.test(tresc),
+      `wariant „bez opinii” nadal powołuje się na oceny: ${tresc.slice(0, 90)}`);
+  }
+
+  // AUD_META nadal musi znaleźć etykietę grupy — podmieniamy tylko źródło tekstów,
+  // nie samą grupę docelową (inaczej nagłówek skryptu wywala się na undefined).
+  assert.match(html, /return \{aud:aud,variant:v/, "buildScript zwraca inną grupę niż wybrana — etykieta się rozjedzie");
+});
+
 test("plakietka opinii we froncie mówi to samo co backend i nie zgaduje wolumenu", () => {
   const html = wczytaj("public/index.html");
 
