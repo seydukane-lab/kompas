@@ -72,14 +72,31 @@ sam zestaw przechodzi na czystej maszynie i w CI.
 |---|---|
 | `test/ranking.test.js` | anty-przekoloryzacja, scoring, sortowanie, wszystkie filtry |
 | `test/auth.test.js` | hasła, sesje, role, izolacja koszyków, konto startowe |
-| `test/providers.test.js` | scalanie ofert z wielu źródeł, cache, limity czasu |
+| `test/login-limit.test.js` | hamulec na zgadywanie haseł — per konto i per adres |
+| `test/providers.test.js` | scalanie ofert z wielu źródeł, cache per źródło, limity czasu |
+| `test/providery-uspione.test.js` | źródła bez kluczy nie zmyślają brakujących danych |
 | `test/fx.test.js` | kurs NBP i zachowanie przy awarii NBP |
 | `test/http.test.js` | kolejkowanie zapytań do dostawcy i ponawianie po 429 |
 | `test/hotelbeds.test.js` | wybór destynacji z krajów/regionów, skład grupy |
-| `test/destinations.test.js` | kompletność bazy kierunków i danych krajów |
+| `test/wiek-dzieci.test.js` | wiek dzieci trafia do dostawcy w składzie pokoju |
+| `test/destinations.test.js` | kompletność bazy kierunków, dopasowanie po całym słowie |
 | `test/oferta-kontrakt.test.js` | wspólny kształt oferty — siatka dla nowych dostawców |
 | `test/front.test.js` | składnia inline-scriptu i pułapki panelu |
 | `test/server.test.js` | serwer po HTTP: kto gdzie wchodzi, czego nie widzi |
+
+### Audyt na żywych danych
+
+```powershell
+npm start        # w drugim oknie
+npm run audyt    # albo: KOMPAS_URL=... KOMPAS_EMAIL=... KOMPAS_PASS=... npm run audyt
+```
+
+Testy chodzą na atrapach — i słusznie, mają działać bez sieci i kluczy. Dlatego nie
+widzą klasy błędów, która bierze się z tego, co **realnie** przychodzi od dostawców:
+pola znaczącego co innego w każdym źródle, sumy policzonej dla innego składu,
+przemilczanego braku danych. `npm run audyt` przechodzi pięć scenariuszy konsultanta
+na uruchomionym panelu i grupuje znaleziska; kończy się kodem 1 przy błędach
+oznaczonych jako WYSOKIE, więc da się go wpiąć w CI.
 
 Najważniejszy test w całym zestawie nazywa się `ANTY-PRZEKOLORYZACJA` i pilnuje,
 żeby hotel z oceną 9,8 wystawioną przez trzy osoby przegrywał z 8,7 z tysięcy
@@ -90,17 +107,30 @@ deklaratywna.
 
 ```
 server.js                 – serwer Express (klucze API tylko tutaj, nigdy w przeglądarce)
-src/ranking.js            – filtry + ranking + wskaźnik wiarygodności opinii (wspólne)
+src/ranking.js            – filtry + ranking + wiarygodność opinii + podpowiedzi przy zerze wyników
+src/login-limit.js        – hamulec na zgadywanie haseł (per konto i per adres)
+src/countries.js          – kraje, regiony i warunki wjazdowe (z datą zebrania danych)
+src/destinations.js       – kuratorowana wiedza o kierunkach (dopasowanie po całym słowie)
 src/providers/
-  index.js                – rejestr dostawców (scala wyniki z wielu źródeł)
-  mock.js                 – dane demo (działa zawsze)
+  index.js                – rejestr dostawców: scalanie ofert, cache per źródło, odświeżanie w tle
+  packages.js             – dane demo (działa zawsze, generuje warianty terminów)
   hotelbeds.js            – adapter Hotelbeds (dostępność + treści + zdjęcia)
 public/index.html         – panel doradcy (UI + generator skryptów)
+scripts/audyt.js          – audyt danych na żywych źródłach (`npm run audyt`)
+docs/struktura-oferty-pakietowej.md – kontrakt oferty; czytaj przed dodaniem źródła
 ```
 
 **Dodanie kolejnego dostawcy** (Ratehawk, TravelGate, feed afiliacyjny PL) = nowy plik
 w `src/providers/` z funkcjami `meta`, `isEnabled()`, `search()` + jeden import w `index.js`.
 Reszta systemu (ranking, panel, skrypty) zostaje bez zmian.
+
+**Zanim to zrobisz, przeczytaj `docs/struktura-oferty-pakietowej.md`.** Jedna zasada jest
+ważniejsza od reszty: **brak danych zostaje brakiem**. Nie wolno wypełniać luk wygodnymi
+wartościami domyślnymi — hotel bez podanej odległości od plaży nie ma „300 m", brak
+kategorii to nie „3 gwiazdki", a brak informacji o wyżywieniu to nie „śniadania w cenie".
+Takie wartości trafiają na kartę i do skryptu sprzedażowego jako fakty o hotelu,
+które konsultant czyta klientowi. Pilnuje tego `test/providery-uspione.test.js`.
+Suma za pobyt musi nieść `priceTotalPax` — informację, dla ilu osób ją policzono.
 
 ## Znane miejsca do dopracowania w Etapie 2
 
@@ -108,7 +138,8 @@ Reszta systemu (ranking, panel, skrypty) zostaje bez zmian.
   gości ani ich świeżości. Wymaga dodatku recenzji (np. TripAdvisor przez Hotelbeds)
   lub osobnego źródła. Do czasu podpięcia adapter szacuje ocenę z kategorii i oznacza
   „brak danych o opiniach". To jest kluczowe dla wymogu „po najświeższych ocenach".
-- **Przeliczanie ceny:** obecnie stały kurs EUR→PLN i uproszczona cena za pobyt.
-  W produkcji: kurs z API NBP + jasne rozbicie na cenę za osobę / za pobyt.
+- ~~**Przeliczanie ceny:** stały kurs EUR→PLN~~ — **zrobione:** kurs pobierany z API NBP
+  (`src/fx.js`, z zachowaniem ostatniego znanego kursu przy awarii NBP), a cena rozbita
+  na „za osobę" i „razem", z jawną informacją, dla ilu osób liczona jest suma.
 - **Mapowanie kierunków:** `DEST_CODES` w `hotelbeds.js` to punkt startowy (jeden kod
   na kraj). Docelowo autouzupełnianie miast/regionów przez Content API `/locations`.
