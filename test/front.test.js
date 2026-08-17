@@ -612,6 +612,36 @@ test("tabela terminów liczy sumy dla realnego składu, nie dla zaszytych dwóch
   assert.equal(odmOsob(22), "osoby");
 });
 
+// Backend oddaje dane z cache (providers/index.js) i podaje ich wiek. Front, który
+// tego nie mówi, pokazuje ceny sprzed kilku minut jako świeże — a konsultant czyta
+// z ekranu konkretną kwotę do klienta.
+test("panel mówi, gdy wyniki pochodzą z pamięci podręcznej sprzed dłuższej chwili", () => {
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /<div class="cache-note" id="cacheNote" hidden><\/div>/,
+    "brak miejsca w panelu na informację o wieku danych");
+  assert.match(html, /\.cache-note\{[^}]+\}/, "brak stylu informacji o wieku danych");
+
+  const wiekFn = html.match(/function wiekDanych\(sources\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(wiekFn, "brak funkcji liczącej wiek danych");
+  assert.match(wiekFn, /s\.cached&&typeof s\.wiek==="number"/,
+    "wiek liczony bez sprawdzenia, czy źródło w ogóle poszło z cache");
+  assert.match(wiekFn, /Math\.max\.apply/,
+    "trzeba pokazać NAJSTARSZE dane, nie najświeższe — inaczej komunikat jest zbyt optymistyczny");
+
+  const warnFn = html.match(/function renderSourceWarn\(sources\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.match(warnFn, /var wiek=wiekDanych\(sources\)/, "pasek statusu nie liczy wieku danych");
+  assert.match(warnFn, /wiek>=90/, "brak progu — dopisek pokazywałby się przy danych sprzed sekundy");
+
+  // Odmiana i jednostki: konsultant to czyta, „sprzed 1 minut" wygląda na błąd maszyny.
+  const opisFn = html.match(/function opisWieku\(sek\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(opisFn, "brak funkcji opisującej wiek danych");
+  const { opisWieku } = new Function(opisFn + "\nreturn {opisWieku};")();
+  assert.equal(opisWieku(45), "sprzed 45 s");
+  assert.equal(opisWieku(60), "sprzed 1 minuty");
+  assert.equal(opisWieku(150), "sprzed 3 minut");
+});
+
 test("każda kwota łączna pokazana konsultantowi i klientowi mówi, ilu osób dotyczy", () => {
   const html = wczytaj("public/index.html");
 

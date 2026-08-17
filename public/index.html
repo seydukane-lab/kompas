@@ -186,6 +186,9 @@
   /* Pokrycie danych dla wybranych atrybutów. Ton spokojny (nie alarm) — to informacja
      o jakości danych, nie awaria. Wariant „ani jednej potwierdzonej" dostaje mocniejszy
      kolor, bo tam licznik wyników realnie wprowadza w błąd. */
+  /* Informacja o wieku danych z pamięci podręcznej — stonowana, bo to nie awaria,
+     tylko uczciwe „te ceny są sprzed chwili, nie z tej sekundy". */
+  .cache-note{margin:0 0 12px;font-size:12px;color:var(--ink-faint);line-height:1.5}
   .attr-cover{margin:0 0 14px;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;line-height:1.5;
     border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft)}
   .attr-cover.none{border-color:color-mix(in srgb,var(--warn) 35%,transparent);background:var(--warn-soft);color:var(--warn)}
@@ -799,6 +802,7 @@
       </div>
     </div>
     <div class="source-warn" id="sourceWarn" hidden></div>
+    <div class="cache-note" id="cacheNote" hidden></div>
     <div class="attr-cover" id="attrCover" hidden></div>
     <div class="op-filter" id="opFilter" hidden></div>
     <div class="summary" id="summary" hidden></div>
@@ -1413,7 +1417,31 @@
   // po prostu mniej ofert i nie wie, że połowa źródeł nie odpowiedziała —
   // ciche kłamstwo o stanie rynku wobec klienta.
   var sourceWarnEl=document.getElementById("sourceWarn");
+  var cacheNoteEl=document.getElementById("cacheNote");
+  // Wiek najstarszych danych wziętych z cache (sekundy) — backend podaje go przy
+  // każdym źródle (providers/index.js). Konsultant podaje klientowi konkretną cenę,
+  // więc ma prawo wiedzieć, że część wyników jest sprzed kilku minut, a nie z tej sekundy.
+  function wiekDanych(sources){
+    var zCache=(sources||[]).filter(function(s){return s.cached&&typeof s.wiek==="number";});
+    if(!zCache.length)return 0;
+    return Math.max.apply(null,zCache.map(function(s){return s.wiek;}));
+  }
+  function opisWieku(sek){
+    if(sek<60)return "sprzed "+sek+" s";
+    // Po „sprzed" idzie dopełniacz: sprzed 1 minuty, sprzed 2 minut, sprzed 5 minut.
+    var m=Math.round(sek/60);
+    return "sprzed "+m+" "+(m===1?"minuty":"minut");
+  }
   function renderSourceWarn(sources){
+    // Próg 90 s: przy świeższych danych dopisek tylko szumi, bo tyle trwa samo
+    // przejrzenie listy przez konsultanta.
+    var wiek=wiekDanych(sources);
+    if(cacheNoteEl){
+      if(wiek>=90){
+        cacheNoteEl.textContent="Część wyników z pamięci podręcznej ("+opisWieku(wiek)+"). Odświeżają się w tle.";
+        cacheNoteEl.hidden=false;
+      } else { cacheNoteEl.hidden=true; }
+    }
     var padle=(sources||[]).filter(function(s){return s.ok===false;});
     if(!padle.length){sourceWarnEl.hidden=true;sourceWarnEl.innerHTML="";return;}
     var etykiety=padle.map(function(s){return s.label||s.id;}).join(", ");
