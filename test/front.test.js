@@ -612,6 +612,30 @@ test("tabela terminów liczy sumy dla realnego składu, nie dla zaszytych dwóch
   assert.equal(odmOsob(22), "osoby");
 });
 
+test("każda kwota łączna pokazana konsultantowi i klientowi mówi, ilu osób dotyczy", () => {
+  const html = wczytaj("public/index.html");
+
+  // Wydruk/prezentacja — ogląda go KLIENT, więc goła kwota bez składu jest pytaniem,
+  // które zaraz padnie przy stole.
+  const docFn = html.match(/function offerDocHtml\(x,n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(docFn, "brak offerDocHtml");
+  assert.match(docFn, /razem ok\. '\+fmt\(offerTotal\(x,paxCount\(\)\)\)\+' zł za '\+paxCount\(\)\+' '\+odmOsob\(paxCount\(\)\)/,
+    "wydruk dla klienta podaje kwotę łączną bez informacji, dla ilu osób");
+
+  // Koszyk przeżywa zmianę składu w wyszukiwarce — snapshot musi nieść swój skład,
+  // inaczej kwota sprzed zmiany udaje aktualną.
+  const snapFn = html.match(/function cartSnap\(h\)\{[\s\S]*?\}/)?.[0] || "";
+  assert.match(snapFn, /priceTotalPax:paxCount\(\)/,
+    "cartSnap nie zapisuje składu, dla którego policzono kwotę");
+  assert.match(html, /os&&os!==teraz\?' <span class="ci-stale"/,
+    "koszyk nie ostrzega, że kwota pochodzi z innego składu niż aktualny");
+  assert.match(html, /\.ci-stale\{[^}]+\}/, "brak stylu ostrzeżenia w koszyku");
+
+  // Porównywarka zestawia oferty odłożone w różnych momentach.
+  assert.match(html, /x\.priceTotalPax\?'<span class="cmp-sub">za '\+x\.priceTotalPax/,
+    "porównywarka nie mówi, dla ilu osób jest każda kwota — zestawia nieporównywalne liczby");
+});
+
 test("karta wyniku nie opisuje sumy za parę jako sumy za całą rodzinę", () => {
   const html = wczytaj("public/index.html");
   // Podpis pod kwotą na karcie brał się z tego, czy dostawca podał priceTotal —
