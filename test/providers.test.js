@@ -413,3 +413,75 @@ test("awaria jednego źródła nie trafia do cache — kolejne zapytanie próbuj
   assert.equal(drugie.cached, undefined);
   assert.equal(wywolania, 2, "awaria nie może zostać zamrożona w cache");
 });
+
+// ------------------------------------------------------------------
+//  Cache jest PER DOSTAWCA, nie na całą odpowiedź.
+//
+//  Zmierzone 17.08.2026 na lokalnym zestawie źródeł: cache całościowy zapisywał
+//  się tylko wtedy, gdy żadne źródło nie padło, a Hotelbeds w sandboxie pada
+//  regularnie (403). W efekcie 24 wyszukiwania z rzędu poszły do sieci, żadne
+//  do cache, a każde trwało 15 s — dokładnie tyle, ile najwolniejsze źródło.
+//  Zdrowe źródło nie może płacić za awarię cudzego.
+// ------------------------------------------------------------------
+test("awaria jednego źródła nie unieważnia cache pozostałych", async () => {
+  clearSearchCache();
+  let zdroweWywolania = 0, padajaceWywolania = 0;
+  const zdrowe = atrapa("zdrowe-mieszane", async () => { zdroweWywolania++; return [offer()]; });
+  const padajace = atrapa("padajace-mieszane", async () => { padajaceWywolania++; throw new Error("padlo"); });
+  const crit = { dest: "test-mieszane" };
+
+  await searchAll(crit, [zdrowe, padajace]);
+  const drugie = await searchAll(crit, [zdrowe, padajace]);
+
+  assert.equal(zdroweWywolania, 1, "zdrowe źródło zostało odpytane drugi raz mimo świeżego cache");
+  assert.equal(padajaceWywolania, 2, "padnięte źródło musi być próbowane ponownie");
+  assert.equal(drugie.cached, undefined, "odpowiedź nie jest w całości z cache, skoro jedno źródło szło do sieci");
+
+  const zCache = drugie.sources.find((s) => s.id === "zdrowe-mieszane");
+  assert.equal(zCache.cached, true, "źródło wzięte z cache musi być tak oznaczone");
+  assert.equal(typeof zCache.wiek, "number", "brak wieku danych z cache — panel nie ma czym opisać świeżości");
+  assert.equal(zCache.count, 1, "cache zgubił oferty źródła");
+
+  const zSieci = drugie.sources.find((s) => s.id === "padajace-mieszane");
+  assert.equal(zSieci.cached, undefined, "źródło odpytane na żywo nie może być oznaczone jako cache");
+  assert.equal(zSieci.ok, false);
+});
+
+test("wolne źródło jest odpytywane tylko raz, dopóki cache jest świeży", async () => {
+  clearSearchCache();
+  const crit = { dest: "test-wolne" };
+  let wywolania = 0;
+  const wolne = atrapa("wolne-zrodlo-cache", async () => {
+    wywolania++;
+    await new Promise((r) => setTimeout(r, 120));
+    return [offer()];
+  });
+  const szybkiePadajace = atrapa("szybkie-padajace", async () => { throw new Error("padlo"); });
+
+  const t0 = Date.now();
+  await searchAll(crit, [wolne, szybkiePadajace]);
+  const czasPierwszego = Date.now() - t0;
+
+  const t1 = Date.now();
+  await searchAll(crit, [wolne, szybkiePadajace]);
+  const czasDrugiego = Date.now() - t1;
+
+  assert.equal(wywolania, 1, "wolne źródło odpytane ponownie, choć jego wynik był w cache");
+  assert.ok(czasDrugiego < czasPierwszego,
+    `drugie wyszukiwanie (${czasDrugiego} ms) nie było szybsze od pierwszego (${czasPierwszego} ms)`);
+});
+
+test("odpowiedź jest oznaczona jako z cache dopiero, gdy żadne źródło nie szło do sieci", async () => {
+  clearSearchCache();
+  const a = atrapa("cache-a", async () => [offer()]);
+  const b = atrapa("cache-b", async () => [offer({ name: "Drugi Hotel" })]);
+  const crit = { dest: "test-oba" };
+
+  const pierwsze = await searchAll(crit, [a, b]);
+  assert.equal(pierwsze.cached, undefined, "pierwsze zapytanie idzie do sieci, więc nie jest z cache");
+
+  const drugie = await searchAll(crit, [a, b]);
+  assert.equal(drugie.cached, true, "oba źródła z cache, a odpowiedź nieoznaczona");
+  assert.ok(drugie.sources.every((s) => s.cached), "każde źródło powinno być oznaczone jako z cache");
+  assert.equal(drugie.offers.length, pierwsze.offers.length, "cache zgubił oferty");
+});

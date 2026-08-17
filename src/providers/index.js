@@ -63,7 +63,25 @@ function cacheKey(crit) {
   return JSON.stringify(Object.keys(crit).sort().map((k) => [k, crit[k]]));
 }
 
+// Klucz jest PER DOSTAWCA, nie na całą odpowiedź. Powód zmierzony 17.08.2026 na
+// lokalnym zestawie źródeł: cache całościowy zapisywał się tylko wtedy, gdy ŻADNE
+// źródło nie padło — a Hotelbeds w sandboxie pada regularnie (403, wyczerpana pula).
+// Efekt: cache nie działał ANI RAZU w 24 wyszukiwaniach z rzędu, więc konsultant
+// czekał 15 s na każde pytanie, bo tyle zajmuje najwolniejsze źródło. Rozbicie na
+// dostawców zachowuje sens starej reguły (padnięte źródło NIE jest zamrażane
+// i próbujemy go ponownie), ale zdrowe źródła przestają płacić za cudzą awarię.
+function providerCacheKey(id, crit) {
+  return id + " " + cacheKey(crit);
+}
+
 function cacheGet(key) {
+  const hit = cacheEntry(key);
+  return hit ? hit.data : null;
+}
+
+// Wpis z czasem zapisu — panel ma prawo wiedzieć, jak stare są dane, zamiast
+// dostawać je bez oznaczenia i pokazywać cenę sprzed kilku minut jako świeżą.
+function cacheEntry(key) {
   const hit = searchCache.get(key);
   if (!hit) return null;
   if (Date.now() - hit.at > CACHE_TTL_MS) {
@@ -73,7 +91,7 @@ function cacheGet(key) {
   // Odświeżenie pozycji — najdawniej używane wypadają pierwsze.
   searchCache.delete(key);
   searchCache.set(key, hit);
-  return hit.data;
+  return hit;
 }
 
 function cacheSet(key, data) {
@@ -113,47 +131,54 @@ function reasonFor(err) {
 // pozwala podstawić atrapę dostawcy, żeby sprawdzić rozróżnienie
 // odpowiedziało/odpowiedziało zerem/padło bez prawdziwej sieci.
 export async function searchAll(crit, providers = activeProviders()) {
-  const key = cacheKey(crit);
-  const cached = cacheGet(key);
-  if (cached) {
-    console.log("[search] z cache: " + cached.offers.length + " ofert");
-    return { ...cached, cached: true };
-  }
+  const wyniki = await Promise.all(providers.map(async (prov) => {
+    const key = providerCacheKey(prov.meta.id, crit);
+    const hit = cacheEntry(key);
+    // Świeży wpis tego dostawcy: bierzemy go i NIE ruszamy sieci. Wiek podajemy
+    // dalej, bo „z cache sprzed 12 s" i „właśnie odpytane" to dwie różne wiadomości.
+    if (hit) return { prov, offers: hit.data, ok: true, ms: 0, cached: true, wiek: Math.round((Date.now() - hit.at) / 1000) };
 
-  const timings = providers.map(() => 0);
-  const settled = await Promise.allSettled(
-    providers.map((p, i) => {
-      const t0 = Date.now();
-      return withDeadline(p.search(crit), PROVIDER_DEADLINE_MS, p.meta.id)
-        .finally(() => { timings[i] = Date.now() - t0; });
-    })
-  );
+    const t0 = Date.now();
+    try {
+      const lista = await withDeadline(prov.search(crit), PROVIDER_DEADLINE_MS, prov.meta.id);
+      const ms = Date.now() - t0;
+      // Dostawca, który zwrócił coś innego niż tablicę, jest pomijany tak jak dotąd:
+      // nie mamy z tego ofert i nie umiemy uczciwie nazwać takiego stanu.
+      if (!Array.isArray(lista)) return null;
+      cacheSet(key, lista);
+      return { prov, offers: lista, ok: true, ms };
+    } catch (err) {
+      console.warn(`[${prov.meta.id}] search error:`, err?.message || err);
+      // Padnięte źródło NIE trafia do cache — następne pytanie ma je odpytać ponownie.
+      return { prov, offers: [], ok: false, ms: Date.now() - t0, reason: reasonFor(err) };
+    }
+  }));
 
   const offers = [];
   const sources = [];
-  settled.forEach((r, i) => {
-    const prov = providers[i];
-    if (r.status === "fulfilled" && Array.isArray(r.value)) {
+  for (const w of wyniki) {
+    if (!w) continue;
+    if (w.ok) {
       // Priorytet dostawcy = pozycja w ALL (niższa = ważniejsza). Przyda się przy scalaniu.
-      const prio = ALL.indexOf(prov);
-      offers.push(...r.value.map((o) => ({ ...o, __prio: prio })));
-      // ok:true niezależnie od count — uczciwe zero (dostawca odpytany, nic nie ma)
-      // to inna sytuacja niż padnięcie, choć obie dają count:0.
-      sources.push({ id: prov.meta.id, label: prov.meta.label, count: r.value.length, ok: true, ms: timings[i] });
-    } else if (r.status === "rejected") {
-      console.warn(`[${prov.meta.id}] search error:`, r.reason?.message || r.reason);
-      sources.push({ id: prov.meta.id, label: prov.meta.label, count: 0, ok: false, reason: reasonFor(r.reason), ms: timings[i] });
+      const prio = ALL.indexOf(w.prov);
+      offers.push(...w.offers.map((o) => ({ ...o, __prio: prio })));
     }
-  });
+    // ok:true niezależnie od count — uczciwe zero (dostawca odpytany, nic nie ma)
+    // to inna sytuacja niż padnięcie, choć obie dają count:0.
+    const wpis = { id: w.prov.meta.id, label: w.prov.meta.label, count: w.offers.length, ok: w.ok, ms: w.ms };
+    if (w.reason) wpis.reason = w.reason;
+    if (w.cached) { wpis.cached = true; wpis.wiek = w.wiek; }
+    sources.push(wpis);
+  }
 
   // Czas każdego źródła w logu — bez tego nie da się powiedzieć, które
   // z nich spowalnia wyszukiwanie, a to jest pytanie, które wróci przy pilotażu.
-  console.log("[search] " + sources.map((s) => `${s.id} ${s.ms}ms/${s.count}`).join("  "));
+  console.log("[search] " + sources.map((s) => `${s.id} ${s.cached ? "cache/" + s.wiek + "s" : s.ms + "ms"}/${s.count}`).join("  "));
 
   const result = { offers: dedupeOffers(offers), sources };
-  // Do cache'u trafia tylko wynik, w którym żadne źródło nie padło — inaczej
-  // chwilowa awaria dostawcy zamroziłaby uboższą listę ofert na kolejne minuty.
-  if (!sources.some((s) => !s.ok)) cacheSet(key, result);
+  // `cached` na całej odpowiedzi znaczy: NIC nie poszło do sieci. Gdy choć jedno
+  // źródło było odpytywane na żywo, odpowiedź nie jest „z cache" i tak ją opisujemy.
+  if (sources.length && sources.every((s) => s.cached)) result.cached = true;
   return result;
 }
 
