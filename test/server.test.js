@@ -121,6 +121,27 @@ test("złe hasło nie wpuszcza i nie zdradza, czy konto istnieje", async () => {
   assert.equal((await zle.json()).error, (await nieistnieje.json()).error);
 });
 
+// Blokada po serii pomyłek ma dotyczyć KONTA, nie całego biura — wszyscy
+// konsultanci wychodzą do internetu jednym adresem IP (patrz src/login-limit.js).
+// Test celowo dobija konto, które nie istnieje, żeby nie zablokować pozostałym
+// testom logowania na admina i konsultanta.
+test("seria pomyłek blokuje jedno konto, a nie logowanie z tego samego adresu", async () => {
+  const proba = (email) => fetch(BASE + "/api/auth/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: "zle-haslo-123" }),
+  });
+
+  const atakowane = "atakowane@test.local";
+  let ostatni = null;
+  for (let i = 0; i < 6; i++) ostatni = await proba(atakowane);
+
+  assert.equal(ostatni.status, 429, "po serii pomyłek konto powinno dostać 429, a nie kolejne 401");
+
+  // Ten sam adres IP, inne konto i PRAWIDŁOWE hasło — musi wejść.
+  const cookie = await zaloguj(KONSULTANT.email, KONSULTANT.pass);
+  assert.ok(cookie, "blokada objęła cały adres IP — w biurze oznaczałoby to odcięcie wszystkich");
+});
+
 test("po zalogowaniu panel i API są dostępne", async () => {
   const cookie = await zaloguj(KONSULTANT.email, KONSULTANT.pass);
   assert.ok(cookie, "logowanie nie zwróciło ciasteczka");

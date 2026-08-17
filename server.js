@@ -20,6 +20,7 @@ import { clientData } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
 import { refreshRate, fxStatus } from "./src/fx.js";
+import { utworzHamulec } from "./src/login-limit.js";
 import {
   attachUser, requireAuth, requireAdmin,
   verifyLogin, createSession, destroySession, purgeExpiredSessions,
@@ -64,44 +65,25 @@ app.use(express.static(join(__dirname, "public")));
 //  Logowanie
 // ============================================================
 
-// Prosty hamulec na zgadywanie haseł: po 5 nieudanych próbach z tego
-// samego adresu IP kolejne są odrzucane przez 15 minut. Trzymany w pamięci
-// procesu — przy jednym serwerze pilotażowym to wystarcza.
-const LOGIN_TRIES = new Map();
-const LOGIN_MAX = 5;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-
-function loginBlocked(ip) {
-  const entry = LOGIN_TRIES.get(ip);
-  if (!entry) return false;
-  if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
-    LOGIN_TRIES.delete(ip);
-    return false;
-  }
-  return entry.count >= LOGIN_MAX;
-}
-
-function noteFailedLogin(ip) {
-  const entry = LOGIN_TRIES.get(ip);
-  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
-    LOGIN_TRIES.set(ip, { count: 1, first: Date.now() });
-  } else {
-    entry.count += 1;
-  }
-}
+// Hamulec na zgadywanie haseł — liczony PER KONTO i PER ADRES naraz, bo całe biuro
+// wychodzi do internetu jednym IP i sam licznik adresowy zamykałby panel wszystkim
+// przez jedną osobę mylącą własne hasło. Szczegóły i progi: src/login-limit.js.
+const hamulecLogowania = utworzHamulec();
 
 app.post("/api/auth/login", (req, res) => {
   const ip = req.ip || "?";
-  if (loginBlocked(ip)) {
+  const { email, password } = req.body || {};
+  // Ten sam komunikat niezależnie od tego, CO zawiodło — inaczej odpowiedź
+  // zdradzałaby, że dane konto istnieje i jest właśnie atakowane.
+  if (hamulecLogowania.zablokowane({ email, ip })) {
     return res.status(429).json({ error: "Za dużo nieudanych prób. Spróbuj ponownie za kwadrans." });
   }
-  const { email, password } = req.body || {};
   const user = verifyLogin(email, password);
   if (!user) {
-    noteFailedLogin(ip);
+    hamulecLogowania.nieudana({ email, ip });
     return res.status(401).json({ error: "Nieprawidłowy e-mail lub hasło." });
   }
-  LOGIN_TRIES.delete(ip);
+  hamulecLogowania.udana({ email, ip });
   setSessionCookie(res, createSession(user.id));
   res.json({ user });
 });
