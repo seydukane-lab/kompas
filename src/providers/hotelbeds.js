@@ -515,7 +515,7 @@ function prettyRoom(name) {
 // Zamiana EUR->PLN po kursie NBP (patrz src/fx.js). Kurs jest odświeżany w tle,
 // tutaj tylko odczytujemy aktualną wartość — przeliczanie nie może czekać na sieć.
 
-function normalize(h, c, rate, pax) {
+export function normalize(h, c, rate, pax) {
   const images = (c.images || [])
     .sort((a, b) => (a.visualOrder || 99) - (b.visualOrder || 99))
     .map((im) => PHOTO_CDN + im.path);
@@ -546,7 +546,13 @@ function normalize(h, c, rate, pax) {
     // UWAGA: oceny gości (rating/reviews) NIE są w podstawowym Content API.
     // Wymagają dodatku recenzji (np. TripAdvisor przez Hotelbeds) lub innego źródła.
     // Do czasu podpięcia recenzji szacujemy ocenę z kategorii — patrz README.
-    rating: Math.min(9.5, 6 + stars * 0.6),
+    //
+    // Szacunek MA SENS tylko przy znanej kategorii. Odkąd mapStars zwraca undefined
+    // dla kodów spoza słownika (3d5cc3f), `6 + undefined * 0.6` dawało NaN, które
+    // w JSON staje się `null` — a taka oferta wypadała z KAŻDEGO progu oceny
+    // (`null < 9` to prawda) i traciła punkty w rankingu. Czyli brak danych był
+    // karany jak zła ocena, wbrew zasadzie obowiązującej w całym projekcie.
+    rating: stars ? Math.min(9.5, 6 + stars * 0.6) : undefined,
     reviews: 0,          // 0 => wskaźnik wiarygodności pokaże "brak opinii"
     freshDays: null,
     price: pricePerPerson,

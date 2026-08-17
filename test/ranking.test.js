@@ -71,6 +71,47 @@ test("brak ZNANEJ liczby opinii nie udaje informacji, że opinii jest mało", ()
   assert.equal(trustLabel(0.2).cls, "low");
 });
 
+// ------------------------------------------------------------------
+//  Oferta bez ZNANEJ oceny (Hotelbeds bez recenzji, feed bez pola „rating").
+//
+//  Trzy rzeczy szły źle naraz, wszystkie z jednego korzenia:
+//  · szacunek oceny z kategorii liczył `6 + undefined * 0.6` = NaN,
+//  · NaN w score sprawiał, że porównania zwracały false i oferta zostawała
+//    tam, gdzie ją wrzucono — potrafiła wylądować na szczycie rankingu,
+//  · po serializacji NaN → `null`, a `null < 9` to prawda, więc oferta
+//    wypadała z KAŻDEGO progu oceny, choć nikt nie stwierdził, że jest słaba.
+// ------------------------------------------------------------------
+test("oferta bez znanej oceny nie psuje rankingu ani nie wygrywa go NaN-em", () => {
+  const bezOceny = scoreOffer(offer({ id: "bez", rating: undefined, reviews: 0, freshDays: null, stars: undefined }), {});
+  const dobra = scoreOffer(offer({ id: "dobra", rating: 9.2, reviews: 2000, freshDays: 3, stars: 5 }), {});
+  const slaba = scoreOffer(offer({ id: "slaba", rating: 6.4, reviews: 2000, freshDays: 3, stars: 3 }), {});
+
+  for (const o of [bezOceny, dobra, slaba]) {
+    assert.ok(Number.isFinite(o.score), `score nie jest liczbą dla ${o.id}: ${o.score}`);
+    assert.ok(Number.isFinite(o.valueScore), `valueScore nie jest liczbą dla ${o.id}`);
+    assert.ok(Number.isFinite(o.adjRating), `adjRating nie jest liczbą dla ${o.id}`);
+  }
+  assert.equal(bezOceny.adjRating, 7.5, "brak oceny ma dawać punkt neutralny, nie zero i nie NaN");
+  assert.equal(sortOffers([bezOceny, dobra, slaba], "score")[0].id, "dobra",
+    "oferta bez oceny wygrała ranking — dokładnie to robi NaN w porównaniach");
+});
+
+test("nieznana ocena nie odsiewa oferty, znana i za niska — owszem", () => {
+  const bezOceny = offer({ id: "bez", rating: undefined, reviews: 0 });
+  const zaSlaba = offer({ id: "slaba", rating: 7.2 });
+  const dobra = offer({ id: "dobra", rating: 9.1 });
+
+  const wynik = applyFilters([bezOceny, zaSlaba, dobra], { minRate: 8 }).map((o) => o.id);
+  assert.ok(wynik.includes("bez"),
+    "oferta bez znanej oceny wypadła z progu — brak danych nie może być karany jak zła ocena");
+  assert.ok(!wynik.includes("slaba"), "oferta o znanej, za niskiej ocenie ma dalej wypadać");
+  assert.ok(wynik.includes("dobra"));
+
+  // `null` (tak wygląda NaN po serializacji JSON) musi być traktowany tak samo.
+  assert.equal(applyFilters([offer({ rating: null })], { minRate: 9 }).length, 1,
+    "ocena null to brak danych, nie zero");
+});
+
 test("ANTY-PRZEKOLORYZACJA: hotel 9,8 z trzech opinii przegrywa z 8,7 z tysięcy", () => {
   const podejrzany = scoreOffer(offer({ rating: 9.8, reviews: 3, freshDays: 200 }), {});
   const solidny = scoreOffer(offer({ rating: 8.7, reviews: 4000, freshDays: 4 }), {});

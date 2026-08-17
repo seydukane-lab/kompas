@@ -74,7 +74,12 @@ export const FIT_WEIGHT = 20;
 export function scoreOffer(offer, crit) {
   const t = trustScore(offer);
   // Ocena "skorygowana": niepewne oceny ściągane w stronę średniej (7.5) -> anty-przekoloryzacja.
-  const adjRating = offer.rating * t + 7.5 * (1 - t);
+  // Oferta BEZ znanej oceny (część źródeł podaje sam obiekt, bez recenzji) dostaje
+  // wprost średnią — punkt neutralny. Wcześniej wchodziło tu `undefined`, co dawało
+  // NaN w score, a NaN w porównaniach zawsze zwraca false: taka oferta zostawała
+  // tam, gdzie ją wrzucono, i potrafiła wylądować na szczycie rankingu.
+  const znanaOcena = typeof offer.rating === "number" && !Number.isNaN(offer.rating) && offer.rating > 0;
+  const adjRating = znanaOcena ? offer.rating * t + 7.5 * (1 - t) : 7.5;
   const ratingPart = Math.max(0, Math.min(1, (adjRating - 6) / 4));
 
   let pricePart = 1 - (offer.price - 2500) / 9000;
@@ -454,7 +459,11 @@ export function applyFilters(list, crit) {
         if (total > crit.budget) return false;
       } else if (h.price > crit.budget) return false;
     }
-    if (crit.minRate && h.rating < crit.minRate) return false;
+    // Ocena nieznana (`null`/`undefined`) NIE odsiewa oferty — ta sama zasada co przy
+    // gwiazdkach i atrybutach obiektu: odrzucamy tylko to, o czym WIEMY, że nie spełnia
+    // kryterium. Wcześniej oferta bez oceny wypadała przy każdym progu, bo `null < 9`
+    // jest prawdą — a panel i tak oznacza takie oferty jako „brak danych o opiniach".
+    if (crit.minRate && h.rating != null && h.rating < crit.minRate) return false;
     // Gwiazdki: `h.stars == null` znaczy „dostawca nie podał kategorii", a nie
     // „hotel jest słaby". Nieznaną kategorię przepuszczamy — ta sama zasada co
     // przy atrybutach obiektu. Stary `(h.stars || 0)` wywalał takie oferty przy

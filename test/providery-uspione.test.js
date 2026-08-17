@@ -16,6 +16,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { normalize as normalizeTL } from "../src/providers/travellead.js";
 import { normalize as normalizeMX } from "../src/providers/merlinx.js";
+import { normalize as normalizeHB } from "../src/providers/hotelbeds.js";
 
 // Minimum, przy którym oferta w ogóle powstaje — reszta pól celowo pusta,
 // bo to właśnie brak danych jest tu przedmiotem badania.
@@ -80,6 +81,26 @@ test("MerlinX przepuszcza dane, które system REALNIE podał", () => {
   assert.equal(o.transferIncluded, true);
   assert.equal(o.rating, 9.1);
   assert.equal(o.reviews, 340);
+});
+
+// Hotelbeds nie ma recenzji w Content API i szacuje ocenę z kategorii. Odkąd
+// mapStars zwraca undefined dla kodów spoza słownika, szacunek liczył
+// `6 + undefined * 0.6` = NaN — a NaN po serializacji JSON staje się `null`
+// i wypada z każdego progu oceny.
+test("Hotelbeds nie produkuje oceny NaN, gdy nie zna kategorii", () => {
+  // Kod kategorii spoza słownika → mapStars zwraca undefined → szacunek nie ma
+  // z czego liczyć. Wynikiem musi być BRAK oceny, nigdy NaN (po serializacji `null`,
+  // które wypada z każdego progu oceny i psuje porównania w rankingu).
+  const bezKategorii = normalizeHB({ code: 1, name: "Hotel Bez Kategorii", categoryCode: "XYZ" }, {}, { net: 100 }, 2);
+  assert.equal(bezKategorii.stars, undefined, "nieznany kod kategorii miał dać brak gwiazdek");
+  assert.ok(!Number.isNaN(bezKategorii.rating), "ocena wyszła jako NaN");
+  assert.equal(bezKategorii.rating, undefined, "bez kategorii nie ma z czego szacować oceny");
+
+  // Znana kategoria → szacunek zostaje, tak jak dotąd.
+  const zKategoria = normalizeHB({ code: 2, name: "Hotel 4*", categoryCode: "4EST" }, {}, { net: 100 }, 2);
+  assert.equal(zKategoria.stars, 4);
+  assert.ok(Number.isFinite(zKategoria.rating) && zKategoria.rating > 6,
+    "przy znanej kategorii szacunek oceny ma działać jak dotąd");
 });
 
 // Ta sama reguła dla obu źródeł — gdyby ktoś poprawił jedno i zapomniał o drugim.
