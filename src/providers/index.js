@@ -58,6 +58,15 @@ const CACHE_TTL_MS = Number(process.env.SEARCH_CACHE_TTL_MS) || 180000; // 3 min
 const CACHE_MAX = Number(process.env.SEARCH_CACHE_MAX) || 200;
 const searchCache = new Map();
 
+// Od jakiego wieku wpis, choć wciąż ważny, warto odświeżyć W TLE. Konsultant dostaje
+// odpowiedź natychmiast z cache, a nowe dane dojeżdżają na kolejne pytanie — zamiast
+// czekać przy ekranie na najwolniejsze źródło. Poniżej tego progu nie ruszamy sieci
+// w ogóle, żeby seria kliknięć w jednym kierunku nie zamieniła się w serię zapytań.
+const CACHE_REVALIDATE_MS = Number(process.env.SEARCH_CACHE_REVALIDATE_MS) || 60000; // 1 minuta
+// Odświeżenia w locie: bez tego pięć równoległych wyszukiwań tego samego kierunku
+// odpaliłoby pięć odświeżeń naraz i wolne źródło dostałoby pięć zapytań zamiast jednego.
+const wLocie = new Map();
+
 function cacheKey(crit) {
   // Stabilny klucz: te same kryteria w innej kolejności pól to ten sam wynik.
   return JSON.stringify(Object.keys(crit).sort().map((k) => [k, crit[k]]));
@@ -104,6 +113,23 @@ function cacheSet(key, data) {
 /** Czyści cache — przydatne w testach i po zmianie konfiguracji dostawców. */
 export function clearSearchCache() {
   searchCache.clear();
+  wLocie.clear();
+}
+
+/** Czy trwa odświeżanie w tle — testy nie mogą kończyć się w środku zapytania. */
+export function trwajaceOdswiezenia() {
+  return Promise.all([...wLocie.values()].map((p) => p.catch(() => {})));
+}
+
+// Odświeżenie w tle: wynik ląduje w cache na następne pytanie, a błąd NIE może
+// wywrócić procesu ani zostawić po sobie wpisu w mapie „w locie".
+function odswiezWTle(prov, crit, key) {
+  if (wLocie.has(key)) return;
+  const zadanie = withDeadline(prov.search(crit), PROVIDER_DEADLINE_MS, prov.meta.id)
+    .then((lista) => { if (Array.isArray(lista)) cacheSet(key, lista); })
+    .catch((err) => { console.warn(`[${prov.meta.id}] odświeżanie w tle nie powiodło się:`, err?.message || err); })
+    .finally(() => { wLocie.delete(key); });
+  wLocie.set(key, zadanie);
 }
 
 // Krótki, czytelny dla konsultanta powód awarii źródła. Bez tego "dostawca
@@ -136,7 +162,13 @@ export async function searchAll(crit, providers = activeProviders()) {
     const hit = cacheEntry(key);
     // Świeży wpis tego dostawcy: bierzemy go i NIE ruszamy sieci. Wiek podajemy
     // dalej, bo „z cache sprzed 12 s" i „właśnie odpytane" to dwie różne wiadomości.
-    if (hit) return { prov, offers: hit.data, ok: true, ms: 0, cached: true, wiek: Math.round((Date.now() - hit.at) / 1000) };
+    if (hit) {
+      const wiekMs = Date.now() - hit.at;
+      // Wpis dalej ważny, ale już nie pierwszej świeżości — oddajemy go od razu
+      // i odświeżamy w tle. Konsultant nie czeka, a następne pytanie ma nowe dane.
+      if (wiekMs > CACHE_REVALIDATE_MS) odswiezWTle(prov, crit, key);
+      return { prov, offers: hit.data, ok: true, ms: 0, cached: true, wiek: Math.round(wiekMs / 1000) };
+    }
 
     const t0 = Date.now();
     try {

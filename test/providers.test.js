@@ -494,6 +494,67 @@ test("wolne źródło jest odpytywane tylko raz, dopóki cache jest świeży", a
     `drugie wyszukiwanie (${czasDrugiego} ms) nie było szybsze od pierwszego (${czasPierwszego} ms)`);
 });
 
+// ------------------------------------------------------------------
+//  Odświeżanie w tle (cache oddaje dane od razu, nowe dojeżdżają później).
+//
+//  Pierwsze pytanie o dany kierunek i tak kosztuje tyle, ile najwolniejsze
+//  źródło (zmierzone: 15 s). Bez odświeżania w tle ta cena wracałaby co TTL,
+//  czyli co trzy minuty — w praktyce kilka razy na godzinę przy jednym kliencie.
+// ------------------------------------------------------------------
+test("wpis starszy niż próg odświeżenia wraca od razu, a dane odświeżają się w tle", async () => {
+  clearSearchCache();
+  process.env.SEARCH_CACHE_REVALIDATE_MS = "1"; // wszystko starsze niż 1 ms jest „do odświeżenia"
+  const { searchAll: swiezy, clearSearchCache: wyczysc, trwajaceOdswiezenia } = await import("../src/providers/index.js?swr=1");
+  wyczysc();
+
+  let wywolania = 0;
+  const wolne = atrapa("swr-wolne", async () => {
+    wywolania++;
+    await new Promise((r) => setTimeout(r, 60));
+    return [offer({ name: "Hotel " + wywolania })];
+  });
+  const crit = { dest: "test-swr" };
+
+  await swiezy(crit, [wolne]);
+  assert.equal(wywolania, 1);
+  await new Promise((r) => setTimeout(r, 15)); // wpis musi zdążyć przekroczyć próg odświeżenia
+
+  const t0 = Date.now();
+  const drugie = await swiezy(crit, [wolne]);
+  const czas = Date.now() - t0;
+
+  assert.ok(drugie.sources[0].cached, "drugie pytanie miało pójść z cache");
+  assert.ok(czas < 40, `odpowiedź z cache czekała na odświeżenie (${czas} ms) — nie o to chodzi`);
+  await trwajaceOdswiezenia();
+  assert.equal(wywolania, 2, "odświeżenie w tle nie doszło do skutku");
+
+  delete process.env.SEARCH_CACHE_REVALIDATE_MS;
+});
+
+test("równoległe pytania nie mnożą odświeżeń tego samego źródła", async () => {
+  process.env.SEARCH_CACHE_REVALIDATE_MS = "1";
+  const { searchAll: swiezy, clearSearchCache: wyczysc, trwajaceOdswiezenia } = await import("../src/providers/index.js?swr=2");
+  wyczysc();
+
+  let wywolania = 0;
+  const wolne = atrapa("swr-rownolegle", async () => {
+    wywolania++;
+    await new Promise((r) => setTimeout(r, 50));
+    return [offer()];
+  });
+  const crit = { dest: "test-swr-rownolegle" };
+
+  await swiezy(crit, [wolne]);
+  await new Promise((r) => setTimeout(r, 15));
+  await Promise.all([swiezy(crit, [wolne]), swiezy(crit, [wolne]), swiezy(crit, [wolne])]);
+  await trwajaceOdswiezenia();
+
+  assert.equal(wywolania, 2,
+    `trzy równoległe pytania odpaliły ${wywolania - 1} odświeżeń zamiast jednego — wolne źródło dostaje lawinę zapytań`);
+
+  delete process.env.SEARCH_CACHE_REVALIDATE_MS;
+});
+
 test("odpowiedź jest oznaczona jako z cache dopiero, gdy żadne źródło nie szło do sieci", async () => {
   clearSearchCache();
   const a = atrapa("cache-a", async () => [offer()]);
