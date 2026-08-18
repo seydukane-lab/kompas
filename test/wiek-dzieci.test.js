@@ -10,7 +10,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPaxes } from "../src/providers/hotelbeds.js";
+import { buildPaxes, parseChildAges } from "../src/providers/hotelbeds.js";
 
 test("wiek z formularza trafia do dostawcy", () => {
   assert.deepEqual(buildPaxes(2, [3, 14]), [
@@ -57,4 +57,37 @@ test("liczba osób zawsze zgadza się z liczbą dzieci", () => {
   for (const n of [1, 2, 3, 4]) {
     assert.equal(buildPaxes(n, [5]).length, n);
   }
+});
+
+// ------------------------------------------------------------
+//  Droga z zapytania HTTP do listy wieków
+//
+//  Formularz wysyła wiek każdego dziecka po przecinku, a puste pole zostawia
+//  pustym. Serwer do 18.08.2026 wycinał puste wpisy — i przy dzieciach
+//  [brak, 10 lat] pierwsze dziecko dostawało 10 lat, a drugie zgadywane 8.
+//  Wiek wędrował na niewłaściwe dziecko, cicho i bez śladu w wyniku.
+// ------------------------------------------------------------
+
+test("brak zapytania o wiek to pusta lista, nie lista z zerem", () => {
+  assert.deepEqual(parseChildAges(undefined), []);
+  assert.deepEqual(parseChildAges(""), []);
+  assert.deepEqual(parseChildAges(null), []);
+});
+
+test("puste pole zostaje dziurą na swoim miejscu, a nie znika z listy", () => {
+  assert.deepEqual(parseChildAges(",10"), [null, 10]);
+  assert.deepEqual(parseChildAges("10,"), [10, null]);
+  assert.deepEqual(parseChildAges("0,,7"), [0, null, 7]);
+});
+
+test("wiek nie przenosi się na inne dziecko, gdy wcześniejsze pole jest puste", () => {
+  const paxes = buildPaxes(2, parseChildAges(",10"));
+  assert.equal(paxes[0].age, 8, "pierwsze dziecko ma być przybliżeniem, bo wieku nie podano");
+  assert.equal(paxes[1].age, 10, "drugie dziecko ma dostać wiek, który wpisał konsultant");
+});
+
+test("niemowlę przechodzi jako zero, a śmieć jako brak wieku", () => {
+  assert.deepEqual(parseChildAges("0"), [0]);
+  assert.deepEqual(parseChildAges("abc,5"), [null, 5]);
+  assert.equal(buildPaxes(1, parseChildAges("0"))[0].age, 0);
 });

@@ -252,7 +252,7 @@ app.get("/api/search", async (req, res) => {
       pax: (Number(q.adults) || 2) + (Number(q.kids) || 0),
       // Wiek każdego dziecka (lata; 0 = niemowlę). Uwaga: wrapper wakacje.pl
       // liczy 2 dorosłych i wieku nie przyjmuje — pole pod inne źródła/filtry.
-      childAges: q.childAges ? String(q.childAges).split(",").filter((s) => s !== "").map(Number) : [],
+      childAges: hotelbeds.parseChildAges(q.childAges),
       // Długość pobytu w nocach (0/brak = dowolna).
       nights: Number(q.nights) || 0,
       budget: Number(q.budget) || 0,

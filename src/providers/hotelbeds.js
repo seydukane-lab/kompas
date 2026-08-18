@@ -415,6 +415,25 @@ function normalizeSingleRoom(code, c, rate, adults, children, totalPax) {
  * Gdy wieku nie podano, wracamy do 8 lat jako wartości środkowej — lepsze
  * niż odrzucenie zapytania, ale to przybliżenie, nie fakt.
  */
+/**
+ * Wiek dzieci z zapytania HTTP ("", "10", "0,,7") na tablicę, w której POZYCJA
+ * odpowiada dziecku. Puste pole zostaje pustym miejscem (null), a nie znika -
+ * odfiltrowanie pustych przesuwałoby wiek na sąsiednie dziecko: przy dzieciach
+ * [brak, 10 lat] pierwsze dostawałoby 10 lat, a drugie zgadywane 8.
+ * Uwaga: Number("") daje 0, czyli niemowlę - stąd jawne sprawdzenie.
+ */
+export function parseChildAges(raw) {
+  if (raw === undefined || raw === null || raw === "") return [];
+  return String(raw)
+    .split(",")
+    .map((s) => {
+      const t = s.trim();
+      if (t === "") return null;
+      const n = Number(t);
+      return Number.isFinite(n) ? n : null;
+    });
+}
+
 export function buildPaxes(children, ages = []) {
   if (!(children > 0)) return undefined;
   return Array.from({ length: children }, (_, i) => {

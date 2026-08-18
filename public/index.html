@@ -1082,6 +1082,18 @@
   // (wrapper) liczy cenę dla 2 dorosłych i nie przyjmuje wieku dzieci, więc na
   // realnych ofertach wakacje.pl wiek NIE zmieni ceny — służy do doprecyzowania
   // zapytania i pod przyszłe źródła (occupancy). Hotelbeds wiek uwzględnia.
+  // Pierwsza pozycja MUSI znaczyć "nie podano": <select> bez atrybutu selected
+  // wybiera pierwszą opcję, więc dziecko, przy którym nikt nie kliknął wieku,
+  // szłoby do dostawcy jako zerolatek - inna cena i inny pokój niż realny
+  // dziesięciolatek, bez śladu na ekranie. Pusta wartość jedzie do serwera jako
+  // dziura i dopiero tam zamienia się w jawne przybliżenie (patrz buildPaxes).
+  function wiekDzieckaOpcje(selected){
+    var podano=selected!==undefined&&selected!==null&&selected!=="";
+    var opts='<option value=""'+(podano?"":" selected")+'>— wiek —</option>';
+    opts+='<option value="0"'+(selected==="0"?" selected":"")+'>niemowlę &lt;2</option>';
+    for(var a=2;a<=17;a++)opts+='<option value="'+a+'"'+(selected==String(a)?" selected":"")+'>'+a+' lat</option>';
+    return opts;
+  }
   var kidsInput=document.getElementById("kids"),childAges=document.getElementById("childAges");
   function renderChildAges(){
     var kn=Math.max(0,Math.min(6,+kidsInput.value||0));
@@ -1090,9 +1102,7 @@
     var old=[].map.call(childAges.querySelectorAll("select"),function(s){return s.value;});
     var html='<div class="child-ages-lbl">Wiek dzieci (w dniu wylotu)</div><div class="child-ages-row">';
     for(var i=0;i<kn;i++){
-      var opts='<option value="0">niemowlę &lt;2</option>';
-      for(var a=2;a<=17;a++)opts+='<option value="'+a+'"'+(old[i]==String(a)?" selected":"")+'>'+a+' lat</option>';
-      html+='<select class="child-age" aria-label="Wiek dziecka '+(i+1)+'">'+opts+'</select>';
+      html+='<select class="child-age" aria-label="Wiek dziecka '+(i+1)+'">'+wiekDzieckaOpcje(old[i])+'</select>';
     }
     childAges.innerHTML=html+'</div>';
   }
@@ -1362,10 +1372,7 @@
     // wybiera pierwszą opcję, więc gdy na górze stało "niemowlę <2", każde dziecko,
     // przy którym konsultant nie kliknął wieku, jechało do dostawcy jako zerolatek
     // - inna cena i inny pokój niż realny dziesięciolatek, a nikt tego nie widział.
-    var podano=selected!==undefined&&selected!==null&&selected!=="";
-    var opts='<option value=""'+(podano?"":" selected")+'>— wiek —</option>';
-    opts+='<option value="0"'+(selected==="0"?" selected":"")+'>niemowlę &lt;2</option>';
-    for(var a=2;a<=17;a++)opts+='<option value="'+a+'"'+(selected==String(a)?" selected":"")+'>'+a+' lat</option>';
+    var opts=wiekDzieckaOpcje(selected);
     return '<select class="child-age" data-mr="'+roomIdx+'" data-ageidx="'+childIdx+'" aria-label="Wiek dziecka '+(childIdx+1)+' w pokoju '+(roomIdx+1)+'">'+opts+'</select>';
   }
   // Zanim przebudujemy listę pokoi (dodanie/usunięcie pokoju, zmiana liczby

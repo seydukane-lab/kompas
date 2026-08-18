@@ -930,17 +930,26 @@ test("wiek dziecka nietknięty przez konsultanta nie udaje niemowlaka", () => {
   // pierwsza opcja miała value="0", każde dziecko, przy którym konsultant nie
   // kliknął wieku, jechało do dostawcy jako zerolatek — inna cena, inny pokój,
   // zero śladu na ekranie. Pierwsza opcja musi znaczyć „nie podano".
-  const fn = html.match(/function mrAgeSelectHtml\([\s\S]*?\n {2}\}/)?.[0] || "";
-  assert.ok(fn, "brak funkcji mrAgeSelectHtml — zmieniła nazwę/strukturę?");
+  const fn = html.match(/function wiekDzieckaOpcje\([\s\S]*?\n {2}\}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji wiekDzieckaOpcje — zmieniła nazwę/strukturę?");
   const pierwszaOpcja = fn.match(/var opts='<option value="([^"]*)"/)?.[1];
   assert.equal(pierwszaOpcja, "",
     'pierwsza opcja wieku ma wartość inną niż pusta — nietknięte pole wyśle ten wiek jako fakt');
   assert.match(fn, /var podano=selected!==undefined&&selected!==null&&selected!==""/,
-    "mrAgeSelectHtml nie rozróżnia „nie podano” od podanej wartości");
+    "wiekDzieckaOpcje nie rozróżnia „nie podano” od podanej wartości");
   assert.match(fn, /\(podano\?"":" selected"\)/,
     "pusta opcja nie jest zaznaczana domyślnie — przeglądarka i tak wybierze pierwszą, ale to musi być świadome");
   assert.match(fn, /<option value="0"'\+\(selected==="0"\?" selected":""\)/,
     "„niemowlę <2” nie umie się zaznaczyć po ponownym renderze — wybór 0 lat by znikał");
+
+  // Ten sam błąd siedział w DWÓCH formularzach naraz (wyszukiwarka i Multiroom),
+  // bo lista wieków była wklejona dwa razy. Teraz jest jedno źródło — i tak ma zostać.
+  assert.match(html, /'">'\+wiekDzieckaOpcje\(old\[i\]\)/,
+    "formularz główny nie używa wspólnego wiekDzieckaOpcje — poprawki znów rozjadą się między formularzami");
+  assert.match(html, /var opts=wiekDzieckaOpcje\(selected\);/,
+    "Multiroom nie używa wspólnego wiekDzieckaOpcje");
+  assert.equal((html.match(/>niemowlę &lt;2</g) || []).length, 1,
+    "lista wieków jest w kodzie więcej niż raz — wróciła duplikacja, która pozwoliła błędowi żyć w dwóch miejscach");
 
   // Skoro brak wieku zostaje brakiem, wycena z przybliżeniem musi to mówić.
   assert.match(html, /mrBezWieku=mrRooms\.reduce\(/,
