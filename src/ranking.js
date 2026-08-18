@@ -348,7 +348,7 @@ export function hasAttribute(offer, key) {
 // dopasowania wariantu (departures/departure, transports, weekdays), żeby
 // promoteMatchingVariant wybierał spośród dokładnie tych wariantów, przez które
 // oferta w ogóle przeszła filtr. Zwraca [] gdy żaden filtr pakietowy nie jest aktywny.
-function activeVariantPredicates(crit) {
+export function activeVariantPredicates(crit) {
   const preds = [];
   if (crit.departures && crit.departures.length) {
     preds.push((v) => crit.departures.includes(v.departureCity));
@@ -407,6 +407,28 @@ export function promoteMatchingVariant(offer, crit) {
   const promoted = { ...offer };
   for (const key of VARIANT_FIELDS) promoted[key] = best[key];
   return promoted;
+}
+
+// Oferta bywa na liście, choć ŻADEN pojedynczy termin nie spełnia wszystkich
+// aktywnych filtrów pakietowych naraz — patrz applyFilters (matchesAnyVariant
+// sprawdza każdy filtr osobno) i promoteMatchingVariant wyżej (wraca nietknięty,
+// gdy nie ma wariantu spełniającego wszystko naraz). Konsultant zaznacza „Wylot:
+// Warszawa" + „Autokar", dostaje hotel na liście — a żaden termin nie łączy obu
+// warunków. Karta o tym milczała. Zmierzone 18/19.08.2026 na seedzie demo: dla
+// „Katowice + wylot w sobotę" 11 z 23 pasujących hoteli nie miało ani jednego
+// takiego wariantu.
+//
+// Te SAME predykaty co promoteMatchingVariant (activeVariantPredicates) — flaga
+// i wybór reprezentanta nigdy się nie rozjadą. Przy jednym albo zerze aktywnych
+// filtrów pakietowych zawsze false: pojedynczy warunek zawsze ma „swój" wariant,
+// bo inaczej oferta w ogóle nie przeszłaby applyFilters.
+export function filtrRozproszony(offer, crit) {
+  if (offer.type !== "package") return false;
+  const warianty = offer.variants && offer.variants.length ? offer.variants : [offer];
+  if (warianty.length < 2) return false;
+  const preds = activeVariantPredicates(crit);
+  if (preds.length < 2) return false;
+  return !warianty.some((v) => preds.every((p) => p(v)));
 }
 
 // Filtrowanie po kryteriach (wspólne dla wszystkich dostawców).

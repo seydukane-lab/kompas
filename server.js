@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
-import { applyFilters, promoteMatchingVariant, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia } from "./src/ranking.js";
+import { applyFilters, promoteMatchingVariant, filtrRozproszony, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia } from "./src/ranking.js";
 import { clientData, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
@@ -282,7 +282,13 @@ app.get("/api/search", async (req, res) => {
     // Reprezentanta przestawiamy na wariant, przez który oferta faktycznie przeszła
     // filtr (patrz ranking.js:promoteMatchingVariant) — PRZED scoreOffer, żeby ranking
     // i cena liczyły się już na właściwym terminie, nie na przypadkowym reprezentancie.
-    const promoted = filtered.map((o) => promoteMatchingVariant(o, crit));
+    // Gdy żaden wariant nie spełnia wszystkich aktywnych filtrów pakietowych naraz
+    // (patrz ranking.js:filtrRozproszony), oznaczamy to jawną flagą — kopia obiektu,
+    // żeby nie dopisywać pola do oferty współdzielonej przez cache dostawców.
+    const promoted = filtered.map((o) => {
+      const p = promoteMatchingVariant(o, crit);
+      return filtrRozproszony(o, crit) ? { ...p, filtrRozproszony: true } : p;
+    });
     const scored = promoted.map((o) => scoreOffer(o, crit));
     const sorted = sortOffers(scored, crit.sort, crit.pax);
 

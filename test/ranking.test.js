@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, offerGroupTotal, isGroupTotalExact, podpowiedziRozluznienia,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, filtrRozproszony, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, offerGroupTotal, isGroupTotalExact, podpowiedziRozluznienia,
 } from "../src/ranking.js";
 import { mapBoard } from "../src/providers/hotelbeds.js";
 
@@ -309,6 +309,73 @@ test("promoteMatchingVariant: oferta typu hotel (bez lotu) przechodzi bez zmian"
   const hotelOnly = offer({ id: "ho", type: "hotel", departureCity: "", variants: [] });
   const out = promoteMatchingVariant(hotelOnly, { departures: ["Katowice"], pax: 2 });
   assert.equal(out, hotelOnly);
+});
+
+// Hotel, którego DWA warianty dzielą między siebie dwa filtry pakietowe: jeden ma
+// właściwe miasto wylotu, ale zły transport; drugi — właściwy transport, ale złe
+// miasto. Żaden pojedynczy termin nie spełnia obu naraz, mimo że oferta przechodzi
+// applyFilters (matchesAnyVariant sprawdza każdy filtr osobno).
+function hotelRozdzielony() {
+  return offer({
+    id: "rozdzielony",
+    variants: [
+      { departureCity: "Warszawa", transport: "Samolot" }, // pasuje do miasta, nie do transportu
+      { departureCity: "Katowice", transport: "Autokar" },  // pasuje do transportu, nie do miasta
+    ],
+  });
+}
+
+test("filtrRozproszony: true, gdy dwa aktywne filtry pakietowe dzielą się między różne warianty", () => {
+  const hotel = hotelRozdzielony();
+  const crit = { departures: ["Warszawa"], transports: ["Autokar"] };
+  assert.equal(filtrRozproszony(hotel, crit), true);
+});
+
+test("filtrRozproszony: false, gdy istnieje wariant spełniający wszystkie aktywne filtry naraz", () => {
+  const hotel = hotelRozdzielony();
+  hotel.variants.push({ departureCity: "Warszawa", transport: "Autokar" }); // łączy oba warunki
+  const crit = { departures: ["Warszawa"], transports: ["Autokar"] };
+  assert.equal(filtrRozproszony(hotel, crit), false);
+});
+
+test("filtrRozproszony: false, gdy aktywny jest tylko JEDEN filtr pakietowy", () => {
+  const hotel = hotelRozdzielony();
+  assert.equal(filtrRozproszony(hotel, { departures: ["Warszawa"] }), false);
+  assert.equal(filtrRozproszony(hotel, { transports: ["Autokar"] }), false);
+});
+
+test("filtrRozproszony: false, gdy nie ma aktywnych filtrów pakietowych", () => {
+  const hotel = hotelRozdzielony();
+  assert.equal(filtrRozproszony(hotel, {}), false);
+});
+
+test("filtrRozproszony: false dla oferty hotel-only (bez lotu)", () => {
+  const hotelOnly = offer({ id: "ho2", type: "hotel", variants: [
+    { departureCity: "Warszawa", transport: "Samolot" },
+    { departureCity: "Katowice", transport: "Autokar" },
+  ] });
+  const crit = { departures: ["Warszawa"], transports: ["Autokar"] };
+  assert.equal(filtrRozproszony(hotelOnly, crit), false);
+});
+
+test("filtrRozproszony: false, gdy oferta ma mniej niż dwa warianty", () => {
+  const jedenWariant = offer({ id: "jw2", variants: [{ departureCity: "Warszawa", transport: "Samolot" }] });
+  const crit = { departures: ["Warszawa"], transports: ["Autokar"] };
+  assert.equal(filtrRozproszony(jedenWariant, crit), false);
+});
+
+test("filtrRozproszony: trzy aktywne filtry, każdy wariant łączy tylko dwa z trzech naraz", () => {
+  const hotel = offer({
+    id: "trzy-filtry",
+    variants: [
+      // Warszawa + Autokar, ale wylot w sobotę (dzień 6) — nie pasuje do weekdays.
+      { departureCity: "Warszawa", transport: "Autokar", departDate: "2026-09-05" },
+      // Warszawa + wylot w niedzielę (dzień 0), ale Samolot — nie pasuje do transports.
+      { departureCity: "Warszawa", transport: "Samolot", departDate: "2026-09-06" },
+    ],
+  });
+  const crit = { departures: ["Warszawa"], transports: ["Autokar"], weekdays: [0] };
+  assert.equal(filtrRozproszony(hotel, crit), true);
 });
 
 test("sortowanie po sumie za grupę odwraca kolejność, gdy tańsza „od” nie jest tańsza razem", () => {
