@@ -261,6 +261,11 @@
      sugerującego dobrą albo złą wiadomość. */
   .trust.unknown{color:var(--ink-faint);background:var(--surface-2)}
   .trust .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+  /* Ostrzeżenie: żaden pojedynczy termin nie spełnia wszystkich aktywnych filtrów
+     pakietowych naraz (patrz ranking.js:filtrRozproszony). Stonowane jak .trust.unknown —
+     to informacja o luce w danych, nie zarzut, że oferta jest zła. */
+  .scatter-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;color:var(--ink-faint);background:var(--surface-2)}
+  .tab-warn{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;color:var(--ink-faint);background:var(--surface-2);vertical-align:middle}
 
   .card-price{padding:16px 18px;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right;min-width:158px}
   @media (max-width:680px){.card-price{border-left:none;border-top:1px solid var(--line);align-items:stretch;text-align:left}}
@@ -1974,7 +1979,10 @@
           '<div class="ph-chart">'+slupki+'</div>'+
           '<div class="ph-note">Najtaniej: '+fmt(mn)+' zł/os.'+(ph.lowest30d?' · najniższa cena z ostatnich 30 dni: '+fmt(ph.lowest30d)+' zł/os.':'')+'</div></div>';
       })();
-      return '<div class="wr-intro">Ten sam obiekt sprzedaje '+V.length+' wariantów. '+
+      // Filtry pakietowe zaznaczone naraz, a żaden pojedynczy termin ich nie łączy —
+      // patrz ranking.js:filtrRozproszony (server.js ustawia h.filtrRozproszony).
+      var scatterNote=h.filtrRozproszony?'<div class="wr-intro"><span class="scatter-badge">Żaden pojedynczy termin nie spełnia wszystkich Twoich filtrów naraz</span> — każdy warunek osobno spełnia jakiś wariant poniżej, ale nie ten sam.</div>':'';
+      return scatterNote+'<div class="wr-intro">Ten sam obiekt sprzedaje '+V.length+' wariantów. '+
         'Kolejność według <b>sumy za grupę</b> — przy promocjach „druga osoba taniej” '+
         'oferta droższa za osobę bywa tańsza w całości.</div>'+
         '<div class="wr-scroll"><table class="wr-tab"><thead><tr>'+
@@ -1982,9 +1990,12 @@
         '</tr></thead><tbody>'+wiersze+'</tbody></table></div>'+hist;
     })();
 
+    // Nagłówek zakładki dostaje ten sam spokojny znacznik co karta (h.filtrRozproszony) —
+    // konsultant widzi ostrzeżenie, zanim jeszcze otworzy zakładkę.
+    var terminyLabel="Terminy i operatorzy"+(h.filtrRozproszony?'<span class="tab-warn" title="Żaden pojedynczy termin nie spełnia wszystkich Twoich filtrów naraz.">!</span>':"");
     var TABS=[
       {key:"opis",label:"Opis obiektu",html:tabOpis},
-      {key:"terminy",label:"Terminy i operatorzy",html:tabWarianty},
+      {key:"terminy",label:terminyLabel,html:tabWarianty},
       {key:"pokoje",label:"Pokoje",html:tabPokoje},
       {key:"lokalizacja",label:"Położenie i dojazd",html:tabLokalizacja},
       {key:"wyzywienie",label:"Wyżywienie",html:tabWyzywienie},
@@ -2337,7 +2348,11 @@
             (h.attrUnknown||[]).map(function(k){return '<span class="tag tag-unknown" title="Wybrany filtr nie odsiewa ofert bez danych — ta oferta przeszła, bo dostawca nie podał tej informacji.">'+attrChipLabel(k)+': brak danych</span>';}).join("")+
           '</div>'+
           '<div class="rate-row"><span class="rate-badge" style="background:'+rateColor(h.rating)+'">'+(h.rating?h.rating.toFixed(1).replace(".",","):"—")+'</span><span class="rate-txt">'+(h.reviews>0?('<b>'+fmt(h.reviews)+'</b> opinii · najśw. '+h.freshDays+' dni temu'):'brak danych o opiniach')+'</span></div>'+
-          '<div class="card-trust-row"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span>'+(function(){var v=etaVerdict(h);return '<span class="card-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="card-eta-n" title="Ocena wartości za pieniądze (ETA)">ETA '+etaValue(h)+'/100</span></span>';})()+'</div>'+
+          '<div class="card-trust-row"><span class="trust '+tl.cls+'"><span class="dot"></span>'+tl.txt+'</span>'+(function(){var v=etaVerdict(h);return '<span class="card-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="card-eta-n" title="Ocena wartości za pieniądze (ETA)">ETA '+etaValue(h)+'/100</span></span>';})()+
+            // Żaden pojedynczy termin nie spełnia wszystkich aktywnych filtrów naraz —
+            // flaga z backendu (server.js, patrz ranking.js:filtrRozproszony).
+            (h.filtrRozproszony?'<span class="scatter-badge" title="Żaden pojedynczy termin nie spełnia wszystkich Twoich filtrów naraz — sprawdź zakładkę „Terminy i operatorzy”.">terminy rozproszone</span>':'')+
+          '</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
         '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+

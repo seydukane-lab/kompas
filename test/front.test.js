@@ -872,3 +872,53 @@ test("sortowanie po sumie za grupę istnieje i liczy tym samym wzorem co offerTo
   assert.match(ranking, /if \(mode === "total"\) return offerGroupTotal\(a, pax\) - offerGroupTotal\(b, pax\);/,
     "sortOffers zgubił tryb „total” albo przestał liczyć przez offerGroupTotal");
 });
+
+// ============================================================
+// Ostrzeżenie o „rozproszonych” terminach (h.filtrRozproszony z backendu,
+// patrz ranking.js:filtrRozproszony). Karta i nagłówek zakładki „Terminy
+// i operatorzy” mają pokazać spokojny znacznik, gdy żaden pojedynczy termin
+// nie spełnia wszystkich aktywnych filtrów pakietowych naraz.
+//
+// Asertujemy CAŁY warunek razem z flagą (h.filtrRozproszony?...:''), nie sam
+// napis „terminy rozproszone” — podmiana warunku na if(false)/martwy ternary
+// zostawiłaby ten sam tekst w pliku i sabotaż przeszedłby niezauważony
+// (dokładnie ta pułapka z testu na cls.push("wr-shown") z nocy 16/17.08).
+// ============================================================
+test("karta i zakładka „Terminy i operatorzy” ostrzegają, gdy żaden termin nie spełnia wszystkich filtrów naraz", () => {
+  const html = wczytaj("public/index.html");
+
+  // Styl musi istnieć, inaczej znacznik nic nie zmienia wizualnie.
+  assert.match(html, /\.scatter-badge\{[^}]+\}/, "brak stylu .scatter-badge");
+  assert.match(html, /\.tab-warn\{[^}]+\}/, "brak stylu .tab-warn");
+
+  // Karta wyniku: znacznik zależy od h.filtrRozproszony, nie jest wyświetlany zawsze.
+  const cardFn = html.match(/function cardEl\(h,i,n,pax\)\{[\s\S]*?\n {2}\}/)?.[0] || "";
+  assert.ok(cardFn, "brak funkcji cardEl — zmieniła nazwę/sygnaturę?");
+  assert.match(cardFn,
+    /\(h\.filtrRozproszony\?'<span class="scatter-badge"[^']*title="[^"]*"[^']*>terminy rozproszone<\/span>':''\)/,
+    "znacznik „terminy rozproszone” na karcie nie jest związany z h.filtrRozproszony — może być martwy albo zawsze widoczny");
+
+  // Nagłówek zakładki: label „Terminy i operatorzy” dostaje badge TYLKO gdy h.filtrRozproszony.
+  assert.match(html,
+    /var terminyLabel="Terminy i operatorzy"\+\(h\.filtrRozproszony\?'<span class="tab-warn"[^']*>!<\/span>':""\)/,
+    "nagłówek zakładki „Terminy i operatorzy” nie czyta h.filtrRozproszony — ostrzeżenie może nie pojawić się nigdy");
+  assert.match(html, /\{key:"terminy",label:terminyLabel,html:tabWarianty\}/,
+    "zakładka „terminy” nie używa wyliczonego terminyLabel — badge nigdy nie trafi na ekran");
+
+  // Wnętrze zakładki: krótkie zdanie ostrzegawcze, też warunkowe.
+  const fn = html.match(/var tabWarianty=\(function\(\)\{[\s\S]*?\n {4}\}\)\(\);/)?.[0] || "";
+  assert.ok(fn, "brak bloku tabWarianty — zmienił nazwę/strukturę?");
+  assert.match(fn,
+    /var scatterNote=h\.filtrRozproszony\?'<div class="wr-intro"><span class="scatter-badge">[^<]*<\/span>[^']*':''/,
+    "scatterNote w tabWarianty nie jest związany z h.filtrRozproszony — ostrzeżenie w zakładce może być martwe");
+  assert.match(fn, /return scatterNote\+'<div class="wr-intro">/,
+    "scatterNote policzony, ale nie trafia do zwracanego HTML zakładki");
+
+  // Sabotaż na PODCIĄGU: sam napis „terminy rozproszone” istnieje też w komentarzach
+  // i title — więc dowodem musi być cały warunek ternary z flagą, sprawdzony wyżej.
+  // Tu tylko pilnujemy, że bez aktywnych dwóch filtrów backend nigdy nie ustawia
+  // flagi na true (patrz test jednostkowy filtrRozproszony w ranking.test.js) —
+  // front ma po prostu zaufać wartości z JSON, bez własnej kopii tej logiki.
+  assert.ok(!/function filtrRozproszony/.test(html),
+    "front duplikuje logikę filtrRozproszony zamiast czytać flagę z backendu — dwa miejsca do synchronizowania");
+});
