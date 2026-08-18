@@ -19,7 +19,8 @@
     "user:list": "node scripts/user.js list",
     "user:pass": "node scripts/user.js pass",
     "user:off": "node scripts/user.js off",
-    "user:on": "node scripts/user.js on"
+    "user:on": "node scripts/user.js on",
+    "wjazd": "node scripts/wjazd-sprawdz.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
