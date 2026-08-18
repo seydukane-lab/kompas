@@ -579,6 +579,7 @@
   .mr-off .mr-send{margin-top:8px;font-size:12px;font-weight:600;padding:6px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer}
   .mr-off .mr-send:hover{border-color:var(--accent);color:var(--accent)}
   .mr-empty{font-size:13px;color:var(--ink-faint);padding:12px;text-align:center}
+  .mr-warn{font-size:12px;color:var(--ink-faint);background:var(--surface-2);border-left:3px solid var(--ink-faint);border-radius:8px;padding:9px 12px;margin:0 0 12px;line-height:1.5}
   .det-sec{margin:0 0 16px}
   .det-sec h4{font-size:12px;margin:0 0 9px;color:var(--accent-deep);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);padding-bottom:6px}
   .det-row{display:flex;justify-content:space-between;gap:14px;padding:5px 0;font-size:13.5px;border-bottom:1px solid var(--line)}
@@ -1351,13 +1352,19 @@
 
 
   /* ---------- Multiroom Finder (wspólny wyjazd — kilka pokoi) ---------- */
-  var mrRooms=[{adults:2,children:0,ages:[]},{adults:2,children:0,ages:[]}],mrModal=document.getElementById("mrModal"),mrLast=[];
+  var mrRooms=[{adults:2,children:0,ages:[]},{adults:2,children:0,ages:[]}],mrModal=document.getElementById("mrModal"),mrLast=[],mrBezWieku=0;
   // Wiek dzieci decyduje o cenie (progi "gratis"/zniżka) i o tym, czy pokój w
   // ogóle przyjmie taki skład — bez niego wycena wspólnego wyjazdu potrafi się
   // rozjechać o setki złotych. Pola wieku są opcjonalne: brak wyboru leci do
   // dostawcy jako brak wieku, nie jako awaria zapytania (patrz buildPaxes).
   function mrAgeSelectHtml(roomIdx,childIdx,selected){
-    var opts='<option value="0">niemowlę &lt;2</option>';
+    // Pierwsza pozycja MUSI znaczyć "nie podano". <select> bez atrybutu selected
+    // wybiera pierwszą opcję, więc gdy na górze stało "niemowlę <2", każde dziecko,
+    // przy którym konsultant nie kliknął wieku, jechało do dostawcy jako zerolatek
+    // - inna cena i inny pokój niż realny dziesięciolatek, a nikt tego nie widział.
+    var podano=selected!==undefined&&selected!==null&&selected!=="";
+    var opts='<option value=""'+(podano?"":" selected")+'>— wiek —</option>';
+    opts+='<option value="0"'+(selected==="0"?" selected":"")+'>niemowlę &lt;2</option>';
     for(var a=2;a<=17;a++)opts+='<option value="'+a+'"'+(selected==String(a)?" selected":"")+'>'+a+' lat</option>';
     return '<select class="child-age" data-mr="'+roomIdx+'" data-ageidx="'+childIdx+'" aria-label="Wiek dziecka '+(childIdx+1)+' w pokoju '+(roomIdx+1)+'">'+opts+'</select>';
   }
@@ -1401,6 +1408,14 @@
   });
   document.getElementById("mrSearchBtn").addEventListener("click",function(){
     mrSyncAges();
+    // Ile dzieci jedzie bez podanego wieku. Dostawca dostanie za nie przybliżenie
+    // (8 lat, patrz buildPaxes) - konsultant musi o tym wiedzieć ZANIM poda cenę
+    // klientowi, bo przy progach "gratis do 6 lat" różnica idzie w setki złotych.
+    mrBezWieku=mrRooms.reduce(function(n,r){
+      var ages=r.ages||[],brak=0;
+      for(var j=0;j<r.children;j++)if(!ages[j])brak++;
+      return n+brak;
+    },0);
     var res=document.getElementById("mrResults");
     res.innerHTML='<div class="mr-empty">Szukam dostępności na wszystkie pokoje…</div>';
     var mrModeChecked=document.querySelector('input[name="mrMode"]:checked');
@@ -1413,11 +1428,18 @@
   function mrRoomsBreakdownHtml(bd){
     return (bd||[]).map(function(b){return '<li><span>'+b.label+(b.roomName?' · '+b.roomName:'')+(b.board?' · '+b.board:'')+'</span><b>'+fmt(b.price)+' zł</b></li>';}).join("");
   }
+  // Wycena, w której część wieków zgadywał system, ma to napisane przy sobie.
+  // Zasada z całego projektu: brak danych zostaje brakiem i jest widoczny.
+  function mrOstrzezenieWiek(){
+    if(!(mrBezWieku>0))return"";
+    return '<div class="mr-warn">Nie podano wieku '+mrBezWieku+" "+odmiana(mrBezWieku,"dziecka","dzieci","dzieci")+
+      ' — dostawca wycenił je jako 8-latki. Przy progach „gratis do 6 lat” realna cena może się różnić; podaj wiek, żeby wycena była pewna.</div>';
+  }
   function mrRenderResults(offers){
     var res=document.getElementById("mrResults");mrLast=offers;
-    if(!offers.length){res.innerHTML='<div class="mr-empty">Brak hotelu z dostępnością na wszystkie pokoje w tym terminie. Zmień termin lub skład pokoi.</div>';return;}
+    if(!offers.length){res.innerHTML=mrOstrzezenieWiek()+'<div class="mr-empty">Brak hotelu z dostępnością na wszystkie pokoje w tym terminie. Zmień termin lub skład pokoi.</div>';return;}
     var cmp=offers.some(function(h){return h.compareConfigs;});
-    res.innerHTML='<div class="det-note">'+offers.length+' hoteli z dostępnością na WSZYSTKIE pokoje — od najtańszych za grupę.'+(cmp?' Dla każdego hotelu — obie opcje układu obok siebie.':'')+'</div>'+offers.slice(0,20).map(function(h,idx){
+    res.innerHTML=mrOstrzezenieWiek()+'<div class="det-note">'+offers.length+' hoteli z dostępnością na WSZYSTKIE pokoje — od najtańszych za grupę.'+(cmp?' Dla każdego hotelu — obie opcje układu obok siebie.':'')+'</div>'+offers.slice(0,20).map(function(h,idx){
       var badge=h.layout==="single"?'<span class="mr-badge">1 duży pokój</span>':'<span class="mr-badge">'+h.roomsCount+' osobne pokoje</span>';
       var body;
       if(h.compareConfigs&&h.compareConfigs.length){

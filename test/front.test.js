@@ -922,3 +922,34 @@ test("karta i zakładka „Terminy i operatorzy” ostrzegają, gdy żaden termi
   assert.ok(!/function filtrRozproszony/.test(html),
     "front duplikuje logikę filtrRozproszony zamiast czytać flagę z backendu — dwa miejsca do synchronizowania");
 });
+
+test("wiek dziecka nietknięty przez konsultanta nie udaje niemowlaka", () => {
+  const html = wczytaj("public/index.html");
+
+  // Sedno błędu: <select> bez atrybutu selected wybiera PIERWSZĄ opcję. Dopóki
+  // pierwsza opcja miała value="0", każde dziecko, przy którym konsultant nie
+  // kliknął wieku, jechało do dostawcy jako zerolatek — inna cena, inny pokój,
+  // zero śladu na ekranie. Pierwsza opcja musi znaczyć „nie podano".
+  const fn = html.match(/function mrAgeSelectHtml\([\s\S]*?\n {2}\}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji mrAgeSelectHtml — zmieniła nazwę/strukturę?");
+  const pierwszaOpcja = fn.match(/var opts='<option value="([^"]*)"/)?.[1];
+  assert.equal(pierwszaOpcja, "",
+    'pierwsza opcja wieku ma wartość inną niż pusta — nietknięte pole wyśle ten wiek jako fakt');
+  assert.match(fn, /var podano=selected!==undefined&&selected!==null&&selected!==""/,
+    "mrAgeSelectHtml nie rozróżnia „nie podano” od podanej wartości");
+  assert.match(fn, /\(podano\?"":" selected"\)/,
+    "pusta opcja nie jest zaznaczana domyślnie — przeglądarka i tak wybierze pierwszą, ale to musi być świadome");
+  assert.match(fn, /<option value="0"'\+\(selected==="0"\?" selected":""\)/,
+    "„niemowlę <2” nie umie się zaznaczyć po ponownym renderze — wybór 0 lat by znikał");
+
+  // Skoro brak wieku zostaje brakiem, wycena z przybliżeniem musi to mówić.
+  assert.match(html, /mrBezWieku=mrRooms\.reduce\(/,
+    "nikt nie liczy dzieci bez podanego wieku — ostrzeżenie nie miałoby z czego powstać");
+  assert.match(html, /function mrOstrzezenieWiek\(\)\{\s*\r?\n\s*if\(!\(mrBezWieku>0\)\)return"";/,
+    "mrOstrzezenieWiek nie milczy, gdy wszystkie wieki są podane — albo w ogóle nie istnieje");
+  assert.match(html, /res\.innerHTML=mrOstrzezenieWiek\(\)\+'<div class="det-note">/,
+    "ostrzeżenie o zgadywanym wieku nie trafia nad listę wyników Multiroom");
+  assert.match(html, /res\.innerHTML=mrOstrzezenieWiek\(\)\+'<div class="mr-empty">Brak hotelu/,
+    "przy zerowym wyniku ostrzeżenie znika — a to wtedy konsultant szuka przyczyny");
+  assert.match(html, /\.mr-warn\{/, "brak stylu .mr-warn — ostrzeżenie renderowałoby się bez oprawy");
+});
