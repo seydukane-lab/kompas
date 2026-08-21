@@ -1719,7 +1719,9 @@
       r("Lokalizacja",(x.region?x.region+", ":"")+(x.country||""))+
       r("Kategoria",x.stars?x.stars+"★":"")+
       r("Wyżywienie",x.board)+
-      r("Długość pobytu",(x.nights||n)+" nocy")+
+      // Wydruk dla klienta: nieznana długość pobytu ma z tabeli zniknąć, a nie
+      // pokazać liczbę wpisaną w wyszukiwarce jako fakt o TYM wyjeździe.
+      r("Długość pobytu",x.nights?x.nights+" nocy":"")+
       r("Termin",termin)+
       (typeof x.beach==="number"?r("Odległość od plaży",dist(x.beach)):"")+
       (x.roomType?r("Typ pokoju",x.roomType):"")+
@@ -2359,7 +2361,10 @@
     var totalWho=(adN+" dor."+(kN?" + "+kN+" dz.":""))+(hasSrcTotal?"":", szacunek");
     var practInner=practGridHtml(h.country);   // rozwijacz z warunkami wjazdowymi (jeśli znamy kraj)
     var offerNo=h.offerNumber||"";             // numer oferty do skopiowania (wakacje.pl)
-    var isPkg=h.type==="package",offN=h.nights||n;
+    // Długość pobytu TEJ oferty. Gdy dostawca jej nie podał, NIE podstawiamy liczby
+    // nocy z formularza (dawne h.nights||n) — to kryterium wyszukiwania, nie fakt
+    // o tym wyjeździe, a konsultant czytał je klientowi jako pewnik.
+    var isPkg=h.type==="package",offN=h.nights;
     var transIco=h.transport==="Autokar"?"🚌":(h.transport==="Własny dojazd"?"🚗":"✈️");
     var pkgMeta=isPkg?('<span class="tag pkg">'+transIco+' Wylot: '+h.departureCity+'</span>'+(h.transferIncluded?'<span class="tag">transfer w cenie</span>':'')):'';
     var srcBadge=isPkg?'<span class="src-badge op">'+h.operator+'</span>':'<span class="src-badge">'+(h.source||"demo")+'</span>';
@@ -2384,7 +2389,7 @@
           '</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+
-        '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba · '+offN+' nocy</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+
+        '<div class="card-price"><div class="price-lbl">od</div><div class="price-big">'+fmt(h.price)+'</div><div class="price-per">zł / osoba'+(offN?' · '+offN+' nocy':'')+'</div>'+(h.demo?'<div class="price-demo">cena orientacyjna</div>':'')+(isPkg?'<div class="price-total">Wylot: <b>'+fmtDate(h.departDate)+'</b> · '+h.transport+'</div>':'')+'<div class="price-total">Razem: <b>'+fmt(total)+' zł</b> ('+totalWho+')</div>'+
           // Inne terminy/operatorzy tego samego obiektu — najważniejsza informacja handlowa,
           // która do tej pory była schowana o jedno kliknięcie za daleko. Pokazywana tylko
           // gdy jest co pokazać (żaden „+0"); klik otwiera od razu zakładkę „Terminy

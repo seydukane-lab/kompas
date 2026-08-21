@@ -136,7 +136,9 @@ export function normalize(o) {
     // „Transfer w cenie" tylko na potwierdzenie z feedu. Zapis `!== false` sprawiał,
     // że BRAK informacji stawał się obietnicą usługi, za którą klient płaci osobno.
     transferIncluded: o.transferIncluded === true || undefined,
-    nights: Number(o.nights || o.duration || 7),
+    // Długość pobytu: patrz komentarz w travellead.js — zmyślone 7 nocy odsiewało
+    // oferty o nieznanej długości przy filtrze innym niż 6–8 nocy.
+    nights: Number(o.nights || o.duration) || undefined,
     departDate: o.departureDate || o.dateFrom || "",
     photo: o.image || o.photo || "linear-gradient(135deg,#0F6B68,#3FB0AB)",
     photos: Array.isArray(o.images) ? o.images.slice(0, 8) : [],

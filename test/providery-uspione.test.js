@@ -30,6 +30,8 @@ test("TravelLead nie zmyśla odległości od plaży, kategorii ani wyżywienia",
   assert.equal(o.board, undefined, "brak informacji o wyżywieniu zamieniał się w BB (śniadania)");
   assert.equal(o.capUnknown, true, "pojemność zgadywana z gwiazdek — konsultant sadza po niej realną rodzinę");
   assert.equal(o.transferIncluded, undefined, "brak informacji o transferze stawał się obietnicą „transfer w cenie”");
+  assert.equal(o.nights, undefined,
+    "zmyślone 7 nocy trafiało na kartę i do wydruku, a przy filtrze długości cicho odsiewało tę ofertę");
 });
 
 test("TravelLead nie wystawia oceny hotelowi, o którym nic nie wie", () => {
@@ -66,6 +68,7 @@ test("MerlinX nie zmyśla odległości od plaży, kategorii ani wyżywienia", ()
   assert.equal(o.capUnknown, true);
   assert.equal(o.transferIncluded, undefined,
     "zapis `!== false` zamieniał BRAK informacji w obietnicę transferu w cenie");
+  assert.equal(o.nights, undefined, "zmyślone 7 nocy — patrz ten sam test dla TravelLead");
 });
 
 test("MerlinX przepuszcza dane, które system REALNIE podał", () => {
@@ -111,5 +114,6 @@ test("żadne z uśpionych źródeł nie wypełnia braków wartościami domyślny
     assert.ok(!oferta.board, `${nazwa}: podaje wyżywienie, choć go nie zna`);
     assert.ok(!oferta.transferIncluded, `${nazwa}: obiecuje transfer, choć nie ma potwierdzenia`);
     assert.equal(oferta.capUnknown, true, `${nazwa}: nie oznacza nieznanej pojemności`);
+    assert.ok(!oferta.nights, `${nazwa}: podaje długość pobytu, choć jej nie zna`);
   }
 });

@@ -146,7 +146,11 @@ export function normalize(o) {
     // Transfer: „w cenie" tylko wtedy, gdy feed to potwierdza. Domyślne `true`
     // dokładało klientowi do oferty usługę, za którą realnie płaci osobno.
     transferIncluded: pick(o, "transferIncluded", "transfer") === true || undefined,
-    nights: Number(pick(o, "nights", "duration", "liczbaNocy", "days")) || 7,
+    // Długość pobytu: BRAK danych zostaje brakiem, tak jak plaża i transfer wyżej.
+    // Domyślne 7 nocy trafiało na kartę i do wydruku dla klienta jako fakt, a przy
+    // filtrze „długość pobytu" działało odwrotnie, niż się wydaje: oferta o NIEZNANEJ
+    // długości cicho ODPADAŁA przy każdej wartości innej niż 6–8 nocy.
+    nights: Number(pick(o, "nights", "duration", "liczbaNocy", "days")) || undefined,
     departDate: String(pick(o, "departureDate", "dateFrom", "dataWyjazdu", "termin") || ""),
     bookingUrl: affiliateUrl(String(pick(o, "url", "link", "deeplink", "offerUrl") || "")),
     photo: photo || "linear-gradient(135deg,#0F6B68,#3FB0AB)",

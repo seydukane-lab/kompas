@@ -572,6 +572,14 @@ test("filtr długości pobytu ma tolerancję jednej nocy", () => {
   const list = [offer({ nights: 8 })];
   assert.equal(applyFilters(list, { nights: 7 }).length, 1, "8 nocy przy szukaniu 7 to ten sam wyjazd");
   assert.equal(applyFilters(list, { nights: 10 }).length, 0);
+
+  // Nieznana długość pobytu NIE odsiewa oferty — ta sama zasada co przy ocenie,
+  // gwiazdkach i atrybutach. Wcześniej dostawcy podstawiali zmyślone 7 nocy, więc
+  // oferta o nieznanej długości cicho odpadała przy każdym filtrze poza 6–8 nocy,
+  // a konsultant nawet nie wiedział, że coś zniknęło.
+  const bezDlugosci = [offer({ nights: undefined })];
+  assert.equal(applyFilters(bezDlugosci, { nights: 10 }).length, 1,
+    "oferta o nieznanej długości pobytu została cicho odrzucona");
 });
 
 test("profil wyjazdu działa jak OR, nie AND", () => {
