@@ -49,7 +49,7 @@ test("TravelLead nie wystawia oceny hotelowi, o którym nic nie wie", () => {
 test("TravelLead przepuszcza dane, które feed REALNIE podał", () => {
   const o = normalizeTL({
     hotelName: "Hotel Z Danymi", price: 3000, stars: "5", beachDistance: 120,
-    board: "all inclusive", maxPax: 4, transferIncluded: true, rating: 8.9, reviews: 1200,
+    board: "all inclusive", maxPax: 4, transferIncluded: true, rating: 8.9, reviews: 1200, nights: 10,
   });
   assert.equal(o.stars, 5);
   assert.equal(o.beach, 120);
@@ -58,6 +58,7 @@ test("TravelLead przepuszcza dane, które feed REALNIE podał", () => {
   assert.equal(o.capUnknown, false);
   assert.equal(o.transferIncluded, true);
   assert.equal(o.rating, 8.9);
+  assert.equal(o.nights, 10, "realna długość pobytu z feedu ma przejść nietknięta");
 });
 
 test("MerlinX nie zmyśla odległości od plaży, kategorii ani wyżywienia", () => {
@@ -74,7 +75,7 @@ test("MerlinX nie zmyśla odległości od plaży, kategorii ani wyżywienia", ()
 test("MerlinX przepuszcza dane, które system REALNIE podał", () => {
   const o = normalizeMX({
     id: "mx2", hotelName: "Hotel Z Danymi", price: 4000, stars: 5, beachDistance: 80,
-    boardCode: "UAI", maxPax: 5, transferIncluded: true, rating: 9.1, reviewsCount: 340,
+    boardCode: "UAI", maxPax: 5, transferIncluded: true, rating: 9.1, reviewsCount: 340, nights: 10,
   });
   assert.equal(o.stars, 5);
   assert.equal(o.beach, 80);
@@ -84,6 +85,7 @@ test("MerlinX przepuszcza dane, które system REALNIE podał", () => {
   assert.equal(o.transferIncluded, true);
   assert.equal(o.rating, 9.1);
   assert.equal(o.reviews, 340);
+  assert.equal(o.nights, 10, "realna długość pobytu z systemu ma przejść nietknięta");
 });
 
 // Hotelbeds nie ma recenzji w Content API i szacuje ocenę z kategorii. Odkąd
