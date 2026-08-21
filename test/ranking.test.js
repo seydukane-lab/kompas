@@ -524,6 +524,20 @@ test("podpowiedzi liczą się tylko wtedy, gdy filtr jest realnie włączony", (
   assert.deepEqual(podpowiedziRozluznienia([], { budget: 100 }), [], "pusta lista nie ma czego podpowiadać");
 });
 
+test("budżet „razem” nie ufa cudzej sumie z innego składu — liczy dla realnej grupy", () => {
+  // Seed demo podaje priceTotal dla DWÓCH osób (packages.js: priceTotalPax = 2).
+  // Filtr brał tę kwotę jak sumę dla dowolnego składu, więc rodzina 2+3 dostawała
+  // oferty realnie dwa razy droższe, niż zadeklarowała w budżecie.
+  // cap: 6 celowo wysoki — o wyniku ma decydować filtr BUDŻETU, nie pojemności.
+  const list = [offer({ price: 4000, priceTotal: 8000, priceTotalPax: 2, cap: 6 })];
+
+  const rodzina = applyFilters(list, { budget: 15000, budgetMode: "total", pax: 5 });
+  assert.equal(rodzina.length, 0, "realny koszt dla 5 osób (4000 zł/os. razy 5 = 20 000 zł) przekracza 15 000 zł");
+
+  const para = applyFilters(list, { budget: 15000, budgetMode: "total", pax: 2 });
+  assert.equal(para.length, 1, "dla pary priceTotal dotyczy TEGO składu (8000 zł) i mieści się w budżecie");
+});
+
 test("normalizacja nazw radzi sobie z polskimi znakami i spacjami", () => {
   assert.equal(normalizeName("Dżerba"), "dzerba");
   assert.equal(normalizeName("  Blue   Lagoon "), "blue lagoon");
@@ -539,11 +553,13 @@ test("wyszukiwanie po nazwie ignoruje pozostałe filtry", () => {
 });
 
 test("budżet jest twardym limitem w obu trybach", () => {
-  const list = [offer({ price: 4000, priceTotal: 8000 })];
+  // priceTotalPax MUSI zgadzać się z pax z kryteriów, inaczej to nie jest suma dla
+  // TEJ grupy — filtr liczy wtedy z ceny za osobę (patrz offerGroupTotal i test niżej).
+  const list = [offer({ price: 4000, priceTotal: 8000, priceTotalPax: 2 })];
   assert.equal(applyFilters(list, { budget: 3000, budgetMode: "person" }).length, 0);
   assert.equal(applyFilters(list, { budget: 4000, budgetMode: "person" }).length, 1);
-  assert.equal(applyFilters(list, { budget: 7000, budgetMode: "total" }).length, 0);
-  assert.equal(applyFilters(list, { budget: 8000, budgetMode: "total" }).length, 1);
+  assert.equal(applyFilters(list, { budget: 7000, budgetMode: "total", pax: 2 }).length, 0);
+  assert.equal(applyFilters(list, { budget: 8000, budgetMode: "total", pax: 2 }).length, 1);
 });
 
 test("filtr tylko-z-realnymi-opiniami odrzuca oferty bez wolumenu", () => {

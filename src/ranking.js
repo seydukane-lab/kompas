@@ -476,9 +476,17 @@ export function applyFilters(list, crit) {
     // za cały wyjazd (priceTotal z API — za 2 dor.; w braku: cena/os. × liczba osób),
     // tryb "person" — z ceną za osobę. Ustawisz 8000 → nic powyżej 8000 się nie pokaże.
     if (crit.budget) {
+      // Budżet to TWARDY limit realnej ceny. Tryb "total" musi porównywać z sumą
+      // policzoną DLA TEGO składu — offerGroupTotal bierze cudze priceTotal tylko
+      // wtedy, gdy dotyczy tej samej liczby osób (priceTotalPax === crit.pax),
+      // a poza tym szacuje z ceny za osobę. Dawne `h.priceTotal || h.price*pax`
+      // ufało cudzej sumie bez sprawdzenia, dla ilu osób jest liczona: seed demo
+      // podaje priceTotal dla DWÓCH osób, więc rodzina 2+3 z budżetem 15 000 zł
+      // dostawała 384 oferty zamiast 72 — 312 z nich było realnie droższych, niż
+      // konsultant zadeklarował. Ta sama klasa błędu co 142acd6, tyle że tam
+      // naprawiona została ścieżka wyświetlania, a filtr został po staremu.
       if (crit.budgetMode === "total") {
-        const total = h.priceTotal || h.price * Math.max(1, crit.pax || 2);
-        if (total > crit.budget) return false;
+        if (offerGroupTotal(h, crit.pax) > crit.budget) return false;
       } else if (h.price > crit.budget) return false;
     }
     // Ocena nieznana (`null`/`undefined`) NIE odsiewa oferty — ta sama zasada co przy
