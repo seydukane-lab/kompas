@@ -746,13 +746,13 @@
       </div>
         <div class="child-ages" id="childAges" hidden></div>
       </div>
-      <div class="field"><label for="budget"><span id="budgetLabel">Budżet / os. — max</span> <span class="range-val" id="budgetVal">6 000 zł</span></label>
+      <div class="field"><label for="budget"><span id="budgetLabel">Budżet / os. — max</span> <span class="range-val" id="budgetVal">bez limitu</span></label>
         <div class="budget-toggle" id="budgetToggle" title="Przełącz, czy limit budżetu liczy się na osobę, czy jako suma za cały wyjazd">
           <button type="button" class="bt-opt active" data-bmode="person">za osobę</button>
           <button type="button" class="bt-opt" data-bmode="total">za wszystkich</button>
         </div>
         <input type="range" id="budget" min="1500" max="30000" step="250" value="6000"></div>
-      <div class="field"><label for="minRate">Min. ocena gości <span class="range-val" id="minRateVal">7,5</span></label><input type="range" id="minRate" min="6" max="9.5" step="0.1" value="7.5"></div>
+      <div class="field"><label for="minRate">Min. ocena gości <span class="range-val" id="minRateVal">dowolna</span></label><input type="range" id="minRate" min="6" max="9.5" step="0.1" value="7.5"></div>
       <div class="sec-head">Doprecyzuj</div>
       <div class="field"><label>Wyżywienie</label><div class="chips" id="boardChips">
         <button class="chip" data-board="All Inclusive" aria-pressed="false">All Inclusive</button>
@@ -1013,6 +1013,11 @@
       n++;
     });
     if(document.getElementById("hotelName").value.trim())n++;
+    // Suwaki liczą się TYLKO gdy konsultant je ruszył (patrz budgetTkniety niżej —
+    // `var` w tym samym IIFE, więc widoczne tutaj). Bez tego licznik pokazywał
+    // „0 filtrów", choć dwa twarde limity już odcinały część rynku.
+    if(budgetTkniety)n++;
+    if(minRateTkniety)n++;
     filterCountEl.textContent=n;
     filterCountEl.hidden=!n;
   }
@@ -1119,7 +1124,16 @@
     var pct=max>min?((v-min)/(max-min))*100:0;
     el.style.setProperty("--fill",Math.max(0,Math.min(100,pct))+"%");
   }
-  budget.addEventListener("input",function(){budgetVal.textContent=fmt(+budget.value)+" zł";rangeFill(budget);});
+  // SUWAKI STARTUJĄ JAKO NIEUSTAWIONE. Uchwyt suwaka musi gdzieś stać, ale jego
+  // pozycja startowa NIE jest decyzją konsultanta — a do 22.08.2026 była tak traktowana:
+  // nietknięty budżet 6000 zł/os. i nietknięta ocena 7,5 jechały do backendu jako twarde
+  // filtry. Zmierzone na seedzie demo: 34 ze 126 ofert znikały, zanim ktokolwiek cokolwiek
+  // kliknął (32 na budżecie, 2 na ocenie), a licznik filtrów pokazywał zero, bo liczy
+  // wyłącznie chipy. Konsultant nie miał jak się dowiedzieć, że część rynku mu odcięto.
+  var budgetTkniety=false,minRateTkniety=false;
+  function budgetOpis(){return budgetTkniety?fmt(+budget.value)+" zł":"bez limitu";}
+  function minRateOpis(){return minRateTkniety?(+minRate.value).toFixed(1).replace(".",","):"dowolna";}
+  budget.addEventListener("input",function(){budgetTkniety=true;budgetVal.textContent=budgetOpis();rangeFill(budget);updateFilterCount();});
   // Przełącznik budżetu: „za osobę" (cena/os.) vs „za wszystkich" (cena łączna).
   // Twardy limit — filtr odcina wszystko powyżej wybranej kwoty w danym trybie.
   // „Za wszystkich" ma większy zakres suwaka (bo to suma za cały wyjazd).
@@ -1134,7 +1148,7 @@
       if(+budget.value>30000)budget.value=6000;
       document.getElementById("budgetLabel").textContent="Budżet / os. — max";
     }
-    budgetVal.textContent=fmt(+budget.value)+" zł";
+    budgetVal.textContent=budgetOpis(); // przełączenie trybu to jeszcze nie ustawienie limitu
     rangeFill(budget); // zmiana trybu zmienia min/max, więc samo value nie wystarczy
   }
   document.getElementById("budgetToggle").addEventListener("click",function(e){
@@ -1143,7 +1157,7 @@
     this.querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x===b);});
     applyBudgetMode();
   });
-  minRate.addEventListener("input",function(){minRateVal.textContent=(+minRate.value).toFixed(1).replace(".",",");rangeFill(minRate);});
+  minRate.addEventListener("input",function(){minRateTkniety=true;minRateVal.textContent=minRateOpis();rangeFill(minRate);updateFilterCount();});
   rangeFill(budget);rangeFill(minRate); // wypełnienie startowe, zanim ktokolwiek dotknie suwaka
 
   // Bliźniak trustLabel() z src/ranking.js — oba muszą mówić to samo. Oferta bez ZNANEJ
@@ -2093,7 +2107,7 @@
     var timer=setInterval(function(){
       if(clockEl)clockEl.textContent=Math.round((Date.now()-t0)/1000)+" s";
     },1000);
-    var crit={budget:+budget.value,budgetMode:budgetMode,adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value,childAges:childAgesValue().split(",").filter(Boolean),nights:activeNights,departures:activeDeps};
+    var crit={budget:budgetTkniety?+budget.value:0,budgetMode:budgetMode,adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value,childAges:childAgesValue().split(",").filter(Boolean),nights:activeNights,departures:activeDeps};
     api("/api/advisor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({offers:cart,criteria:crit})})
       .then(function(r){return r.json();})
       .then(function(d){
@@ -2455,7 +2469,7 @@
     // Zapamiętane kryteria = te, na których serwer policzy ETA. Patrz clientFit().
     lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
-    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budget.value,budgetMode:budgetMode,minRate:minRate.value,boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
+    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budgetTkniety?budget.value:"",budgetMode:budgetMode,minRate:minRateTkniety?minRate.value:"",boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
     api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderAttrCover(data.attrs);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
@@ -2465,7 +2479,7 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent="6 000 zł";rangeFill(budget);minRate.value=7.5;minRateVal.textContent="7,5";rangeFill(minRate);activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetTkniety=false;minRateTkniety=false;budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent=budgetOpis();rangeFill(budget);minRate.value=7.5;minRateVal.textContent=minRateOpis();rangeFill(minRate);activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
 
   // Uwaga na kolejność: daty startowe ustawiane są PO spięciu pól (spinajDaty wyżej),
   // więc bez tego `change` powrót nie dostałby atrybutu min aż do pierwszej ręcznej zmiany.

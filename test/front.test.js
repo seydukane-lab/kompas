@@ -962,3 +962,81 @@ test("wiek dziecka nietknięty przez konsultanta nie udaje niemowlaka", () => {
     "przy zerowym wyniku ostrzeżenie znika — a to wtedy konsultant szuka przyczyny");
   assert.match(html, /\.mr-warn\{/, "brak stylu .mr-warn — ostrzeżenie renderowałoby się bez oprawy");
 });
+
+// ============================================================
+//  Nietknięty suwak to NIE jest decyzja konsultanta.
+//
+//  Budżet startował na 6000 zł/os., ocena na 7,5 — i oba jechały do backendu
+//  jako twarde filtry od pierwszej sekundy. Zmierzone na seedzie demo: 34 ze
+//  126 ofert znikały, zanim ktokolwiek cokolwiek kliknął (32 na budżecie,
+//  2 na ocenie). Licznik filtrów przy nagłówku pokazywał przy tym zero, bo
+//  liczy wyłącznie chipy — więc konsultant nie miał ŻADNEGO śladu, że część
+//  rynku mu odcięto. Ta sama klasa błędu co wiek dziecka i zmyślone 7 nocy.
+// ============================================================
+test("nietknięty suwak budżetu i oceny nie filtruje po cichu", () => {
+  const html = wczytaj("public/index.html");
+
+  // Etykieta startowa nie może podawać liczby, której nikt nie wybrał.
+  assert.match(html, /id="budgetVal">bez limitu</,
+    "startowa etykieta budżetu pokazuje kwotę — konsultant czyta ją jako ustawiony limit");
+  assert.match(html, /id="minRateVal">dowolna</,
+    "startowa etykieta oceny pokazuje próg — konsultant czyta go jako ustawiony filtr");
+
+  // Sedno: kryterium jedzie do backendu WYŁĄCZNIE gdy człowiek ruszył suwak.
+  // Asercja obejmuje CAŁY warunek razem z flagą — samo `budget:` przeszłoby
+  // niezauważone po podmianie na bezwarunkowe `budget.value`.
+  assert.match(html, /budget:budgetTkniety\?budget\.value:""/,
+    "zapytanie niesie budżet, nawet gdy nikt go nie ustawił");
+  assert.match(html, /minRate:minRateTkniety\?minRate\.value:""/,
+    "zapytanie niesie próg oceny, nawet gdy nikt go nie ustawił");
+  assert.match(html, /budget:budgetTkniety\?\+budget\.value:0/,
+    "raport ETA dostaje zmyślony budżet klienta, gdy konsultant go nie podał");
+
+  // Obie flagi MUSZĄ startować od fałszu. Sam warunek nic nie daje, jeśli panel
+  // wstaje z flagą już zapaloną — filtr wraca po cichu, a asercje wyżej przechodzą.
+  assert.match(html, /var budgetTkniety=false,minRateTkniety=false;/,
+    "suwaki wstają oznaczone jako ustawione — cichy filtr wrócił tylnymi drzwiami");
+
+  // Flagi zapalają się dokładnie tam, gdzie człowiek dotyka kontrolki.
+  assert.match(html, /budget\.addEventListener\("input",function\(\)\{budgetTkniety=true;/,
+    "ruszenie suwaka budżetu nie oznacza go jako ustawionego — filtr nigdy by nie zadziałał");
+  assert.match(html, /minRate\.addEventListener\("input",function\(\)\{minRateTkniety=true;/,
+    "ruszenie suwaka oceny nie oznacza go jako ustawionego");
+
+  // Licznik filtrów musi widzieć suwaki — inaczej cisza wraca drugą stroną.
+  const licznik = html.match(/function updateFilterCount\(\)\{[\s\S]*?\n {2}\}/)?.[0] || "";
+  assert.ok(licznik, "brak funkcji updateFilterCount");
+  assert.match(licznik, /if\(budgetTkniety\)n\+\+;/, "ustawiony budżet nie liczy się do licznika filtrów");
+  assert.match(licznik, /if\(minRateTkniety\)n\+\+;/, "ustawiony próg oceny nie liczy się do licznika filtrów");
+
+  // „Wyczyść" wraca do stanu NIEUSTAWIONEGO, nie do dawnych 6000 i 7,5.
+  const reset = html.match(/getElementById\("resetBtn"\)\.addEventListener[\s\S]*?search\(\);\}\);/)?.[0] || "";
+  assert.ok(reset, "brak obsługi przycisku resetu");
+  assert.match(reset, /budgetTkniety=false;minRateTkniety=false;/,
+    "reset zostawia suwaki oznaczone jako ustawione — po wyczyszczeniu filtr dalej tnie");
+  assert.match(reset, /budgetVal\.textContent=budgetOpis\(\)/,
+    "reset wpisuje etykietę na sztywno zamiast pytać o realny stan suwaka");
+  assert.match(reset, /minRateVal\.textContent=minRateOpis\(\)/,
+    "reset wpisuje etykietę oceny na sztywno zamiast pytać o realny stan suwaka");
+
+  // Same funkcje opisu wykonane naprawdę — sabotaż warunku nie przejdzie przez sito regexów.
+  const zrodlo =
+    html.match(/function fmt\(n\)\{.*?\}/)[0] + "\n" +
+    html.match(/function budgetOpis\(\)\{.*?\}/)[0] + "\n" +
+    html.match(/function minRateOpis\(\)\{.*?\}/)[0] + "\n" +
+    "return {budgetOpis:budgetOpis,minRateOpis:minRateOpis};";
+  const zbuduj = (tkB, tkR) =>
+    new Function("budgetTkniety", "minRateTkniety", "budget", "minRate", zrodlo)(
+      tkB, tkR, { value: "6000" }, { value: "7.5" });
+
+  const nietkniete = zbuduj(false, false);
+  assert.equal(nietkniete.budgetOpis(), "bez limitu",
+    "nietknięty suwak budżetu opisuje się kwotą, której nikt nie wybrał");
+  assert.equal(nietkniete.minRateOpis(), "dowolna",
+    "nietknięty suwak oceny opisuje się progiem, którego nikt nie wybrał");
+
+  const tkniete = zbuduj(true, true);
+  assert.match(tkniete.budgetOpis(), /^6\s*000 zł$/,
+    "ustawiony budżet przestał pokazywać kwotę — konsultant nie wie, co odciął");
+  assert.equal(tkniete.minRateOpis(), "7,5", "ustawiony próg oceny przestał pokazywać wartość");
+});
