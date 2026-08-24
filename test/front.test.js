@@ -1040,3 +1040,56 @@ test("nietknięty suwak budżetu i oceny nie filtruje po cichu", () => {
     "ustawiony budżet przestał pokazywać kwotę — konsultant nie wie, co odciął");
   assert.equal(tkniete.minRateOpis(), "7,5", "ustawiony próg oceny przestał pokazywać wartość");
 });
+
+test("nietknięty termin nie udaje potwierdzonej daty klienta", () => {
+  const html = wczytaj("public/index.html");
+
+  // Etykieta startowa musi mówić wprost, że nikt jeszcze nie wybrał terminu —
+  // pola dat startują wypełnione realną datą (initDates, +30/+37 dni), więc bez
+  // tego wyglądają identycznie jak po ręcznym wpisaniu przez konsultanta.
+  assert.match(html,
+    /<label>Termin <span class="hint" id="datyHint">— termin przykładowy, niepotwierdzony przez klienta<\/span><\/label>/,
+    "startowa etykieta terminu nie ostrzega, że data jest tylko przykładowa");
+
+  // Flaga MUSI startować od fałszu — inaczej etykieta z HTML wyżej jest jedynym
+  // śladem, a JS od razu ją podmienia, jakby ktoś już potwierdził termin.
+  assert.match(html, /var datyTkniete=false;/,
+    "pole daty wstaje oznaczone jako potwierdzone — cichy termin wraca tylnymi drzwiami");
+
+  // Flaga zapala się WYŁĄCZNIE tam, gdzie człowiek faktycznie dotyka pola (input),
+  // nie tam, gdzie initDates() programowo wpisuje wartość startową.
+  assert.match(html,
+    /document\.getElementById\("dateFrom"\)\.addEventListener\("input",function\(\)\{datyTkniete=true;ustawDatyHint\(\);\}\);/,
+    "ruszenie pola daty wylotu nie oznacza terminu jako potwierdzonego");
+  assert.match(html,
+    /document\.getElementById\("dateTo"\)\.addEventListener\("input",function\(\)\{datyTkniete=true;ustawDatyHint\(\);\}\);/,
+    "ruszenie pola daty powrotu nie oznacza terminu jako potwierdzonego");
+
+  // initDates() ustawia wartości PROGRAMOWO i rozgłasza tylko "change" — nie "input" —
+  // więc auto-wypełnienie przy starcie strony nie może samo zgasić ostrzeżenia.
+  const initFn = html.match(/\(function initDates\(\)\{[\s\S]*?\}\)\(\);/)?.[0] || "";
+  assert.ok(initFn, "brak initDates()");
+  assert.ok(!/dispatchEvent\(new Event\("input"/.test(initFn),
+    'initDates rozgłasza "input" — auto-wypełniony termin od razu udawałby potwierdzony');
+
+  // Sama funkcja ustawDatyHint() wykonana naprawdę — sabotaż warunku (np. odwrócenie
+  // datyTkniete) nie przejdzie przez samo dopasowanie regexów wyżej.
+  const zrodlo = html.match(/function ustawDatyHint\(\)\{.*?\}/)[0] + "\nustawDatyHint();";
+  const uruchom = (tkniety) => {
+    const h = { textContent: "start" };
+    const document = { getElementById: (id) => (id === "datyHint" ? h : null) };
+    new Function("datyTkniete", "document", zrodlo)(tkniety, document);
+    return h.textContent;
+  };
+  assert.equal(uruchom(false), "— termin przykładowy, niepotwierdzony przez klienta",
+    "nietknięty termin przestał ostrzegać w etykiecie");
+
+  // Po ręcznej zmianie daty ostrzeżenie NIE może zgasnąć do pustego: applyFilters()
+  // nie czyta from/to dla ofert pakietowych, więc pusta etykieta czytałaby się jako
+  // "termin uwzględniony" dokładnie wtedy, gdy konsultant na to liczy.
+  const poDotknieciu = uruchom(true);
+  assert.notEqual(poDotknieciu, "",
+    "ustawiony termin gaśnie bez śladu — konsultant czyta to jako potwierdzone zawężenie, a oferty pakietowe nie są filtrowane po dacie");
+  assert.match(poDotknieciu, /nie są jeszcze zawężane do tego terminu/,
+    "ustawiony termin nie mówi, że oferty pakietowe i tak nie są po nim filtrowane");
+});

@@ -724,7 +724,7 @@
         <button class="chip" data-wd="0" aria-pressed="false">Nd</button>
       </div></div>
       <div class="sec-head">Termin i długość</div>
-      <div class="field"><label>Termin</label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div>
+      <div class="field"><label>Termin <span class="hint" id="datyHint">— termin przykładowy, niepotwierdzony przez klienta</span></label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div>
         <div class="chips" id="dateFlexChips" style="margin-top:7px">
           <button class="chip" data-flex="0" aria-pressed="true">Dokładny termin</button>
           <button class="chip" data-flex="1" aria-pressed="false">±1 dzień</button>
@@ -1057,6 +1057,19 @@
       try{el.showPicker();}catch(e){/* brak gestu albo nieobslugiwane — pole dalej dziala normalnie */}
     });
   });
+
+  // Pola dat startują wypełnione realną datą (+30/+37 dni, patrz initDates niżej) —
+  // kalendarz musi się na czymś otworzyć. Ale ta konkretna data NIE jest decyzją
+  // klienta, dopóki konsultant jej nie dotknął, a pole wygląda identycznie jak po
+  // ręcznym wpisaniu. Ten sam wzorzec co budżet/ocena (patrz budgetTkniety niżej).
+  // Po dotknięciu ostrzeżenie NIE gaśnie do pustego, tylko zmienia treść: applyFilters()
+  // nie czyta from/to dla ofert pakietowych, więc ustawiony termin i tak ich nie
+  // zawęża (liczy się z nim tylko Hotelbeds). Puste miejsce po ostrzeżeniu czytałoby
+  // się jako "termin uwzględniony", a to nieprawda.
+  var datyTkniete=false;
+  function ustawDatyHint(){var h=document.getElementById("datyHint");if(h)h.textContent=datyTkniete?"— oferty pakietowe nie są jeszcze zawężane do tego terminu":"— termin przykładowy, niepotwierdzony przez klienta";}
+  document.getElementById("dateFrom").addEventListener("input",function(){datyTkniete=true;ustawDatyHint();});
+  document.getElementById("dateTo").addEventListener("input",function(){datyTkniete=true;ustawDatyHint();});
 
   // Powrót nie może być przed wylotem. Bez `min` kalendarz powrotu otwierał się na
   // starym miesiącu — po zmianie wylotu na październik data powrotu dalej pokazywała
