@@ -613,3 +613,25 @@ test("pominięte źródło nie kasuje flagi „wszystko z cache”", async () =>
   assert.equal(drugi.cached, true,
     "odpowiedź w całości z cache przestała się tak przedstawiać — pominięte źródło nigdy nie ma `cached`, więc nie może się liczyć do tej reguły");
 });
+
+test("powód pominięcia mówi prawdę — atrapa nie udaje braku kluczy", () => {
+  // Pierwsza wersja tej listy (24.08) wpisywała „brak kluczy" KAŻDEMU wyłączonemu
+  // dostawcy. `mock` ma needsKeys:false i jest wyłączony celowo flagą ENABLE_MOCK,
+  // więc dostawał powód, który jest nieprawdziwy — a front pokazał to konsultantowi
+  // jako „nie pytaliśmy: Dane demo". Powód, który zgaduje, jest tą samą klasą błędu
+  // co wszystko inne, co ta seria naprawiała.
+  const bezKluczy = { meta: { id: "realny", label: "Realny", needsKeys: true }, isEnabled: () => false, search: async () => [] };
+  const atrapa2 = { meta: { id: "atrapa", label: "Atrapa", needsKeys: false }, isEnabled: () => false, search: async () => [] };
+  return searchAll({ dest: "test-powody" }, [bezKluczy, atrapa2]).then(({ sources }) => {
+    const realny = sources.find((s) => s.id === "realny");
+    const atr = sources.find((s) => s.id === "atrapa");
+
+    assert.match(realny.reason, /klucz/i, "dostawca wymagający kluczy nie mówi, że ich nie ma");
+    assert.equal(realny.rynkowy, true, "realny dostawca bez kluczy nie jest oznaczony jako część rynku");
+
+    assert.doesNotMatch(atr.reason, /klucz/i,
+      "celowo wyłączona atrapa udaje, że brakuje jej kluczy — powód zgaduje zamiast mówić prawdę");
+    assert.equal(atr.rynkowy, false,
+      "atrapa oznaczona jako czesc rynku — konsultant zobaczy, ze nie pytalismy o zrodlo, ktore nic nie znaczy");
+  });
+});

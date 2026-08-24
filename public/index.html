@@ -183,6 +183,12 @@
 
   .source-warn{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:11px 14px;border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:var(--radius-sm);background:var(--warn-soft);color:var(--warn);font-size:13px;line-height:1.45}
   .source-warn svg{flex:none;margin-top:1px}
+  /* Zrodlo POMINIETE (brak kluczy) to NIE awaria, wiec nie moze wygladac jak alarm:
+     neutralna ramka zamiast czerwieni i zaden przycisk "Sprobuj ponownie" — ponowna
+     proba niczego nie zmieni, dopoki dostawca nie dostanie kluczy. Ta sama tresc
+     w czerwonej ramce kazalaby konsultantowi czekac na cos, co samo nie przyjdzie. */
+  .source-skip{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:11px 14px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink-soft);font-size:13px;line-height:1.45}
+  .source-skip svg{flex:none;margin-top:1px;color:var(--ink-faint)}
   /* Pokrycie danych dla wybranych atrybutów. Ton spokojny (nie alarm) — to informacja
      o jakości danych, nie awaria. Wariant „ani jednej potwierdzonej" dostaje mocniejszy
      kolor, bo tam licznik wyników realnie wprowadza w błąd. */
@@ -828,6 +834,7 @@
       </div>
     </div>
     <div class="source-warn" id="sourceWarn" hidden></div>
+    <div class="source-skip" id="sourceSkip" hidden></div>
     <div class="cache-note" id="cacheNote" hidden></div>
     <div class="attr-cover" id="attrCover" hidden></div>
     <div class="op-filter" id="opFilter" hidden></div>
@@ -1527,6 +1534,7 @@
   // po prostu mniej ofert i nie wie, że połowa źródeł nie odpowiedziała —
   // ciche kłamstwo o stanie rynku wobec klienta.
   var sourceWarnEl=document.getElementById("sourceWarn");
+  var sourceSkipEl=document.getElementById("sourceSkip");
   var cacheNoteEl=document.getElementById("cacheNote");
   // Wiek najstarszych danych wziętych z cache (sekundy) — backend podaje go przy
   // każdym źródle (providers/index.js). Konsultant podaje klientowi konkretną cenę,
@@ -1562,6 +1570,31 @@
     sourceWarnEl.hidden=false;
     var rb=document.getElementById("sourceWarnRetry");
     if(rb)rb.addEventListener("click",function(){search();});
+  }
+
+  // Zrodla POMINIETE: backend dokłada do sources[] wpis dla dostawcy, ktorego NIE
+  // odpytano, bo nie ma kluczy (skipped:true, ok:null). Bez tego konsultant nie ma
+  // jak zauwazyc, ze pyta o CZESC rynku — dotad jedynym sladem byl jednorazowy
+  // baner przy starcie strony, ktory nie wymienia zrodel z nazwy.
+  //
+  // ⚠️ Warunek jest SCISLY (skipped===true), nie `!s.ok`. Wpisy padniete maja
+  // ok:false i naleza WYLACZNIE do czerwonego alarmu wyzej; pominiete maja ok:null
+  // i naleza wylacznie tutaj. Rozluznienie tego warunku skleiloby awarie
+  // z brakiem konfiguracji — dwie rozne wiadomosci dla klienta.
+  //
+  // `rynkowy` odsiewa dostawcow wylaczonych CELOWO (atrapa "Dane demo", needsKeys:false).
+  // Ich brak nie jest utracona czescia rynku, wiec mowienie o nich konsultantowi
+  // byloby szumem podszytym nieprawda.
+  function renderSourceSkip(sources){
+    if(!sourceSkipEl)return;
+    var pominiete=(sources||[]).filter(function(s){return s.skipped===true&&s.rynkowy!==false;});
+    if(!pominiete.length){sourceSkipEl.hidden=true;sourceSkipEl.innerHTML="";return;}
+    var nazwy=pominiete.map(function(s){return s.label||s.id;}).join(", ");
+    sourceSkipEl.innerHTML=
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'+
+      '<span>Nie pytaliśmy tych źródeł: <b>'+nazwy+'</b>. Nie są skonfigurowane (brak kluczy), '+
+      'więc ich oferty nie są w wynikach — to nie awaria, tylko nieodpytana część rynku.</span>';
+    sourceSkipEl.hidden=false;
   }
 
   /* ---------- Sesja konsultanta ----------
@@ -2483,11 +2516,12 @@
     }
     searchBtn.disabled=true;
     sourceWarnEl.hidden=true;
+    if(sourceSkipEl)sourceSkipEl.hidden=true;
     // Zapamiętane kryteria = te, na których serwer policzy ETA. Patrz clientFit().
     lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
     var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:datyTkniete?widenDate(document.getElementById("dateFrom").value,-1):"",to:datyTkniete?widenDate(document.getElementById("dateTo").value,1):"",adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budgetTkniety?budget.value:"",budgetMode:budgetMode,minRate:minRateTkniety?minRate.value:"",boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
-    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderAttrCover(data.attrs);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
+    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderSourceSkip(data.sources);renderAttrCover(data.attrs);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
   document.getElementById("sort").addEventListener("change",search);

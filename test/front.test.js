@@ -1096,3 +1096,69 @@ test("nietknięty termin nie udaje potwierdzonej daty klienta", () => {
   assert.match(html, /to:datyTkniete\?widenDate\([^)]*dateTo[^)]*\)[^:]*:""/,
     "nietknięta data powrotu jedzie do wyszukiwarki jako twarde kryterium");
 });
+
+// ============================================================
+//  Źródła POMINIĘTE (brak kluczy) mają własny, spokojny komunikat — nie mylony
+//  z czerwonym alarmem o padniętym źródle. Backend (providers/index.js) dokłada
+//  do sources[] wpisy skipped:true / ok:null, front musi je pokazać z nazwy.
+// ============================================================
+
+test("źródła pominięte z braku kluczy mają spokojny komunikat, osobny od alarmu o awarii", () => {
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /<div class="source-skip" id="sourceSkip" hidden><\/div>/,
+    "brak miejsca na komunikat o pominiętych źródłach");
+
+  // Warunek MUSI być ścisły. `!s.ok` złapałoby też wpisy padnięte (ok:false)
+  // i skleiło awarię z brakiem konfiguracji — dwie różne wiadomości dla klienta.
+  const fn = html.match(/function renderSourceSkip\(sources\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji renderSourceSkip");
+  assert.match(fn, /s\.skipped===true/,
+    "komunikat o pominiętych nie filtruje ściśle po skipped — awaria i brak kluczy zleją się w jedno");
+  assert.ok(!/!\s*s\.ok/.test(fn),
+    "renderSourceSkip łapie po !s.ok — padnięte źródło trafi do spokojnego komunikatu zamiast do alarmu");
+
+  // Czerwony alarm zostaje przy ok === false, inaczej pominięcia (ok:null) wpadną
+  // do niego i konsultant zobaczy fałszywe „nie odpowiedział".
+  const warnFn = html.match(/function renderSourceWarn\(sources\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(warnFn, "brak funkcji renderSourceWarn");
+  assert.match(warnFn, /s\.ok===false/,
+    "alarm o awarii przestał porównywać ściśle — pominięte źródła zaczną udawać padnięte");
+
+  // Wykonujemy funkcję NAPRAWDĘ — regexy wyżej nie sprawdzą, co realnie widzi człowiek.
+  const el = { hidden: true, innerHTML: "" };
+  const uruchom = (sources) => {
+    el.hidden = true; el.innerHTML = "";
+    new Function("sourceSkipEl", "sources", fn + "\nrenderSourceSkip(sources);")(el, sources);
+    return el;
+  };
+
+  const zPominietymi = uruchom([
+    { id: "pl-packages", label: "Oferty PL (demo)", ok: true, count: 12 },
+    { id: "merlinx", label: "MerlinX", ok: null, skipped: true, rynkowy: true },
+    { id: "hotelbeds", label: "Hotelbeds", ok: null, skipped: true, rynkowy: true },
+  ]);
+  assert.equal(zPominietymi.hidden, false, "pominięte źródło nie zostało pokazane");
+  assert.match(zPominietymi.innerHTML, /MerlinX/, "komunikat nie wymienia pominiętego źródła z nazwy");
+  assert.match(zPominietymi.innerHTML, /Hotelbeds/, "komunikat wymienia tylko część pominiętych źródeł");
+
+  // Brak konfiguracji to nie awaria: żadnej czerwieni, żadnego „spróbuj ponownie".
+  assert.ok(!/sw-retry|Spróbuj ponownie/.test(zPominietymi.innerHTML),
+    "spokojny komunikat proponuje ponowną próbę — a ta nic nie zmieni, dopóki nie ma kluczy");
+  assert.ok(!/nie odpowiedzia/.test(zPominietymi.innerHTML),
+    "brak konfiguracji opisany jak awaria dostawcy");
+
+  // Padnięte źródło NIE należy do tego komunikatu.
+  const zPadnietym = uruchom([{ id: "hotelbeds", label: "Hotelbeds", ok: false, count: 0, reason: "403" }]);
+  assert.equal(zPadnietym.hidden, true,
+    "padnięte źródło trafiło do spokojnego komunikatu — konsultant nie dowie się, że to awaria");
+
+  // Celowo wyłączona atrapa (rynkowy:false) to nie jest utracona część rynku.
+  const samaAtrapa = uruchom([{ id: "mock", label: "Dane demo", ok: null, skipped: true, rynkowy: false }]);
+  assert.equal(samaAtrapa.hidden, true,
+    "celowo wyłączona atrapa pokazana jako nieodpytany rynek — czysty szum w panelu");
+
+  // Komplet aktywnych źródeł = cisza.
+  const wszystkoOdpytane = uruchom([{ id: "pl-packages", label: "Oferty PL (demo)", ok: true, count: 12 }]);
+  assert.equal(wszystkoOdpytane.hidden, true, "komunikat wisi, choć wszystkie źródła zostały odpytane");
+});

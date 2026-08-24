@@ -229,11 +229,25 @@ export async function searchAll(crit, providers = null) {
   // Pomijamy tych, których searchAll faktycznie miał do dyspozycji: przy wywołaniu
   // z własną listą dostawców (testy, wywołania punktowe) globalne ALL nie opisuje
   // tego wyszukiwania i dopisywałoby wpisy o źródłach, o które nikt nie pytał.
+  // ⚠️ POWÓD MUSI BYĆ PRAWDZIWY. Pierwsza wersja (24.08) wpisywała każdemu
+  // wyłączonemu dostawcy „brak kluczy" — także `mock`, który ma needsKeys:false
+  // i jest wyłączony CELOWO flagą ENABLE_MOCK, bo fikcyjne hotele kłócą się
+  // z anty-przekoloryzacją. Nocny wziął ten powód w dobrej wierze i pokazał
+  // konsultantowi „nie pytaliśmy: Dane demo", czyli zdanie nieprawdziwe w obie
+  // strony: nie chodziło o klucze i nie chodziło o żaden utracony rynek.
+  //
+  // `rynkowy` mówi frontowi, o kogo warto zawracać głowę konsultantowi: brak
+  // kluczy do REALNEGO dostawcy znaczy „nie pytaliśmy części rynku", a celowo
+  // wyłączona atrapa nie znaczy nic i byłaby czystym szumem w panelu.
   for (const p of rejestr) {
     if (p.isEnabled()) continue;
+    const wymagaKluczy = p.meta.needsKeys === true;
     sources.push({
       id: p.meta.id, label: p.meta.label, count: 0,
-      ok: null, skipped: true, reason: "brak kluczy — dostawca nieskonfigurowany",
+      ok: null, skipped: true, rynkowy: wymagaKluczy,
+      reason: wymagaKluczy
+        ? "brak kluczy — dostawca nieskonfigurowany"
+        : "wyłączony w konfiguracji",
     });
   }
 
