@@ -156,8 +156,19 @@ function reasonFor(err) {
 // `providers` jest parametrem (domyślnie aktywni dostawcy) głównie dla testów —
 // pozwala podstawić atrapę dostawcy, żeby sprawdzić rozróżnienie
 // odpowiedziało/odpowiedziało zerem/padło bez prawdziwej sieci.
-export async function searchAll(crit, providers = activeProviders()) {
-  const wyniki = await Promise.all(providers.map(async (prov) => {
+export async function searchAll(crit, providers = null) {
+  // `providers` podane jawnie (testy, wywołania punktowe) opisuje CAŁY świat tego
+  // wyszukiwania — wtedy rejestr ALL nie ma z nim nic wspólnego i nie wolno z niego
+  // dopisywać pominiętych źródeł. Bez tego rozróżnienia wyszukiwanie po jednej
+  // atrapie raportowałoby sześć źródeł, z których pięciu nikt nie dotykał.
+  const rejestr = providers || ALL;
+  // Odpytujemy WYŁĄCZNIE włączonych — niezależnie od tego, skąd wzięła się lista.
+  // Przy jawnie podanych dostawcach filtr `isEnabled()` był wcześniej pomijany, więc
+  // źródło bez kluczy i tak szło do sieci; przy prawdziwych dostawcach nie miało to
+  // jak wyjść (jawną listę podają tylko testy), ale to była różnica w zachowaniu
+  // tej samej funkcji zależna od sposobu wywołania.
+  const doOdpytania = rejestr.filter((p) => p.isEnabled());
+  const wyniki = await Promise.all(doOdpytania.map(async (prov) => {
     const key = providerCacheKey(prov.meta.id, crit);
     const hit = cacheEntry(key);
     // Świeży wpis tego dostawcy: bierzemy go i NIE ruszamy sieci. Wiek podajemy
@@ -203,14 +214,47 @@ export async function searchAll(crit, providers = activeProviders()) {
     sources.push(wpis);
   }
 
+  // Dostawca BEZ kluczy nie był odpytany, więc nie ma go w `wyniki` — i do 24.08
+  // nie było go też w `sources`. Wyszukiwanie wyglądało wtedy tak, jakby MerlinX
+  // czy Hotelbeds w ogóle nie istniały, zamiast: „są, ale nie skonfigurowane".
+  // Dziś to nieszkodliwe (żadne źródło nie ma kluczy, więc baner „wersja
+  // przedpremierowa" jest uczciwy), ale przy CZĘŚCIOWEJ konfiguracji — a taka
+  // będzie pierwsza wersja z pilotażu, gdy Hotelbeds dostanie klucze, a MerlinX
+  // jeszcze nie — konsultant nie miałby jak zauważyć, że pyta o pół rynku.
+  //
+  // ⚠️ `ok` zostaje NULL-em, nie false. Front pokazuje „<źródło> nie odpowiedział"
+  // dokładnie dla ok === false (renderSourceWarn w public/index.html), a brak
+  // konfiguracji to nie awaria — fałszywy alarm o padniętym źródle byłby gorszy
+  // od dzisiejszego milczenia. `skipped: true` jest osobnym, jawnym stanem.
+  // Pomijamy tych, których searchAll faktycznie miał do dyspozycji: przy wywołaniu
+  // z własną listą dostawców (testy, wywołania punktowe) globalne ALL nie opisuje
+  // tego wyszukiwania i dopisywałoby wpisy o źródłach, o które nikt nie pytał.
+  for (const p of rejestr) {
+    if (p.isEnabled()) continue;
+    sources.push({
+      id: p.meta.id, label: p.meta.label, count: 0,
+      ok: null, skipped: true, reason: "brak kluczy — dostawca nieskonfigurowany",
+    });
+  }
+
   // Czas każdego źródła w logu — bez tego nie da się powiedzieć, które
   // z nich spowalnia wyszukiwanie, a to jest pytanie, które wróci przy pilotażu.
-  console.log("[search] " + sources.map((s) => `${s.id} ${s.cached ? "cache/" + s.wiek + "s" : s.ms + "ms"}/${s.count}`).join("  "));
+  // Dostawcy pominięci (brak kluczy) nie mają czasu ani cache'u — w logu mają
+  // być widoczni, ale opisani tym, czym są, a nie „undefinedms/0".
+  console.log("[search] " + sources.map((s) => {
+    if (s.skipped) return `${s.id} pominięty(brak kluczy)`;
+    return `${s.id} ${s.cached ? "cache/" + s.wiek + "s" : s.ms + "ms"}/${s.count}`;
+  }).join("  "));
 
   const result = { offers: dedupeOffers(offers), sources };
   // `cached` na całej odpowiedzi znaczy: NIC nie poszło do sieci. Gdy choć jedno
   // źródło było odpytywane na żywo, odpowiedź nie jest „z cache" i tak ją opisujemy.
-  if (sources.length && sources.every((s) => s.cached)) result.cached = true;
+  // ⚠️ Liczą się tylko źródła FAKTYCZNIE ODPYTANE: dostawca pominięty z braku
+  // kluczy nigdy nie ma `cached`, więc naiwne `every` po wszystkich wpisach
+  // kasowałoby flagę na zawsze — odpowiedź w całości z cache przestałaby się
+  // jako taka przedstawiać.
+  const odpytane = sources.filter((s) => !s.skipped);
+  if (odpytane.length && odpytane.every((s) => s.cached)) result.cached = true;
   return result;
 }
 

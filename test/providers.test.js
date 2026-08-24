@@ -569,3 +569,47 @@ test("odpowiedź jest oznaczona jako z cache dopiero, gdy żadne źródło nie s
   assert.ok(drugie.sources.every((s) => s.cached), "każde źródło powinno być oznaczone jako z cache");
   assert.equal(drugie.offers.length, pierwsze.offers.length, "cache zgubił oferty");
 });
+
+// ------------------------------------------------------------------
+//  Czwarty stan źródła: POMINIĘTE (brak kluczy). Zgłoszone przez nocnego
+//  23/24.08 — dostawca bez konfiguracji nie pojawiał się w sources[] w ogóle,
+//  więc wyszukiwanie wyglądało tak, jakby to źródło nie istniało.
+// ------------------------------------------------------------------
+function atrapaBezKluczy(id) {
+  return { meta: { id, label: id, needsKeys: true }, isEnabled: () => false, search: async () => [] };
+}
+
+test("dostawca bez kluczy jest widoczny jako pominięty, a nie niewidzialny", async () => {
+  clearSearchCache();
+  const dziala = atrapa("skonfigurowany", async () => []);
+  const bezKluczy = atrapaBezKluczy("bez-kluczy");
+  const { sources } = await searchAll({ dest: "test-czesciowa-konfiguracja" }, [dziala, bezKluczy]);
+
+  const pominiety = sources.find((s) => s.id === "bez-kluczy");
+  assert.ok(pominiety, "dostawca bez kluczy zniknął z listy źródeł — nie da się zauważyć, że pytamy o pół rynku");
+  assert.equal(pominiety.skipped, true, "pominięte źródło nie jest oznaczone jako pominięte");
+  assert.match(pominiety.reason, /klucz/i, "pominięte źródło nie mówi, dlaczego go nie ma");
+});
+
+test("brak konfiguracji to nie awaria — front nie może krzyczeć, że źródło padło", async () => {
+  clearSearchCache();
+  // renderSourceWarn (public/index.html) pokazuje „<źródło> nie odpowiedział"
+  // dokładnie dla ok === false. Fałszywy alarm o padniętym źródle byłby gorszy
+  // od dzisiejszego milczenia, więc pominięty dostawca MUSI mieć ok inne niż false.
+  const { sources } = await searchAll({ dest: "test-nie-awaria" }, [atrapaBezKluczy("nieskonfigurowany")]);
+  const pominiety = sources.find((s) => s.id === "nieskonfigurowany");
+  assert.notEqual(pominiety.ok, false,
+    "brak kluczy raportowany jako awaria — konsultant zobaczy fałszywe ostrzeżenie, że dostawca nie odpowiedział");
+});
+
+test("pominięte źródło nie kasuje flagi „wszystko z cache”", async () => {
+  clearSearchCache();
+  const dziala = atrapa("cache-test", async () => [{ id: "o1", name: "Hotel", price: 100 }]);
+  const bezKluczy = atrapaBezKluczy("nieobecny");
+
+  await searchAll({ dest: "test-cache-skipped" }, [dziala, bezKluczy]);       // zapełnia cache
+  const drugi = await searchAll({ dest: "test-cache-skipped" }, [dziala, bezKluczy]);
+
+  assert.equal(drugi.cached, true,
+    "odpowiedź w całości z cache przestała się tak przedstawiać — pominięte źródło nigdy nie ma `cached`, więc nie może się liczyć do tej reguły");
+});
