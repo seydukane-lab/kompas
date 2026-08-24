@@ -391,3 +391,48 @@ test("brak wieku dzieci w pokoju multiroom nie wywraca zapytania", async () => {
     globalThis.fetch = oryginalny;
   }
 });
+
+// ------------------------------------------------------------------
+//  Termin domyślny — zgłoszone przez nocnego 23/24.08 jako cicha podmiana.
+// ------------------------------------------------------------------
+test("oferta na wymyślonym terminie mówi o tym wprost", async () => {
+  // Hotelbeds nie ma trybu „pokaż cokolwiek" — availability wymaga dat, więc bez
+  // terminu od konsultanta podstawiamy +30/+37 dni. To w porządku, dopóki oferta
+  // nie udaje, że cena dotyczy terminu, o który ktokolwiek pytał. Od 24.08 waży
+  // to więcej: front przestał wysyłać nietkniętą datę, więc tu trafiamy częściej.
+  const oryginalny = globalThis.fetch;
+  globalThis.fetch = mockHotelbedsFetch();
+  try {
+    const bezTerminu = await hbSearch({ dest: "Hiszpania", adults: 2 });
+    assert.ok(bezTerminu.length > 0, "atrapa nie zwróciła ofert");
+    assert.equal(bezTerminu[0].terminDomyslny, true,
+      "oferta na podstawionym terminie nie przyznaje się do tego — cicha podmiana wraca");
+    assert.ok(bezTerminu[0].terminOd && bezTerminu[0].terminDo,
+      "oferta nie mówi, o jakie okno faktycznie pytaliśmy dostawcy");
+
+    const zTerminem = await hbSearch({ dest: "Hiszpania", adults: 2, from: "2026-09-22", to: "2026-09-29" });
+    assert.equal(zTerminem[0].terminDomyslny, false,
+      "termin podany przez konsultanta oznaczony jako domyślny");
+    assert.equal(zTerminem[0].terminOd, "2026-09-22", "oferta zgubiła termin, o który pytał konsultant");
+    assert.equal(zTerminem[0].terminDo, "2026-09-29");
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});
+
+test("hotel bez lotu nie dostaje daty wylotu", async () => {
+  // Karta oferty pokazuje „📅 Wylot: …" dla każdej oferty z departDate
+  // (public/index.html). Termin pobytu w hotelu to NIE jest wylot — zapisanie go
+  // w departDate dorobiłoby ofercie hotel-only lot, którego nie ma. Stąd osobne
+  // pola terminOd/terminDo.
+  const oryginalny = globalThis.fetch;
+  globalThis.fetch = mockHotelbedsFetch();
+  try {
+    const oferty = await hbSearch({ dest: "Hiszpania", adults: 2, from: "2026-09-22", to: "2026-09-29" });
+    assert.equal(oferty[0].departDate, undefined,
+      "oferta hotel-only dostała datę wylotu — karta pokaże lot, którego nie ma");
+    assert.equal(oferty[0].transport, undefined, "oferta hotel-only dorobiła sobie transport");
+  } finally {
+    globalThis.fetch = oryginalny;
+  }
+});

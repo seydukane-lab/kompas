@@ -139,6 +139,27 @@ function isoDate(d) {
   return new Date(d).toISOString().slice(0, 10);
 }
 
+// Hotelbeds NIE MA trybu „pokaż cokolwiek" — availability wymaga konkretnych dat,
+// więc gdy konsultant terminu nie podał, musimy jakieś wymyślić (+30/+37 dni).
+// Sama wartość jest w porządku; problemem było to, że oferta wracała bez śladu,
+// na jakie okno tak naprawdę pytaliśmy, a wyglądała jak każda inna.
+//
+// Od 24.08 to waży więcej niż wcześniej: front przestał wysyłać nietkniętą datę
+// (patrz `from:datyTkniete?...` w public/index.html), bo nietknięte pole nie jest
+// decyzją klienta. Skutek uboczny — Hotelbeds trafia teraz na to okno CZĘŚCIEJ,
+// więc cichy fallback zamieniłby się z rzadkiego przypadku w codzienność.
+//
+// Zwracamy `domyslny`, żeby oferta mogła to o sobie powiedzieć zamiast udawać,
+// że cena dotyczy terminu, o który ktokolwiek pytał.
+export function oknoTerminu(crit) {
+  const domyslny = !crit.from && !crit.to;
+  return {
+    from: crit.from ? isoDate(crit.from) : isoDate(Date.now() + 30 * 864e5),
+    to: crit.to ? isoDate(crit.to) : isoDate(Date.now() + 37 * 864e5),
+    domyslny,
+  };
+}
+
 // ----------------------------------------------------------------
 //  Główna funkcja providera
 // ----------------------------------------------------------------
@@ -162,8 +183,7 @@ export async function search(crit) {
   const adults = crit.adults || 2;
   const children = crit.kids || 0;
   const pax = Math.max(1, adults + children);
-  const from = crit.from ? isoDate(crit.from) : isoDate(Date.now() + 30 * 864e5);
-  const to = crit.to ? isoDate(crit.to) : isoDate(Date.now() + 37 * 864e5);
+  const { from, to, domyslny: terminDomyslny } = oknoTerminu(crit);
 
   // Destynacje odpytujemy RÓWNOLEGLE (nie zwiększa liczby zapytań — ten sam
   // limit dzienny — a wyraźnie skraca czas odpowiedzi przy kilku regionach).
@@ -181,7 +201,15 @@ export async function search(crit) {
         const codes = hotels.map((h) => h.code);
         const content = await fetchContent(codes);
 
-        return hotels.map((h) => normalize(h, content[h.code] || {}, cheapestRate(h), pax));
+        return hotels.map((h) => {
+          const o = normalize(h, content[h.code] || {}, cheapestRate(h), pax);
+          // Termin JEST częścią oferty — availability pytaliśmy o konkretne dni,
+          // więc cena i dostępność dotyczą właśnie ich. Dopisujemy je do oferty
+          // wraz z informacją, czy to termin klienta, czy nasz domyślny (patrz
+          // oknoTerminu). Bez tego oferta na zmyślonym oknie wygląda identycznie
+          // jak oferta na terminie, o który konsultant faktycznie pytał.
+          return { ...o, terminOd: from, terminDo: to, terminDomyslny };
+        });
       } catch (err) {
         bledy++;
         lastErr = err;
@@ -220,8 +248,7 @@ export async function searchMultiroom(crit) {
   const totalChildren = rooms.reduce((s, r) => s + r.children, 0);
   const totalPax = totalAdults + totalChildren || 1;
   const targets = resolveTargets(crit);
-  const from = crit.from ? isoDate(crit.from) : isoDate(Date.now() + 30 * 864e5);
-  const to = crit.to ? isoDate(crit.to) : isoDate(Date.now() + 37 * 864e5);
+  const { from, to, domyslny: terminDomyslny } = oknoTerminu(crit);
 
   // Ile zapytań do dostawcy padło. Bez tego licznika awaria API wygląda dla
   // konsultanta identycznie jak brak wolnych miejsc — a to dwie zupełnie różne
@@ -286,7 +313,10 @@ export async function searchMultiroom(crit) {
             if (split && big) return big.priceTotal < split.priceTotal ? big : split;
             return split || big;
           })
-          .filter(Boolean);
+          .filter(Boolean)
+          // Ten sam znacznik co w search(): Multiroom też pyta o konkretne okno,
+          // więc oferta musi umieć powiedzieć, czy to termin klienta, czy nasz.
+          .map((o) => ({ ...o, terminOd: from, terminDo: to, terminDomyslny }));
       } catch (err) {
         bledy++;
         console.warn(`[hotelbeds][multiroom] błąd dla ${dest}:`, err.message);
