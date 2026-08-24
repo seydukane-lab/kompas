@@ -19,7 +19,7 @@ import { applyFilters, promoteMatchingVariant, filtrRozproszony, scoreOffer, sor
 import { clientData, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
-import { refreshRate, fxStatus } from "./src/fx.js";
+import { refreshRate, ensureRate, fxStatus } from "./src/fx.js";
 import { utworzHamulec } from "./src/login-limit.js";
 import {
   attachUser, requireAuth, requireAdmin,
@@ -274,8 +274,10 @@ app.get("/api/search", async (req, res) => {
       sort: q.sort || "score",
     };
 
-    // Kurs odświeża się w tle; jeśli jest aktualny, to koszt zerowy.
-    refreshRate();
+    // Kurs odświeża się w tle; jeśli jest aktualny, to koszt zerowy. Wyjątek:
+    // pierwsze żądanie po starcie procesu CZEKA na pierwsze pytanie do NBP, żeby
+    // nie policzyć ceny w EUR po wartości awaryjnej (patrz fx.js:ensureRate).
+    await ensureRate();
 
     const { offers, sources } = await searchAll(crit);
     const filtered = applyFilters(offers, crit);
@@ -349,8 +351,11 @@ try {
 } catch (err) {
   console.error("  Nie udało się założyć konta startowego:", err.message);
 }
-// Kurs pobieramy od razu przy starcie, żeby pierwsze wyszukiwanie po wdrożeniu
-// nie liczyło cen po wartości awaryjnej.
+// Kurs pobieramy od razu przy starcie, ale CELOWO bez await: blokowanie
+// app.listen() na czas odpowiedzi NBP opóźniałoby healthcheck hostingu przy
+// każdym wdrożeniu. Za samą gwarancję, że nikt nie dostanie ceny liczonej
+// wartością awaryjną, odpowiada ensureRate() w /api/search — tutaj tylko
+// rozgrzewamy kurs, żeby to pierwsze żądanie zwykle nie miało już na co czekać.
 refreshRate(true);
 
 const server = app.listen(PORT, () => {

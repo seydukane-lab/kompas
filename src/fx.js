@@ -77,6 +77,28 @@ export async function refreshRate(force = false) {
   return inFlight;
 }
 
+/**
+ * Gwarantuje, że kurs był CHOĆ RAZ pytany, zanim policzymy komuś cenę.
+ *
+ * server.js woła refreshRate(true) przy starcie, ale bez await — i słusznie,
+ * bo blokowanie app.listen() na czas odpowiedzi NBP opóźniałoby healthcheck
+ * hostingu o kilka sekund przy każdym wdrożeniu. Skutek był jednak taki, że
+ * komentarz obiecywał „pierwsze wyszukiwanie nie policzy cen po wartości
+ * awaryjnej", a żądania w pierwszych sekundach po restarcie dostawały kurs
+ * 4,3 zł/EUR bez żadnego śladu na ofercie. Okno małe, ale wypada dokładnie po
+ * każdym deployu — czyli wtedy, gdy ktoś sprawdza, czy wszystko działa.
+ *
+ * Czekamy TYLKO na pierwsze pytanie w życiu procesu (checkedAt === 0). Gdy NBP
+ * leży, ta jedna próba kończy się błędem, checkedAt się ustawia i kolejne
+ * żądania lecą bez czekania po ostatnim znanym kursie — awaria NBP nie może
+ * zamienić się w kilkusekundowy zastój przy każdym wyszukiwaniu.
+ */
+export async function ensureRate() {
+  if (current.checkedAt === 0) return refreshRate(true);
+  refreshRate();          // aktualizacja w tle; gdy kurs świeży, koszt zerowy
+  return current;
+}
+
 /** Aktualny przelicznik EUR→PLN wraz z narzutem. Synchroniczny — nie blokuje wyszukiwania. */
 export function eurPln() {
   return current.rate * (1 + MARKUP);

@@ -151,3 +151,59 @@ test("trwała awaria NBP nie odpytuje serwisu co żądanie", async () => {
   await fx.refreshRate();
   assert.equal(proby, 1, "po nieudanej próbie kod dobija się do NBP przy każdym żądaniu");
 });
+
+test("pierwsze żądanie po starcie czeka na kurs, kolejne już nie", async () => {
+  // server.js woła refreshRate(true) przy starcie BEZ await (żeby nie opóźniać
+  // healthchecku hostingu), więc żądania w pierwszych sekundach po wdrożeniu
+  // liczyły ceny w EUR po wartości awaryjnej 4,3 zł — bez śladu na ofercie.
+  // ensureRate() zamyka to okno, ale tylko dla pierwszego pytania w życiu
+  // procesu: przy leżącym NBP nie może zamienić się w zastój na każdym żądaniu.
+  const swiezy = await import(`../src/fx.js?ensure=${Date.now()}`);
+
+  let wywolania = 0;
+  globalThis.fetch = async () => {
+    wywolania++;
+    return {
+      ok: true, status: 200,
+      json: async () => ({ rates: [{ no: "1/A", effectiveDate: "2026-08-24", mid: 4.31 }] }),
+    };
+  };
+
+  // Świeży moduł = stan jak tuż po starcie procesu: kurs awaryjny, zero pytań.
+  assert.equal(swiezy.fxStatus().source, "awaryjny", "świeży moduł nie startuje z kursu awaryjnego");
+  await swiezy.ensureRate();
+  assert.equal(wywolania, 1, "pierwsze żądanie nie poczekało na kurs — cena poleci po wartości awaryjnej");
+  assert.equal(swiezy.fxStatus().base, 4.31, "kurs nie został pobrany przed policzeniem ceny");
+
+  await swiezy.ensureRate();
+  await swiezy.ensureRate();
+  assert.equal(wywolania, 1, "kolejne żądania też czekają na NBP — to zastój na każdym wyszukiwaniu");
+});
+
+test("leżące NBP nie blokuje każdego kolejnego wyszukiwania", async () => {
+  const swiezy = await import(`../src/fx.js?awaria=${Date.now()}`);
+  let wywolania = 0;
+  globalThis.fetch = async () => { wywolania++; throw new Error("NBP leży"); };
+
+  await swiezy.ensureRate();   // jedna próba wolno
+  await swiezy.ensureRate();   // ale nie kolejne
+  await swiezy.ensureRate();
+  assert.equal(wywolania, 1,
+    "przy awarii NBP każde wyszukiwanie czeka na timeout — konsultant siedzi przed pustą listą");
+  assert.equal(swiezy.fxStatus().base, 4.3, "przy awarii nie został kurs awaryjny");
+});
+
+test("wyszukiwanie faktycznie czeka na ensureRate", async () => {
+  // Sam ensureRate() nic nie daje, jeśli /api/search go nie awaituje — a to
+  // dokładnie ten błąd, który naprawiamy (refreshRate wołane bez await).
+  // Testujemy źródło, bo cały sens jest w obecności słowa `await`.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { dirname, join } = await import("node:path");
+  const zrodlo = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "server.js"), "utf8");
+
+  assert.match(zrodlo, /await ensureRate\(\);/,
+    "/api/search nie czeka na kurs — pierwsze żądanie po restarcie policzy ceny w EUR po wartości awaryjnej");
+  assert.ok(!/^\s*refreshRate\(\);\s*$/m.test(zrodlo),
+    "w server.js został gołe refreshRate() bez await — wraca ciche liczenie po kursie awaryjnym");
+});
