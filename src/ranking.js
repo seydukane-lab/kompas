@@ -118,6 +118,27 @@ export function matchesAnyVariant(offer, warunek) {
   return warianty.some((v) => warunek(v));
 }
 
+// Termin = OKNO, w którym klient może być na wyjeździe, a nie sama data wylotu.
+// Front wysyła je JUŻ poszerzone o wybraną elastyczność (widenDate, chipy
+// „±1/±3/±7 dni"), więc tutaj [from, to] traktujemy dosłownie: cały wyjazd —
+// wylot i powrót — musi się w oknie zmieścić. Inaczej „22–29.09, dokładny termin"
+// wpuszczałoby wylot 28.09 z powrotem 12.10, formalnie zaczynający się w oknie,
+// a realnie będący zupełnie innym wyjazdem.
+//
+// Daty są w ISO (YYYY-MM-DD), więc porównanie stringów jest porównaniem
+// chronologicznym — bez parsowania i bez stref czasowych.
+//
+// Wariant BEZ daty wylotu nie pasuje do wybranego terminu (ta sama zasada co przy
+// dniach tygodnia). Ale brak daty POWROTU już nie odsiewa: to niewiadoma, a nie
+// dowód niezgodności — ta sama reguła co przy ocenie, gwiazdkach i wyżywieniu.
+export function variantWithinDates(v, from, to) {
+  if (!v.departDate) return false;
+  if (from && v.departDate < from) return false;
+  if (to && v.departDate > to) return false;
+  if (to && v.returnDate && v.returnDate > to) return false;
+  return true;
+}
+
 // Suma za CAŁĄ GRUPĘ: priceTotal dostawcy, ale TYLKO gdy dotyczy tylu osób, ilu
 // faktycznie jedzie. Inaczej cena/os. × liczba osób — ten sam wzór co offerTotal()
 // we froncie (public/index.html), żeby sortowanie po sumie i wyświetlana suma nigdy
@@ -361,6 +382,9 @@ export function activeVariantPredicates(crit) {
   if (crit.weekdays && crit.weekdays.length) {
     preds.push((v) => v.departDate && crit.weekdays.includes(new Date(`${v.departDate}T00:00:00`).getDay()));
   }
+  if (crit.from || crit.to) {
+    preds.push((v) => variantWithinDates(v, crit.from, crit.to));
+  }
   return preds;
 }
 
@@ -548,6 +572,21 @@ export function applyFilters(list, crit) {
         if (!v.departDate) return false;
         return crit.weekdays.includes(new Date(`${v.departDate}T00:00:00`).getDay());
       })) return false;
+    }
+    // Termin: do 24.08 pole „Termin" nie odcinało NICZEGO w ofertach pakietowych —
+    // applyFilters w ogóle nie czytało crit.from/crit.to, a packages/travellead/merlinx
+    // ignorują crit i zwracają cały cache. Zmierzone: 453/453 oferty katalogu demo
+    // identyczne dla wrzesnia, grudnia i braku dat. Konsultant wpisywał termin klienta
+    // i dostawał oferty na dowolny inny — filtr-widmo, gorszy niż brak filtra, bo
+    // wyglądał na działający.
+    //
+    // ⚠️ Warunek `type === "package"` jest istotny: hotel-only (Hotelbeds) jest
+    // odpytywany po datach już na poziomie API dostawcy, więc jego oferty SĄ w
+    // terminie, tylko nie mają wariantów do sprawdzenia. matchesAnyVariant zwraca
+    // dla nich twarde false, więc bez tego warunku ustawienie terminu wycięłoby
+    // całe żywe źródło — dokładnie ten błąd, co twardy filtr profilu z 05.08.
+    if ((crit.from || crit.to) && h.type === "package") {
+      if (!matchesAnyVariant(h, (v) => variantWithinDates(v, crit.from, crit.to))) return false;
     }
     return true;
   });

@@ -936,3 +936,91 @@ test("jawne „nie posiada” to nie jest brak danych — nie dostaje znacznika"
   const dalekoOdPlazy = offer({ beach: 2000 });
   assert.deepEqual(unknownAttrs(dalekoOdPlazy, ["plaza"]), []);
 });
+
+// ============================================================
+//  Termin — do 24.08 pole „Termin" nie odcinało ani jednej oferty pakietowej
+//  (applyFilters w ogóle nie czytało crit.from/crit.to). Te testy pilnują,
+//  żeby filtr istniał, ale NIE odpalał się sam z siebie.
+// ============================================================
+
+const wyjazd = (od, doo, over = {}) => offer({ departDate: od, returnDate: doo, ...over });
+
+test("termin poza oknem klienta odpada, termin w oknie zostaje", () => {
+  const lista = [
+    wyjazd("2026-09-22", "2026-09-29", { id: "w-oknie" }),
+    wyjazd("2026-12-21", "2026-12-28", { id: "grudzien" }),
+  ];
+  const znalezione = applyFilters(lista, { from: "2026-09-20", to: "2026-09-30" }).map((h) => h.id);
+  assert.deepEqual(znalezione, ["w-oknie"],
+    "termin przestał odcinać oferty spoza okna — wraca filtr-widmo sprzed 24.08");
+});
+
+test("bez podanego terminu filtr w ogóle nie działa", () => {
+  // Kluczowe zabezpieczenie: pola dat startują wypełnione (+30/+37 dni), więc
+  // filtr odpalający się bez decyzji konsultanta odciąłby prawie cały katalog.
+  // Zmierzone na demo: domyślne okno przy „Dokładnym terminie" = 7 ofert z 453.
+  const lista = [wyjazd("2026-09-22", "2026-09-29"), wyjazd("2026-12-21", "2026-12-28")];
+  assert.equal(applyFilters(lista, {}).length, 2, "brak dat zaczął cokolwiek filtrować");
+  assert.equal(applyFilters(lista, { from: "", to: "" }).length, 2,
+    "puste pola dat zaczęły filtrować — nietknięty termin wraca tylnymi drzwiami");
+});
+
+test("powrót po końcu okna nie przechodzi, choć wylot mieści się w terminie", () => {
+  // „22–29.09, dokładny termin" nie może wpuścić wyjazdu 28.09–12.10: formalnie
+  // zaczyna się w oknie, realnie jest zupełnie innym wyjazdem.
+  const lista = [wyjazd("2026-09-28", "2026-10-12", { id: "dwutygodniowy" })];
+  assert.equal(applyFilters(lista, { from: "2026-09-22", to: "2026-09-29" }).length, 0,
+    "wyjazd wystający poza okno klienta przeszedł filtr terminu");
+});
+
+test("nieznana data powrotu nie odsiewa oferty, nieznany wylot tak", () => {
+  // Ta sama zasada co przy ocenie i gwiazdkach: odrzucamy tylko to, o czym WIEMY,
+  // że nie spełnia kryterium. Brak daty powrotu to niewiadoma...
+  const bezPowrotu = [wyjazd("2026-09-22", undefined, { id: "bez-powrotu" })];
+  assert.equal(applyFilters(bezPowrotu, { from: "2026-09-20", to: "2026-09-30" }).length, 1,
+    "oferta bez daty powrotu wypadła na terminie, choć wylot pasuje");
+  // ...ale brak daty WYLOTU znaczy, że nie da się jej przypisać do żadnego terminu
+  // (tak samo działa filtr dnia tygodnia).
+  const bezWylotu = [wyjazd(undefined, undefined, { id: "bez-wylotu" })];
+  assert.equal(applyFilters(bezWylotu, { from: "2026-09-20", to: "2026-09-30" }).length, 0,
+    "pakiet bez daty wylotu udaje, że pasuje do wybranego terminu");
+});
+
+test("hotel bez lotu nie wypada przez wybrany termin", () => {
+  // Hotelbeds jest odpytywany po datach już na poziomie API, a matchesAnyVariant
+  // zwraca dla ofert hotel-only twarde false. Bez wyjątku na typ oferty ustawienie
+  // terminu wycięłoby całe żywe źródło — ta sama klasa błędu co twardy filtr profilu.
+  const hotelOnly = [offer({ id: "hb", type: "hotel", departDate: undefined, departureCity: undefined })];
+  assert.equal(applyFilters(hotelOnly, { from: "2026-09-20", to: "2026-09-30" }).length, 1,
+    "oferta hotel-only wypadła na filtrze terminu — Hotelbeds znika z wyników");
+});
+
+test("termin szuka po WSZYSTKICH terminach hotelu, nie po reprezentancie", () => {
+  // Ten sam problem co przy lotnisku (56 hoteli z Katowic, filtr przepuszczał 19):
+  // reprezentant wybrany przez dedupeOffers bywa innym wariantem niż ten pasujący.
+  const hotelZWieloma = offer({
+    id: "wiele", departDate: "2026-12-21", returnDate: "2026-12-28",
+    variants: [
+      { departDate: "2026-12-21", returnDate: "2026-12-28", price: 4000, departureCity: "Katowice" },
+      { departDate: "2026-09-22", returnDate: "2026-09-29", price: 3200, departureCity: "Katowice" },
+    ],
+  });
+  assert.equal(applyFilters([hotelZWieloma], { from: "2026-09-20", to: "2026-09-30" }).length, 1,
+    "hotel z pasującym terminem wypadł, bo reprezentant miał inną datę");
+});
+
+test("karta pokazuje termin, o który konsultant pytał", () => {
+  // promoteMatchingVariant musi znać ten sam warunek co applyFilters — inaczej
+  // oferta zostaje na liście, ale karta opisuje ją grudniowym wylotem.
+  const hotelZWieloma = offer({
+    id: "wiele", departDate: "2026-12-21", returnDate: "2026-12-28", price: 4000,
+    variants: [
+      { departDate: "2026-12-21", returnDate: "2026-12-28", price: 4000, departureCity: "Katowice" },
+      { departDate: "2026-09-22", returnDate: "2026-09-29", price: 3200, departureCity: "Katowice" },
+    ],
+  });
+  const pokazany = promoteMatchingVariant(hotelZWieloma, { from: "2026-09-20", to: "2026-09-30" });
+  assert.equal(pokazany.departDate, "2026-09-22",
+    "karta dalej pokazuje termin spoza okna, o które pytał konsultant");
+  assert.equal(pokazany.price, 3200, "cena została z wariantu, który nie pasuje do terminu");
+});

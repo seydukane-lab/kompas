@@ -724,7 +724,7 @@
         <button class="chip" data-wd="0" aria-pressed="false">Nd</button>
       </div></div>
       <div class="sec-head">Termin i długość</div>
-      <div class="field"><label>Termin <span class="hint" id="datyHint">— termin przykładowy, niepotwierdzony przez klienta</span></label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div>
+      <div class="field"><label>Termin <span class="hint" id="datyHint">— termin przykładowy, nie zawęża jeszcze wyników</span></label><div class="field-row"><input type="date" id="dateFrom" aria-label="Data od"><input type="date" id="dateTo" aria-label="Data do"></div>
         <div class="chips" id="dateFlexChips" style="margin-top:7px">
           <button class="chip" data-flex="0" aria-pressed="true">Dokładny termin</button>
           <button class="chip" data-flex="1" aria-pressed="false">±1 dzień</button>
@@ -1061,13 +1061,17 @@
   // Pola dat startują wypełnione realną datą (+30/+37 dni, patrz initDates niżej) —
   // kalendarz musi się na czymś otworzyć. Ale ta konkretna data NIE jest decyzją
   // klienta, dopóki konsultant jej nie dotknął, a pole wygląda identycznie jak po
-  // ręcznym wpisaniu. Ten sam wzorzec co budżet/ocena (patrz budgetTkniety niżej).
-  // Po dotknięciu ostrzeżenie NIE gaśnie do pustego, tylko zmienia treść: applyFilters()
-  // nie czyta from/to dla ofert pakietowych, więc ustawiony termin i tak ich nie
-  // zawęża (liczy się z nim tylko Hotelbeds). Puste miejsce po ostrzeżeniu czytałoby
-  // się jako "termin uwzględniony", a to nieprawda.
+  // ręcznym wpisaniu. Ten sam wzorzec co budżet/ocena (patrz budgetTkniety niżej)
+  // i ta sama konsekwencja: nietknięta data NIE jedzie do /api/search (patrz
+  // `from:datyTkniete?...` w search()), więc niczego nie zawęża — i etykieta mówi
+  // to wprost, zamiast pokazywać datę wyglądającą na ustaloną z klientem.
+  //
+  // Dlaczego to musi być warunkowe: od 24.08 termin realnie filtruje oferty
+  // pakietowe (applyFilters/variantWithinDates w ranking.js). Gdyby jechał także
+  // nietknięty, domyślne +30/+37 przy „Dokładnym terminie" zostawiałoby 7 ofert
+  // z 453 w katalogu demo — 98,5% rynku odcięte, zanim ktokolwiek cokolwiek kliknął.
   var datyTkniete=false;
-  function ustawDatyHint(){var h=document.getElementById("datyHint");if(h)h.textContent=datyTkniete?"— oferty pakietowe nie są jeszcze zawężane do tego terminu":"— termin przykładowy, niepotwierdzony przez klienta";}
+  function ustawDatyHint(){var h=document.getElementById("datyHint");if(h)h.textContent=datyTkniete?"":"— termin przykładowy, nie zawęża jeszcze wyników";}
   document.getElementById("dateFrom").addEventListener("input",function(){datyTkniete=true;ustawDatyHint();});
   document.getElementById("dateTo").addEventListener("input",function(){datyTkniete=true;ustawDatyHint();});
 
@@ -2482,7 +2486,7 @@
     // Zapamiętane kryteria = te, na których serwer policzy ETA. Patrz clientFit().
     lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
-    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:widenDate(document.getElementById("dateFrom").value,-1),to:widenDate(document.getElementById("dateTo").value,1),adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budgetTkniety?budget.value:"",budgetMode:budgetMode,minRate:minRateTkniety?minRate.value:"",boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
+    var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:datyTkniete?widenDate(document.getElementById("dateFrom").value,-1):"",to:datyTkniete?widenDate(document.getElementById("dateTo").value,1):"",adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budgetTkniety?budget.value:"",budgetMode:budgetMode,minRate:minRateTkniety?minRate.value:"",boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
     api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderAttrCover(data.attrs);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);

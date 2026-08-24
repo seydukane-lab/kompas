@@ -1048,7 +1048,7 @@ test("nietknięty termin nie udaje potwierdzonej daty klienta", () => {
   // pola dat startują wypełnione realną datą (initDates, +30/+37 dni), więc bez
   // tego wyglądają identycznie jak po ręcznym wpisaniu przez konsultanta.
   assert.match(html,
-    /<label>Termin <span class="hint" id="datyHint">— termin przykładowy, niepotwierdzony przez klienta<\/span><\/label>/,
+    /<label>Termin <span class="hint" id="datyHint">— termin przykładowy, nie zawęża jeszcze wyników<\/span><\/label>/,
     "startowa etykieta terminu nie ostrzega, że data jest tylko przykładowa");
 
   // Flaga MUSI startować od fałszu — inaczej etykieta z HTML wyżej jest jedynym
@@ -1081,15 +1081,18 @@ test("nietknięty termin nie udaje potwierdzonej daty klienta", () => {
     new Function("datyTkniete", "document", zrodlo)(tkniety, document);
     return h.textContent;
   };
-  assert.equal(uruchom(false), "— termin przykładowy, niepotwierdzony przez klienta",
+  assert.equal(uruchom(false), "— termin przykładowy, nie zawęża jeszcze wyników",
     "nietknięty termin przestał ostrzegać w etykiecie");
+  assert.equal(uruchom(true), "",
+    "ustawiony termin dalej pokazuje ostrzeżenie o dacie przykładowej");
 
-  // Po ręcznej zmianie daty ostrzeżenie NIE może zgasnąć do pustego: applyFilters()
-  // nie czyta from/to dla ofert pakietowych, więc pusta etykieta czytałaby się jako
-  // "termin uwzględniony" dokładnie wtedy, gdy konsultant na to liczy.
-  const poDotknieciu = uruchom(true);
-  assert.notEqual(poDotknieciu, "",
-    "ustawiony termin gaśnie bez śladu — konsultant czyta to jako potwierdzone zawężenie, a oferty pakietowe nie są filtrowane po dacie");
-  assert.match(poDotknieciu, /nie są jeszcze zawężane do tego terminu/,
-    "ustawiony termin nie mówi, że oferty pakietowe i tak nie są po nim filtrowane");
+  // I najważniejsze: ostrzeżenie musi być PRAWDZIWE. Nietknięta data nie może
+  // jechać do /api/search, bo od 24.08 termin realnie filtruje oferty pakietowe
+  // (variantWithinDates w ranking.js) — domyślne +30/+37 przy „Dokładnym terminie"
+  // zostawiłoby 7 ofert z 453 w katalogu demo, zanim ktokolwiek cokolwiek kliknął.
+  // To ta sama konstrukcja co budget:budgetTkniety?... w tym samym zapytaniu.
+  assert.match(html, /from:datyTkniete\?widenDate\([^)]*dateFrom[^)]*\)[^:]*:""/,
+    "nietknięta data wylotu jedzie do wyszukiwarki jako twarde kryterium");
+  assert.match(html, /to:datyTkniete\?widenDate\([^)]*dateTo[^)]*\)[^:]*:""/,
+    "nietknięta data powrotu jedzie do wyszukiwarki jako twarde kryterium");
 });
