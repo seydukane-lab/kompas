@@ -9,7 +9,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -1445,4 +1445,70 @@ test("zdanie o danych demonstracyjnych nie kłamie o skali", () => {
     "komplet ofert poglądowych opisany jako część — to nieprawda wobec klienta");
   assert.match(uruchom([{ demo: true }, { demo: false }]), /Część pozycji/,
     "mieszane zestawienie opisane tak, jakby całe było demonstracyjne");
+});
+
+// ============================================================
+//  Rozjazd: doradca ETA czyta pola, których koszyk nie przepisuje
+//
+//  Front woła /api/advisor z `offers: cart`, czyli z MIGAWKAMI z cartSnap, a nie
+//  z ofertami z wyszukiwarki. Każde pole, które cartSnap pominie, dla modelu po
+//  prostu nie istnieje — i nikt się o tym nie dowie, bo raport i tak się wygeneruje,
+//  tylko na uboższych danych.
+//
+//  27.08.2026 tak właśnie było z `demo`: zabezpieczenie `dane_demo` siedziało
+//  w advisor.js od 31.07 i było MARTWE, bo flaga nie przeżywała odłożenia do
+//  koszyka. Model nigdy nie wiedział, że opisuje zmyślony hotel. Razem z nią
+//  ginęły `centre`, `yearBuilt` i `amenities` (te ostatnie ma 45 z 45 ofert).
+//
+//  Ten test czyta obie strony z kodu, więc rozjazd wychodzi w chwili powstania.
+// ============================================================
+
+// `src/advisor.js` i `src/eta-os-prompt.js` są w .gitignore — prompt ETA OS to
+// know-how właściciela i świadomie nie trafia na publiczne repo. W świeżym klonie
+// (nocny agent, produkcja) tych plików NIE MA, więc oba testy niżej muszą wtedy
+// zostać pominięte, a nie wywrócić cały przebieg. Tak samo robi server.js, który
+// ładuje doradcę w try/catch i bez niego po prostu wyłącza /api/advisor.
+const ADVISOR = join(ROOT, "src/advisor.js");
+const maDoradce = existsSync(ADVISOR);
+
+test("koszyk przepisuje każde pole oferty, które czyta doradca ETA", (t) => {
+  if (!maDoradce) return t.skip("src/advisor.js nie istnieje w tym klonie (gitignore) — nie ma czego porównywać");
+  const advisor = readFileSync(ADVISOR, "utf8");
+  const start = advisor.indexOf("const items = (offers || [])");
+  assert.ok(start > -1, "nie znalazłem budowania `items` w advisor.js");
+  const blok = advisor.slice(start, advisor.indexOf("}));", start));
+
+  const czytane = [...new Set([...blok.matchAll(/\bo\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]))];
+  assert.ok(czytane.length > 15, `podejrzanie mało pól (${czytane.length}) — zmienił się kształt advisor.js?`);
+
+  const html = wczytaj("public/index.html");
+  const snap = html.match(/function cartSnap\(h\)\{[^}]*\};\}/)?.[0] || "";
+  assert.ok(snap, "nie znalazłem cartSnap");
+
+  for (const pole of czytane) {
+    // Pole liczy się jako przepisane na dwa sposoby, bo oba realnie występują:
+    //  - jest czytane wprost z oferty (`beach:h.beach`, `operator:h.operator||h.source`),
+    //  - albo stoi w koszyku jako klucz o tej nazwie z wartością POLICZONĄ na nowo
+    //    (`priceTotal:offerTotal(h,paxCount())` — suma dla bieżącego składu, celowo
+    //    nie kopia surowej wartości dostawcy).
+    // Liczy się to, że pole dociera do modelu, a nie którędy.
+    const jakoKlucz = new RegExp("[{,]" + pole + ":").test(snap);
+    assert.ok(snap.includes("h." + pole) || jakoKlucz,
+      `doradca ETA czyta o.${pole}, ale cartSnap tego nie przepisuje — dla modelu to pole nie istnieje, ` +
+      "a raport i tak powstanie, tylko na uboższych danych (patrz historia flagi demo)");
+  }
+});
+
+test("zmiana wsadu dla modelu unieważnia stare raporty z cache", (t) => {
+  if (!maDoradce) return t.skip("src/advisor.js nie istnieje w tym klonie (gitignore)");
+  const advisor = readFileSync(ADVISOR, "utf8");
+  const rev = advisor.match(/const PAYLOAD_REV = "([^"]+)"/)?.[1] || "";
+  assert.ok(rev, "nie znalazłem PAYLOAD_REV");
+
+  // Wersja sprzed dodania flagi demo do wsadu nie może zostać: raporty policzone
+  // pod nią powstały BEZ ostrzeżenia o danych demonstracyjnych, a czyta je klient.
+  assert.notEqual(rev, "2026-08-01-sales-engine",
+    "PAYLOAD_REV nie został podbity — cache odda raport napisany bez wiedzy o danych demo");
+  assert.ok(advisor.includes("dane_demo"),
+    "zniknęło pole dane_demo — model przestanie wiedzieć, że opisuje ofertę poglądową");
 });
