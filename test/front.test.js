@@ -1512,3 +1512,34 @@ test("zmiana wsadu dla modelu unieważnia stare raporty z cache", (t) => {
   assert.ok(advisor.includes("dane_demo"),
     "zniknęło pole dane_demo — model przestanie wiedzieć, że opisuje ofertę poglądową");
 });
+
+// ============================================================
+//  Raport ETA na ekranie też musi powiedzieć, na czym stoi
+//
+//  Model DOSTAJE `dane_demo` (advisor.js), ale to zabezpieczenie miękkie: nikt nie
+//  zagwarantuje, że w każdym raporcie o tym napisze. Twarde jest zdanie dokładane
+//  przez panel — bo konsultant przepisuje zdania z tego okna wprost do maila
+//  i pominięcie tej informacji tutaj przenosi ją do wiadomości dla klienta.
+//  Dotyczy OBU raportów: statycznego rankingu i analizy z AI.
+// ============================================================
+
+test("raport ETA mówi, gdy stoi na danych demonstracyjnych", () => {
+  const html = wczytaj("public/index.html");
+
+  const fn = html.match(/function repDemoNote\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak repDemoNote — raport nie ma jak powiedzieć, że stoi na danych demo");
+  assert.match(fn, /demoZdanie\(cart\)/,
+    "repDemoNote nie liczy zdania z koszyka — pasek pokazywałby się nie wtedy, kiedy trzeba");
+  assert.match(fn, /rep-note-warn/,
+    "pasek o danych demo wygląda jak zwykła notka, a nie jak ostrzeżenie");
+
+  // 1. Ranking statyczny.
+  const stat = html.match(/function buildAdvisorReport\(\)\{[\s\S]*?repModal[^;]*;/)?.[0] || "";
+  assert.ok(stat, "nie znalazłem buildAdvisorReport");
+  assert.match(stat, /repDemoNote\(\)/,
+    "statyczny ranking nie mówi, że stoi na ofertach poglądowych");
+
+  // 2. Analiza z AI — tu pokusa jest największa, bo model „przecież sam napisze".
+  assert.match(html, /repBody\.innerHTML=repDemoNote\(\)/,
+    "raport z AI nie dokłada zdania o danych demo — zostaje wyłącznie na dobrej woli modelu");
+});

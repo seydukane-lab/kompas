@@ -1965,6 +1965,15 @@
 
   // ETA OS: oferta „zajebista" = dobra wartość i wiarygodne opinie (nie drogi przypał, nie ciemna liczba opinii).
   function etaGreat(h){var v=etaVerdict(h);return etaValue(h)>=70 && v.c!=="bad" && v.c!=="warn";}
+  // Raport ETA (statyczny i ten z AI) ma NA EKRANIE powiedziec, ze stoi na danych
+  // poglądowych - deterministycznie, a nie licząc na to, ze model sam o tym napisze.
+  // Konsultant przepisuje zdania z tego okna do maila, wiec pominiecie tej informacji
+  // tutaj przenosi ja do wiadomosci dla klienta. Model DOSTAJE `dane_demo` (advisor.js),
+  // ale to jest zabezpieczenie miekkie - twarde jest to zdanie.
+  function repDemoNote(){
+    var z=demoZdanie(cart);
+    return z?'<p class="rep-note rep-note-warn">⚠ '+z+'</p>':"";
+  }
   function buildAdvisorReport(){
     if(!cart.length){toast("Odłóż oferty, żeby zrobić raport");return;}
     var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
@@ -1989,7 +1998,7 @@
       ? '<p class="rep-note rep-note-warn"><b>Uwaga:</b> żadna z odłożonych ofert nie łapie się na próg „zajebiste" (value ≥ 70, wiarygodne opinie). Poniżej najlepsza z dostępnych — rozważ dorzucenie mocniejszych ofert do koszyka.</p>'
       : '<p class="rep-note"><b>TOP '+great.length+' — tylko oferty warte prezentacji.</b> Ranking od najlepszej wartości (value for money): cena vs opinie (ważone wiarygodnością) i standard. Słabe/drogie/z podejrzanymi opiniami zostały odrzucone (niżej). Pełna analiza ETA (plaża, pokoje, jedzenie, czerwone flagi) dojdzie po podpięciu realnych danych / Claude.</p>';
     document.getElementById("repBody").innerHTML=
-      headNote+body+(order?'<div class="rep-order"><h4>Kolejność prezentacji klientowi</h4>'+order+'</div>':"")+rejected;
+      repDemoNote()+headNote+body+(order?'<div class="rep-order"><h4>Kolejność prezentacji klientowi</h4>'+order+'</div>':"")+rejected;
     document.getElementById("repModal").hidden=false;
   }
   // „Drukuj dla klienta" z raportu = ta sama prezentacja co w koszyku (opis + parametry,
@@ -2230,7 +2239,7 @@
     api("/api/advisor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({offers:cart,criteria:crit})})
       .then(function(r){return r.json();})
       .then(function(d){
-        if(d.report){repBody.innerHTML='<p class="rep-note">✨ Analiza ETA OS wygenerowana przez AI ('+(d.model||"Claude")+'). Na danych z listingu — ceny orientacyjne, szczegóły do potwierdzenia u organizatora.</p><div class="rep-ai">'+mdLite(d.report)+'</div>';}
+        if(d.report){repBody.innerHTML=repDemoNote()+'<p class="rep-note">✨ Analiza ETA OS wygenerowana przez AI ('+(d.model||"Claude")+'). Na danych z listingu — ceny orientacyjne, szczegóły do potwierdzenia u organizatora.</p><div class="rep-ai">'+mdLite(d.report)+'</div>';}
         else showAdvisorError(repBody,d.error||"Dostawca analizy AI nie zwrócił raportu.");
       })
       .catch(function(e){showAdvisorError(repBody,e.message);})
