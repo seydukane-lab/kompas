@@ -1543,3 +1543,69 @@ test("raport ETA mówi, gdy stoi na danych demonstracyjnych", () => {
   assert.match(html, /repBody\.innerHTML=repDemoNote\(\)/,
     "raport z AI nie dokłada zdania o danych demo — zostaje wyłącznie na dobrej woli modelu");
 });
+
+// ============================================================
+//  Zero wyników: „nic nie ma" kontra „nie sprawdziliśmy"
+//
+//  To dwie różne wiadomości i panel nie ma prawa ich mylić. Do 27.08.2026 nagłówek
+//  zawsze brzmiał „Nic nie pasuje do tych kryteriów" — czyli panel ORZEKAŁ O RYNKU
+//  także wtedy, gdy Hotelbeds oddawał 403, a wakacje.pl nie mieściło się w miękkim
+//  limicie 2,5 s. Konsultant mówił klientowi „w tym terminie nic nie ma", choć
+//  nikt tego terminu nie sprawdził. Pasek o źródłach istniał, ale OSOBNO — zdanie
+//  na środku ekranu i tak twierdziło swoje.
+//
+//  Test wykonuje funkcję, a nie tylko sprawdza obecność kodu: cała wartość leży
+//  w tym, KIEDY panel milczy o rynku, a kiedy wolno mu powiedzieć, że nic nie ma.
+// ============================================================
+
+test("panel nie twierdzi, że nic nie ma, gdy źródło nie odpowiedziało", () => {
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/function zeroNaglowek\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak zeroNaglowek — pusty ekran znów orzeka o rynku bez podstaw");
+
+  const uruchom = (zrodla) =>
+    new Function("ostatnieZrodla", fn + "\nreturn zeroNaglowek();")(zrodla);
+
+  // Komplet odpowiedzi = wolno powiedzieć wprost, że nic nie pasuje.
+  assert.equal(uruchom([{ id: "pl-packages", label: "Oferty PL", ok: true, count: 0 }]), null,
+    "wszystkie źródła odpowiedziały, a panel i tak się asekuruje — to szum podszyty nieprawdą");
+
+  // Źródło PADŁO — nie znamy odpowiedzi.
+  const padniete = uruchom([
+    { id: "pl-packages", label: "Oferty PL", ok: true, count: 0 },
+    { id: "hotelbeds", label: "Hotelbeds", ok: false, count: 0, reason: "403" },
+  ]);
+  assert.ok(padniete, "padnięte źródło nie zmienia nagłówka — panel twierdzi, że nic nie ma");
+  assert.match(padniete.tytul, /nie wiemy/i, "nagłówek dalej orzeka o rynku");
+  assert.match(padniete.tresc, /Hotelbeds/, "komunikat nie mówi, KTÓREGO źródła zabrakło");
+
+  // Źródło NIE ZDĄŻYŁO w miękkim limicie — dokładnie ten sam wniosek.
+  const wDrodze = uruchom([
+    { id: "pl-packages", label: "Oferty PL", ok: true, count: 0 },
+    { id: "wakacje", label: "Wakacje.pl", ok: null, pending: true, count: 0 },
+  ]);
+  assert.ok(wDrodze, "źródło, które nie zdążyło, przeszło bez śladu przy zerze wyników");
+  assert.match(wDrodze.tresc, /Wakacje\.pl/, "komunikat nie wymienia źródła, które nie zdążyło");
+  // Musi być jasne, że to NIE jest wyrok o rynku — bez tego zdania konsultant
+  // przeczyta ostrzeżenie jako „nic nie ma, tylko wolniej".
+  assert.match(wDrodze.tresc, /nie<\/b> znaczy|nie znaczy, że nic nie ma/,
+    "komunikat nie prostuje wprost, że zero wyników to nie dowód na pusty rynek");
+
+  // Źródło POMINIĘTE (brak kluczy) to świadoma konfiguracja, nie luka w wiedzy
+  // o tym zapytaniu — ma swój własny, spokojny pasek i nie zmienia nagłówka.
+  assert.equal(uruchom([
+    { id: "pl-packages", label: "Oferty PL", ok: true, count: 0 },
+    { id: "merlinx", label: "MerlinX", ok: null, skipped: true, rynkowy: true, count: 0 },
+  ]), null, "nieskonfigurowane źródło blokuje zdanie o braku dopasowań — panel przestałby odpowiadać wprost");
+});
+
+test("pusty ekran czyta nagłówek z zeroNaglowek, a nie ze sztywnego tekstu", () => {
+  const html = wczytaj("public/index.html");
+  assert.match(html, /var nw=zeroNaglowek\(\);/,
+    "gałąź pustego wyniku nie pyta o stan źródeł");
+  assert.match(html, /nw\?nw\.tytul:"Nic nie pasuje do tych kryteriów"/,
+    "nagłówek o braku dopasowań wrócił jako wartość bezwarunkowa");
+  // Stan źródeł musi być ZAPAMIĘTANY z odpowiedzi, inaczej zeroNaglowek czyta pustkę.
+  assert.match(html, /ostatnieZrodla=data\.sources\|\|\[\]/,
+    "panel nie zapamiętuje źródeł z odpowiedzi — zeroNaglowek zawsze zobaczy pustą listę");
+});

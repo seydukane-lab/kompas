@@ -2359,6 +2359,30 @@
     if(b)zdejmijFiltr(b.getAttribute("data-rozluznij"));
   });
 
+  // Stan źródeł z OSTATNIEJ odpowiedzi — potrzebny przy zerze wyników, patrz zeroNaglowek().
+  var ostatnieZrodla=[];
+
+  // Zero wyników znaczy dwie zupełnie różne rzeczy i panel nie ma prawa ich mylić:
+  //   „nic nie pasuje"  — odpowiedziały WSZYSTKIE źródła i naprawdę nic nie ma,
+  //   „jeszcze nie wiemy" — któreś padło albo nie zdążyło, więc rynku nie sprawdziliśmy.
+  // Do 27.08.2026 nagłówek zawsze brzmiał „Nic nie pasuje do tych kryteriów" — czyli
+  // panel ORZEKAŁ O RYNKU także wtedy, gdy Hotelbeds oddawał 403, a wakacje.pl nie
+  // mieściło się w miękkim limicie 2,5 s. Konsultant mówił klientowi „w tym terminie
+  // nic nie ma", choć nikt tego terminu nie sprawdził. Komunikat o źródłach istniał,
+  // ale w OSOBNYM pasku — a zdanie w środku ekranu i tak twierdziło swoje.
+  function zeroNaglowek(){
+    var padniete=(ostatnieZrodla||[]).filter(function(s){return s.ok===false;});
+    var wDrodze=(ostatnieZrodla||[]).filter(function(s){return s.pending===true;});
+    if(!padniete.length&&!wDrodze.length)return null; // wolno powiedzieć, że nic nie ma
+    var nazwy=padniete.concat(wDrodze).map(function(s){return s.label||s.id;});
+    return {
+      tytul:"Jeszcze nie wiemy, czy coś jest",
+      tresc:"Nie sprawdziliśmy całego rynku dla tych kryteriów: <b>"+nazwy.join(", ")+"</b> "+
+        (nazwy.length>1?"nie odpowiedziały":"nie odpowiedziało")+" na to zapytanie. "+
+        "To <b>nie</b> znaczy, że nic nie ma — kliknij „Szukaj ofert\" ponownie za chwilę."
+    };
+  }
+
   function render(list){
     lastList=list;
     ustawProgETA(list); // próg plakietki liczony raz, na pełnym wyniku wyszukiwania
@@ -2369,7 +2393,7 @@
     if(!list.length){summary.hidden=true;var nm=document.getElementById("hotelName").value.trim();
       if(nm){document.getElementById("resSub").textContent='Brak hotelu o nazwie zawierającej „'+nm+'".';cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nie znaleziono „'+nm+'"</h3><p>Sprawdź pisownię lub wpisz fragment nazwy. W trybie danych na żywo szukaj w obrębie wybranego kierunku.</p></div>';}
       else if(!activeCountries.length&&!activeRegions.length){document.getElementById("resSub").textContent="Wybierz kierunek po lewej, żeby zobaczyć oferty.";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Zacznij od kierunku</h3><p>Zaznacz kraj lub region po lewej (albo kliknij „🌍 Cały świat") i kliknij „Szukaj ofert". Reszta ustawień jest opcjonalna.</p></div>';}
-      else{document.getElementById("resSub").textContent="Brak dopasowań — poluzuj kryteria (budżet, ocena lub wyżywienie).";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>Nic nie pasuje do tych kryteriów</h3><p>Podnieś budżet, obniż minimalną ocenę albo odznacz część filtrów.</p>'+podpowiedziHtml()+'</div>';}
+      else{var nw=zeroNaglowek();document.getElementById("resSub").textContent=nw?"Nie sprawdziliśmy całego rynku — część źródeł nie odpowiedziała.":"Brak dopasowań — poluzuj kryteria (budżet, ocena lub wyżywienie).";cardsEl.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><h3>'+(nw?nw.tytul:"Nic nie pasuje do tych kryteriów")+'</h3><p>'+(nw?nw.tresc:"Podnieś budżet, obniż minimalną ocenę albo odznacz część filtrów.")+'</p>'+podpowiedziHtml()+'</div>';}
       return;}
     buildOpFilter(list);
     var shown=list.filter(function(h){
@@ -2620,7 +2644,7 @@
     lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
     var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:datyTkniete?widenDate(document.getElementById("dateFrom").value,-1):"",to:datyTkniete?widenDate(document.getElementById("dateTo").value,1):"",adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budgetTkniety?budget.value:"",budgetMode:budgetMode,minRate:minRateTkniety?minRate.value:"",boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
-    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderSourceSkip(data.sources);renderAttrCover(data.attrs,data.attrsNieznane);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
+    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderSourceSkip(data.sources);renderAttrCover(data.attrs,data.attrsNieznane);ostatnieRozluznienia=data.rozluznienia||[];ostatnieZrodla=data.sources||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
   document.getElementById("sort").addEventListener("change",search);
