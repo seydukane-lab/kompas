@@ -8,7 +8,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { podejrzaneZero, PROG_CISZY_MS } from "../src/audyt-reguly.js";
+import { podejrzaneZero, PROG_CISZY_MS, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen } from "../src/audyt-reguly.js";
 
 // Wpis w sources[] taki, jaki realnie wraca z /api/search.
 const zrodlo = (over = {}) => ({ id: "x", label: "Źródło", count: 0, ok: true, ms: 5, ...over });
@@ -59,4 +59,71 @@ test("brak danych o czasie nie jest dowodem awarii", () => {
   assert.equal(podejrzaneZero(zrodlo({ ms: undefined })), false,
     "źródło bez zmierzonego czasu uznane za podejrzane — reguła zgaduje");
   assert.equal(podejrzaneZero(null), false, "brak wpisu wywraca regułę");
+});
+
+// ============================================================
+//  Czy filtr dotrzymał obietnicy
+//
+//  Reguła powstała po nocy 26/27.08.2026, gdy okazało się, że filtr o nieznanej
+//  nazwie klucza przepuszczał CAŁY katalog, a panel liczył go jako aktywny.
+//  Rozróżnienie „brak danych" vs „jawne złamanie" jest tu całą treścią: pierwsze
+//  jest świadomą zasadą produktu, drugie to przeciek filtra.
+// ============================================================
+
+const gwiazdki = (o) => o.stars != null;
+const piec = (o) => o.stars >= 5;
+
+test("oferta, o której wiemy, że kryterium nie spełnia, to przeciek filtra", () => {
+  const ocena = ocenObietnice(
+    [{ name: "A", stars: 5 }, { name: "B", stars: 3 }, { name: "C", stars: null }],
+    gwiazdki, piec);
+
+  assert.equal(ocena.razem, 3);
+  assert.equal(ocena.potwierdza, 1, "potwierdzona oferta nie została policzona");
+  assert.equal(ocena.bezDanych, 1, "nieznana kategoria potraktowana jak odpowiedź");
+  assert.equal(ocena.lamie, 1, "oferta jawnie łamiąca kryterium nie została wykryta");
+  assert.equal(ocena.przyklady[0].name, "B", "raport nie wskaże konkretnej oferty");
+  assert.equal(filtrPrzecieka(ocena), true, "przeciek filtra nie zostanie zgłoszony");
+});
+
+test("brak danych nie jest złamaniem kryterium — to świadoma zasada, nie błąd", () => {
+  const ocena = ocenObietnice([{ stars: null }, { stars: undefined }], gwiazdki, piec);
+
+  assert.equal(ocena.lamie, 0,
+    "brak danych policzony jako złamanie — audyt zacząłby alarmować o zdrowym zachowaniu");
+  assert.equal(filtrPrzecieka(ocena), false, "same niewiadome zgłoszone jako przeciek");
+  // Ale cisza na ten temat też jest błędem: filtr niczego nie gwarantuje.
+  assert.equal(filtrBezPotwierdzen(ocena), true,
+    "filtr bez ani jednego potwierdzenia przeszedł niezauważony — lista udaje zawężoną");
+});
+
+test("zero wyników to uczciwa odpowiedź, nie cicha obietnica", () => {
+  const ocena = ocenObietnice([], gwiazdki, piec);
+
+  assert.equal(ocena.razem, 0);
+  assert.equal(filtrBezPotwierdzen(ocena), false,
+    "pusta lista zgłoszona jako filtr bez potwierdzeń — audyt hałasowałby przy każdym „nic nie pasuje");
+  assert.equal(filtrPrzecieka(ocena), false, "pusta lista zgłoszona jako przeciek");
+  assert.equal(ocenObietnice(null, gwiazdki, piec).razem, 0, "brak listy wywraca regułę");
+});
+
+test("komplet potwierdzeń nie wywołuje żadnego alarmu", () => {
+  const ocena = ocenObietnice([{ stars: 5 }, { stars: 5 }], gwiazdki, piec);
+
+  assert.equal(ocena.potwierdza, 2);
+  assert.equal(filtrPrzecieka(ocena), false, "zdrowy filtr zgłoszony jako przeciekający");
+  assert.equal(filtrBezPotwierdzen(ocena), false, "zdrowy filtr zgłoszony jako pusty");
+});
+
+test("przecieku nie da się zagłuszyć niewiadomymi", () => {
+  // Jedna jawnie zła oferta w tłumie niewiadomych to dalej przeciek — i tylko
+  // ta jedna ma trafić do raportu, a nie cała reszta listy.
+  const lista = [{ name: "zla", stars: 2 }];
+  for (let i = 0; i < 40; i++) lista.push({ name: "nieznana" + i, stars: null });
+  const ocena = ocenObietnice(lista, gwiazdki, piec);
+
+  assert.equal(filtrPrzecieka(ocena), true, "przeciek utonął w niewiadomych");
+  assert.equal(ocena.przyklady.length, 1, "raport puchnie zamiast wskazać przykłady");
+  assert.equal(filtrBezPotwierdzen(ocena), false,
+    "lista z przeciekiem zgłoszona TAKŻE jako pusta — jedno znalezisko zamieniłoby się w dwa");
 });

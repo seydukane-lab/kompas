@@ -38,3 +38,51 @@ export function podejrzaneZero(zrodlo, progMs = PROG_CISZY_MS) {
   if (zrodlo.count !== 0) return false;      // źródło coś zwróciło — nie ma o czym mówić
   return typeof zrodlo.ms === "number" && zrodlo.ms >= progMs;
 }
+
+/**
+ * Czy filtr dotrzymał tego, co obiecał konsultantowi.
+ *
+ * Dzieli zwrócone oferty na trzy rozłączne kubełki i NIE ocenia ich sam —
+ * ocenę zostawia wołającemu, bo dwa z tych stanów znaczą co innego:
+ *
+ *  - `potwierdza` — wiemy, że oferta kryterium spełnia,
+ *  - `bezDanych`  — dostawca nie podał tej informacji; oferta przeszła, bo brak
+ *                   danych świadomie NIE odsiewa (patrz ranking.js:applyFilters).
+ *                   Sam w sobie nie jest błędem, ale gdy jest ich 100%, filtr
+ *                   niczego nie gwarantuje, a lista wygląda na zawężoną,
+ *  - `lamie`      — wiemy, że oferta kryterium NIE spełnia. To przeciek filtra:
+ *                   ta oferta nie miała prawa znaleźć się w wynikach.
+ *
+ * Po co osobna funkcja: w nocy 26/27.08.2026 wyszło, że filtr o nieznanej nazwie
+ * klucza przepuszczał cały katalog, a panel liczył go jako aktywny. Znalezione
+ * przypadkiem — więc pytanie „czy ten filtr w ogóle filtruje" musi być zadawane
+ * maszynowo dla każdego filtra, a nie przy okazji.
+ *
+ * @param oferty lista z /api/search
+ * @param znane  czy dla TEJ oferty odpowiedź jest w ogóle znana
+ * @param spelnia czy oferta spełnia kryterium (wołane tylko gdy `znane`)
+ */
+export function ocenObietnice(oferty, znane, spelnia) {
+  const wynik = { razem: 0, potwierdza: 0, bezDanych: 0, lamie: 0, przyklady: [] };
+  for (const o of oferty || []) {
+    wynik.razem++;
+    if (!znane(o)) { wynik.bezDanych++; continue; }
+    if (spelnia(o)) { wynik.potwierdza++; continue; }
+    wynik.lamie++;
+    if (wynik.przyklady.length < 3) wynik.przyklady.push(o);
+  }
+  return wynik;
+}
+
+/** Czy filtr przecieka: są oferty, o których WIEMY, że kryterium nie spełniają. */
+export function filtrPrzecieka(ocena) {
+  return !!ocena && ocena.lamie > 0;
+}
+
+/**
+ * Czy filtr niczego nie potwierdza — same niewiadome. Pusta lista NIE liczy się:
+ * zero wyników to uczciwa odpowiedź „nic nie pasuje", a nie cicha obietnica.
+ */
+export function filtrBezPotwierdzen(ocena) {
+  return !!ocena && ocena.razem > 0 && ocena.potwierdza === 0 && ocena.lamie === 0;
+}

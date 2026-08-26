@@ -19,7 +19,7 @@
 //    KOMPAS_URL=... KOMPAS_EMAIL=... KOMPAS_PASS=... npm run audyt
 // ============================================================
 
-import { podejrzaneZero } from "../src/audyt-reguly.js";
+import { podejrzaneZero, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen } from "../src/audyt-reguly.js";
 
 const BASE = process.env.KOMPAS_URL || "http://127.0.0.1:3000";
 const EMAIL = process.env.KOMPAS_EMAIL || "test@local.test";
@@ -135,6 +135,60 @@ for (const attr of ["pokoje-polaczone", "pokoj-dzielony", "plaza", "niepelnospra
   console.log(`atrybut ${attr.padEnd(24)} ${licz(d.count || 0)} ofert = ${pokrycie.confirmed} potwierdzonych + ${pokrycie.unknown} bez danych`);
   if (d.count > 0 && pokrycie.confirmed === 0) {
     zglos("INFO", `filtr „${attr}" zwraca same niewiadome`, `${d.count} ofert, 0 potwierdzonych`);
+  }
+}
+
+// ------------------------------------------------------------------
+//  Czy filtr faktycznie trzyma to, co obiecał
+//
+//  W nocy 26/27.08.2026 wyszło, że filtr o nieznanej nazwie klucza przepuszczał
+//  CAŁY katalog, a panel liczył go jako aktywny. Znalezione przypadkiem — więc
+//  ta sekcja zamienia tamto znalezisko w regułę i pyta o KAŻDY filtr osobno.
+//
+//  Dwa różne wnioski, oba ważne dla konsultanta:
+//   - JAWNE ZŁAMANIE: wśród wyników jest oferta, o której WIEMY, że kryterium nie
+//     spełnia. Filtr przecieka — ta oferta nie miała prawa tu być (WYSOKA).
+//   - SAME NIEWIADOME: żadna oferta kryterium nie potwierdza, wszystkie przeszły
+//     na braku danych. Filtr niczego nie gwarantuje, a lista wygląda na zawężoną (INFO).
+//  Brak danych sam w sobie NIE jest błędem — to świadoma zasada (patrz applyFilters).
+//  Błędem jest dopiero cisza na ten temat.
+// ------------------------------------------------------------------
+const OBIETNICE = [
+  { opis: "min. 5 gwiazdek", query: "countries=Grecja,Egipt,Turcja&adults=2&minStars=5",
+    znane: (o) => o.stars != null, spelnia: (o) => o.stars >= 5 },
+  { opis: "ocena min. 9,0", query: "countries=Grecja,Egipt,Turcja&adults=2&minRate=9",
+    znane: (o) => o.rating != null, spelnia: (o) => o.rating >= 9 },
+  // Tolerancja +/-1 noc jest w applyFilters celowa (7 vs 8 to ten sam wyjazd).
+  { opis: "7 nocy", query: "countries=Grecja,Egipt,Turcja&adults=2&nights=7",
+    znane: (o) => o.nights != null && o.nights > 0, spelnia: (o) => Math.abs(o.nights - 7) <= 1 },
+  { opis: "all inclusive", query: "countries=Grecja,Egipt,Turcja&adults=2&boards=All Inclusive",
+    znane: (o) => o.board != null, spelnia: (o) => o.board === "All Inclusive" },
+  // Ten jeden nie ma stanu "nie wiem": to filtr O BRAKU danych, więc każda oferta
+  // bez wolumenu opinii jest jawnym złamaniem, a nie niewiadomą.
+  { opis: "tylko z realnymi opiniami", query: "countries=Grecja,Egipt,Turcja&adults=2&onlyReviewed=1",
+    znane: () => true, spelnia: (o) => o.reviews > 0 },
+  { opis: "budżet 4000 zł/os.", query: "countries=Grecja,Egipt,Turcja&adults=2&budget=4000&budgetMode=person",
+    znane: (o) => typeof o.price === "number", spelnia: (o) => o.price <= 4000 },
+];
+
+console.log("");
+for (const ob of OBIETNICE) {
+  const d = await szukaj(cookie, ob.query);
+  if (d.status !== 200) { zglos("WYSOKA", `filtr „${ob.opis}" zwrócił HTTP ${d.status}`, ""); continue; }
+  const oferty = d.offers || [];
+  if (!oferty.length) { console.log(`obietnica ${ob.opis.padEnd(28)}    0 ofert — nie ma czego sprawdzać`); continue; }
+
+  const ocena = ocenObietnice(oferty, ob.znane, ob.spelnia);
+  console.log(`obietnica ${ob.opis.padEnd(28)} ${licz(ocena.razem)} ofert = ${ocena.potwierdza} potwierdza + ${ocena.bezDanych} bez danych + ${ocena.lamie} łamie`);
+
+  if (filtrPrzecieka(ocena)) {
+    const p = ocena.przyklady[0];
+    zglos("WYSOKA", `filtr „${ob.opis}" przecieka`,
+      `${ocena.lamie} z ${ocena.razem} ofert jawnie go nie spełnia, np. ${p.name} (${p.source || "?"})`);
+  }
+  if (filtrBezPotwierdzen(ocena)) {
+    zglos("INFO", `filtr „${ob.opis}" niczego nie potwierdza`,
+      `${ocena.razem} ofert przeszło wyłącznie na braku danych — lista wygląda na zawężoną, a nie jest`);
   }
 }
 
