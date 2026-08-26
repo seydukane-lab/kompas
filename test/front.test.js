@@ -1311,3 +1311,64 @@ test("panel mówi wprost, że lista jest niepełna, gdy źródło nie zdążyło
   const komplet = uruchom([{ id: "pl-packages", label: "Oferty PL (demo)", ok: true, count: 45 }]);
   assert.equal(komplet.hidden, true, "komunikat wisi, choć wszystkie źródła odpowiedziały");
 });
+
+
+// ============================================================
+//  Rozjazd nazw atrybutów między panelem a serwerem
+//
+//  Chip w panelu wysyła `data-attr` prosto do /api/search. Gdy nazwa się rozjedzie
+//  (zmiana w jednym pliku, zapomniana w drugim), filtr nie odsiewa NICZEGO, a panel
+//  dalej liczy go jako aktywny — konsultant czyta pełną listę jako spełniającą
+//  kryterium. Ten test łapie rozjazd w chwili, w której powstaje.
+// ============================================================
+
+test("każdy chip atrybutu w panelu ma odpowiednik po stronie serwera", async () => {
+  const { ZNANE_ATRYBUTY } = await import("../src/ranking.js");
+  const html = wczytaj("public/index.html");
+  const klucze = [...html.matchAll(/<button[^>]*data-attr="([^"]+)"/g)].map((m) => m[1]);
+
+  assert.ok(klucze.length >= 12, `panel ma tylko ${klucze.length} chipów atrybutów — coś zniknęło`);
+  for (const k of new Set(klucze)) {
+    assert.ok(ZNANE_ATRYBUTY.has(k),
+      `chip „${k}" wysyła klucz, którego serwer nie zna — ten filtr nie odsieje niczego`);
+  }
+});
+
+test("panel mówi wprost, gdy kryterium nie zostało użyte", () => {
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/function renderAttrCover\(stats,nieznane\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji renderAttrCover przyjmującej listę nieznanych kluczy");
+
+  // Wywołanie musi PRZEKAZYWAĆ pole z odpowiedzi — inaczej gałąź nigdy nie ruszy.
+  assert.match(html, /renderAttrCover\(data\.attrs,data\.attrsNieznane\)/,
+    "panel nie przekazuje nieznanych atrybutów do komunikatu — ostrzeżenie nigdy się nie pokaże");
+
+  const box = { hidden: true, innerHTML: "", className: "" };
+  const document = { getElementById: () => box };
+  const uruchom = (stats, nieznane) => {
+    box.hidden = true; box.innerHTML = ""; box.className = "";
+    new Function("document", "attrChipLabel", "odmianaOfert", "htmlNaZywo", "stats", "nieznane",
+      fn + "\nrenderAttrCover(stats,nieznane);")(
+      document, (k) => k, (n) => n + " ofert",
+      (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"),
+      stats, nieznane);
+    return box;
+  };
+
+  // Bez pokrycia atrybutów, ale z nieznanym kluczem — komunikat MUSI się pokazać.
+  const sam = uruchom([], ["plaza-blisko"]);
+  assert.equal(sam.hidden, false, "nieużyte kryterium przeszło bez śladu — lista udaje przefiltrowaną");
+  assert.match(sam.innerHTML, /plaza-blisko/, "komunikat nie mówi, KTÓREGO kryterium nie użyto");
+  assert.match(sam.innerHTML, /nie zostało użyte/, "komunikat nie mówi wprost, że filtr nie zadziałał");
+
+  // Klucz przychodzi z paska adresu i wraca na stronę — musi lecieć przez escape.
+  const zlosliwy = uruchom([], ['<img src=x onerror="alert(1)">']);
+  assert.ok(!/<img/.test(zlosliwy.innerHTML),
+    "nazwa kryterium trafia do innerHTML bez ucieczki znaków — to XSS w panelu konsultanta");
+  assert.match(zlosliwy.innerHTML, /&lt;img/, "escape nie zadziałał na nazwie kryterium");
+
+  // Komplet znanych kryteriów = żadnego alarmu o nieużytym filtrze.
+  const czysto = uruchom([{ key: "plaza", confirmed: 12, unknown: 0 }], []);
+  assert.ok(!/nie zostało użyte/.test(czysto.innerHTML),
+    "alarm o nieużytym kryterium pokazuje się mimo poprawnych kluczy");
+});

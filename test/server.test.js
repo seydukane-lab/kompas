@@ -289,3 +289,37 @@ test("nieznana ścieżka nie wywraca serwera", async () => {
   // Serwer nadal żyje.
   assert.equal((await fetch(BASE + "/healthz")).status, 200);
 });
+
+// ============================================================
+//  Kryterium, ktorego serwer nie rozumie
+//
+//  hasAttribute() zwraca dla nieznanego klucza `undefined` = brak danych, a brak
+//  danych swiadomie NIE odsiewa ofert. Bez przechwycenia takiego klucza po stronie
+//  serwera filtr przepuszcza caly katalog, a panel liczy go jako aktywny -
+//  konsultant czyta pelna liste jako spelniajaca kryterium, o ktore pytal klient.
+// ============================================================
+
+test("kryterium, ktorego serwer nie zna, wraca po nazwie zamiast cicho nie filtrowac", async () => {
+  const cookie = await zaloguj(KONSULTANT.email, KONSULTANT.pass);
+  assert.ok(cookie, "nie udalo sie zalogowac konsultanta");
+
+  const r = await fetch(BASE + "/api/search?countries=Egipt&adults=2&attrs=plaza-blisko", { headers: { cookie } });
+  assert.equal(r.status, 200);
+  const d = await r.json();
+
+  assert.deepEqual(d.attrsNieznane, ["plaza-blisko"],
+    "serwer nie zglosil nieznanego kryterium - filtr nie odsial niczego, a nikt o tym nie wie");
+  // Nieznany klucz nie ma prawa udawac policzonego pokrycia atrybutu.
+  const pokrycia = (d.attrs || []).map((a) => a.key);
+  assert.ok(!pokrycia.includes("plaza-blisko"),
+    "nieznane kryterium trafilo do statystyk pokrycia jak gdyby bylo prawdziwa cecha");
+});
+
+test("znane kryterium nie wywoluje falszywego alarmu o nieuzytym filtrze", async () => {
+  const cookie = await zaloguj(KONSULTANT.email, KONSULTANT.pass);
+  const r = await fetch(BASE + "/api/search?countries=Egipt&adults=2&attrs=plaza", { headers: { cookie } });
+  const d = await r.json();
+
+  assert.equal(d.attrsNieznane, undefined,
+    "poprawny klucz zglaszany jako nieznany - panel bilby na alarm przy kazdym wyszukiwaniu");
+});

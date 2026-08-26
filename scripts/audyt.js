@@ -119,8 +119,17 @@ for (const s of SCENARIUSZE) {
 
 // Filtry, które przepuszczają wyłącznie oferty bez danych — panel musi to napisać
 // wprost, ale warto wiedzieć, których cech to dotyczy przy bieżącym zestawie źródeł.
-for (const attr of ["pokoje-polaczone", "pokoj-dzielony", "plaza-blisko", "niepelnosprawni"]) {
+// UWAGA na nazwy kluczy: do 26.08.2026 stało tu "plaza-blisko", a atrybut nazywa się
+// "plaza". Nieznany klucz nie odsiewał niczego, więc audyt co przebieg raportował
+// "filtr zwraca same niewiadome" — znalezisko było artefaktem literówki w tym pliku.
+// Dlatego niżej sprawdzamy też attrsNieznane: serwer mówi teraz wprost, czego nie zna.
+for (const attr of ["pokoje-polaczone", "pokoj-dzielony", "plaza", "niepelnosprawni"]) {
   const d = await szukaj(cookie, `countries=Grecja,Egipt,Turcja&adults=2&attrs=${attr}`);
+  if (d.attrsNieznane && d.attrsNieznane.length) {
+    zglos("WYSOKA", `serwer nie zna atrybutu „${d.attrsNieznane.join(", ")}"`,
+      "filtr o nieznanym kluczu nie odsiewa NICZEGO — lista wygląda na przefiltrowaną, a nie jest");
+    continue;
+  }
   const pokrycie = (d.attrs || [])[0];
   if (!pokrycie) continue;
   console.log(`atrybut ${attr.padEnd(24)} ${licz(d.count || 0)} ofert = ${pokrycie.confirmed} potwierdzonych + ${pokrycie.unknown} bez danych`);

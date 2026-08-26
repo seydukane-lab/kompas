@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, filtrRozproszony, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, offerGroupTotal, isGroupTotalExact, podpowiedziRozluznienia,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, filtrRozproszony, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, znanyAtrybut, offerGroupTotal, isGroupTotalExact, podpowiedziRozluznienia,
 } from "../src/ranking.js";
 import { mapBoard } from "../src/providers/hotelbeds.js";
 
@@ -1023,4 +1023,40 @@ test("karta pokazuje termin, o który konsultant pytał", () => {
   assert.equal(pokazany.departDate, "2026-09-22",
     "karta dalej pokazuje termin spoza okna, o które pytał konsultant");
   assert.equal(pokazany.price, 3200, "cena została z wariantu, który nie pasuje do terminu");
+});
+
+// ============================================================
+//  Nieznany klucz atrybutu
+//
+//  hasAttribute() zwraca dla nieznanego klucza `undefined`, a brak danych
+//  ŚWIADOMIE nie odsiewa ofert — to filar anty-przekoloryzacji. Skutek uboczny:
+//  literówka w nazwie atrybutu daje filtr, który przepuszcza cały katalog, a mimo
+//  to liczy się w panelu jako aktywny. Nie wolno tego naprawić przez „nieznany
+//  klucz = false", bo wtedy literówka wycinałaby wszystko po cichu. Naprawa polega
+//  na tym, że serwer NAZYWA nieznany klucz i mówi o nim wprost.
+// ============================================================
+
+test("system wie, których kluczy atrybutów nie rozumie", () => {
+  assert.equal(znanyAtrybut("plaza"), true, "atrybut z listy odległości przestał być rozpoznawany");
+  assert.equal(znanyAtrybut("wifi"), true, "udogodnienie przestało być rozpoznawane");
+  assert.equal(znanyAtrybut("pokoje-polaczone"), true, "układ pokoju przestał być rozpoznawany");
+  // Dokładnie ta literówka siedziała w scripts/audyt.js i produkowała fałszywe
+  // znalezisko „filtr zwraca same niewiadome" przy każdym przebiegu.
+  assert.equal(znanyAtrybut("plaza-blisko"), false, "nieistniejący klucz uchodzi za znany");
+  assert.equal(znanyAtrybut(""), false, "pusty klucz uchodzi za znany");
+});
+
+test("nieznany atrybut nie odsiewa ani jednej oferty — dlatego serwer musi go zgłosić", () => {
+  const lista = [offer({ id: "a", beach: 100 }), offer({ id: "b", beach: 4000 })];
+
+  // Znany klucz działa: hotel 4 km od plaży wypada.
+  assert.equal(applyFilters(lista, { attrs: ["plaza"] }).length, 1,
+    "znany atrybut przestał filtrować");
+
+  // Nieznany klucz przepuszcza WSZYSTKO — łącznie z ofertą, która jawnie nie
+  // spełnia kryterium, o które konsultantowi chodziło.
+  assert.equal(applyFilters(lista, { attrs: ["plaza-blisko"] }).length, 2,
+    "zmieniła się semantyka nieznanego klucza — sprawdź, czy nie zaczął cicho wycinać ofert");
+  assert.equal(hasAttribute(lista[1], "plaza-blisko"), undefined,
+    "nieznany klucz przestał być brakiem danych — grozi cichym odsiewaniem");
 });

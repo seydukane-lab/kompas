@@ -314,6 +314,26 @@ const ATTR_AMENITY = new Set([
 // wrzucenie ich do wspólnego worka wprowadzałoby w błąd przy rozmowie o cenie.
 const ATTR_ROOM = new Set(["pokoj-dzielony", "pokoje-polaczone"]);
 
+// Komplet kluczy atrybutow, jakie system w ogole rozumie - trzy zbiory wyzej
+// w jednym miejscu. Po co osobna lista: hasAttribute() zwraca dla NIEZNANEGO klucza
+// `undefined`, czyli "brak danych", a brak danych swiadomie nie odsiewa ofert
+// (patrz applyFilters). Skutek byl taki, ze literowka albo rozjazd nazwy miedzy
+// panelem a serwerem dawaly filtr, ktory nie filtruje NICZEGO, a mimo to liczyl sie
+// w panelu jako aktywny - konsultant czytal pelna liste jako "oferty spelniajace
+// to kryterium". Znalezione 26.08.2026: scripts/audyt.js pytal o nieistniejace
+// "plaza-blisko" (klucz nazywa sie "plaza") i przez to raportowal, ze filtr zwraca
+// same niewiadome. Nie wolno tego zamienic na "nieznany klucz = false", bo wtedy
+// literowka wycinalaby wszystko po cichu - ta sama choroba, tylko w druga strone.
+// Jedyne uczciwe wyjscie: nazwac nieznany klucz po imieniu i powiedziec o tym wprost.
+export const ZNANE_ATRYBUTY = new Set([
+  ...Object.keys(ATTR_DIST), ...ATTR_AMENITY, ...ATTR_ROOM,
+]);
+
+/** Czy system w ogole wie, co znaczy ten klucz atrybutu. */
+export function znanyAtrybut(key) {
+  return ZNANE_ATRYBUTY.has(key);
+}
+
 // Nazwy pokoi przychodzą po angielsku (Hotelbeds), po hiszpańsku (sandbox) i po
 // polsku (dane demo) — dlatego dopasowujemy na tekście znormalizowanym.
 const ROOM_DIVIDED = /\bfamily\b|rodzinn|bedroom|sypialni|duplex|dwupokojow|apartment|apartament|maisonette/;

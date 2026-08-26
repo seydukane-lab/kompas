@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
-import { applyFilters, promoteMatchingVariant, filtrRozproszony, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia } from "./src/ranking.js";
+import { applyFilters, promoteMatchingVariant, filtrRozproszony, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia, znanyAtrybut } from "./src/ranking.js";
 import { clientData, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
@@ -239,6 +239,15 @@ app.get("/api/multiroom", async (req, res) => {
 app.get("/api/search", async (req, res) => {
   try {
     const q = req.query;
+
+    // Atrybuty rozdzielamy na te, ktore system rozumie, i reszte. Nieznany klucz
+    // NIE jedzie do kryteriow: hasAttribute() dalaby mu `undefined` dla kazdej
+    // oferty, czyli filtr przepuscilby caly katalog, a panel liczylby go jako
+    // aktywny. Zamiast tego oddajemy go z powrotem po nazwie - patrz ranking.js:
+    // ZNANE_ATRYBUTY. Cichy brak filtrowania jest gorszy od jawnego "nie umiem".
+    const attrsZadane = q.attrs ? String(q.attrs).split(",").filter(Boolean) : [];
+    const attrsNieznane = attrsZadane.filter((a) => !znanyAtrybut(a));
+
     const crit = {
       dest: q.dest || "",
       name: (q.name || "").trim(),
@@ -268,7 +277,7 @@ app.get("/api/search", async (req, res) => {
       departures: q.departures ? String(q.departures).split(",").filter(Boolean) : [],
       transports: q.transports ? String(q.transports).split(",").filter(Boolean) : [],
       // Atrybuty z 3 kolumn (Lokalizacja/Obiekt/Aktywność) — patrz ranking.js:hasAttribute.
-      attrs: q.attrs ? String(q.attrs).split(",").filter(Boolean) : [],
+      attrs: attrsZadane.filter(znanyAtrybut),
       // Dni tygodnia wylotu (0=nd..6=sob, jak Date#getDay).
       weekdays: q.weekdays ? String(q.weekdays).split(",").filter((s) => s !== "").map(Number) : [],
       sort: q.sort || "score",
@@ -315,6 +324,7 @@ app.get("/api/search", async (req, res) => {
     res.json({
       offers: withAttrUnknown, sources, count: withAttrUnknown.length,
       attrs: attributeCoverage(sorted, crit),
+      ...(attrsNieznane.length ? { attrsNieznane } : {}),
       ...(rozluznienia.length ? { rozluznienia } : {}),
     });
   } catch (err) {

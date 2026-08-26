@@ -2239,14 +2239,33 @@
   function odmianaOfert(n){return n+" "+odmOfert(n);}
   // Nazwa atrybutu do wyświetlenia (bez emoji) — czytana z etykiety chipa filtra,
   // żeby nie duplikować nazw atrybutów w drugim miejscu w kodzie.
+  // Ucieczka znakow HTML dla tekstu, ktory nie pochodzi od nas (klucze z zapytania).
+  function htmlNaZywo(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
   function attrChipLabel(key){
     var chip=document.querySelector('.chip[data-attr="'+key+'"]');
     return chip?chip.textContent.replace(/^[^\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ]+/,"").trim():key;
   }
-  function renderAttrCover(stats){
+  function renderAttrCover(stats,nieznane){
     var box=document.getElementById("attrCover");
-    if(!stats||!stats.length){box.hidden=true;box.className="attr-cover";return;}
     var rows=[],zeroPotwierdzen=false;
+    // Serwer odeslal klucz atrybutu, ktorego nie rozumie. To awaria po naszej
+    // stronie, nie cecha oferty: takiego filtru NIE zastosowano, wiec lista jest
+    // szersza, niz wynika z zaznaczonych chipow. Musi to byc widoczne, inaczej
+    // konsultant czyta caly katalog jako wynik spelniajacy kryterium.
+    if(nieznane&&nieznane.length){
+      zeroPotwierdzen=true;
+      // Klucz przyszedl z paska adresu i wraca na strone - leci przez escape,
+      // inaczej ?attrs=<img onerror> wykonalby sie w panelu konsultanta.
+      var nazwy=nieznane.slice(0,6).map(function(k){return htmlNaZywo(String(k).slice(0,40));}).join("</b>, <b>");
+      rows.push('<div class="ac-row">Nie rozpoznaliśmy kryterium <b>'+nazwy+
+        '</b>, więc <b>nie zostało użyte</b> — lista poniżej jest szersza niż zaznaczone filtry. Zgłoś to, to błąd panelu.</div>');
+    }
+    if(!stats||!stats.length){
+      if(!rows.length){box.hidden=true;box.className="attr-cover";return;}
+      box.className="attr-cover none";box.innerHTML=rows.join("");box.hidden=false;return;
+    }
     stats.forEach(function(s){
       if(!s.unknown)return; // wszystko potwierdzone — nie ma o czym pisać
       var nazwa=attrChipLabel(s.key);
@@ -2568,7 +2587,7 @@
     lastCrit={tags:activeTags.slice(),adults:+document.getElementById("adults").value,kids:+document.getElementById("kids").value};
     cardsEl.innerHTML='<div class="loading"><div class="spinner"></div>Szukam ofert u dostawców…</div>';
     var p=new URLSearchParams({name:document.getElementById("hotelName").value.trim(),countries:activeCountries.join(","),regions:activeRegions.join(","),from:datyTkniete?widenDate(document.getElementById("dateFrom").value,-1):"",to:datyTkniete?widenDate(document.getElementById("dateTo").value,1):"",adults:document.getElementById("adults").value,kids:document.getElementById("kids").value,childAges:childAgesValue(),nights:activeNights||"",budget:budgetTkniety?budget.value:"",budgetMode:budgetMode,minRate:minRateTkniety?minRate.value:"",boards:activeBoards.join(","),tags:activeTags.join(","),departures:activeDeps.join(","),transports:activeTrans.join(","),attrs:activeAttrs.join(","),weekdays:activeWeekdays.join(","),minStars:activeMinStars||"",onlyReviewed:onlyReviewed?"1":"",budgetMax:budget.max,minRateMin:minRate.min,sort:document.getElementById("sort").value});
-    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderSourceSkip(data.sources);renderAttrCover(data.attrs);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
+    api("/api/search?"+p.toString()).then(function(r){return r.json();}).then(function(data){renderSourceWarn(data.sources);renderSourceSkip(data.sources);renderAttrCover(data.attrs,data.attrsNieznane);ostatnieRozluznienia=data.rozluznienia||[];render(data.offers||[]);}).catch(function(e){cardsEl.innerHTML='<div class="empty"><h3>Błąd połączenia z serwerem</h3><p>'+e.message+'</p></div>';}).finally(function(){searchBtn.disabled=false;});
   }
   searchBtn.addEventListener("click",search);
   document.getElementById("sort").addEventListener("change",search);
