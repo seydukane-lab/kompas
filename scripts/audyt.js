@@ -19,6 +19,8 @@
 //    KOMPAS_URL=... KOMPAS_EMAIL=... KOMPAS_PASS=... npm run audyt
 // ============================================================
 
+import { podejrzaneZero } from "../src/audyt-reguly.js";
+
 const BASE = process.env.KOMPAS_URL || "http://127.0.0.1:3000";
 const EMAIL = process.env.KOMPAS_EMAIL || "test@local.test";
 const PASS = process.env.KOMPAS_PASS || "haslo12345";
@@ -105,6 +107,13 @@ for (const s of SCENARIUSZE) {
   // Źródła: co padło i dlaczego — to jest wiadomość dla właściciela, nie błąd kodu.
   for (const zr of d.sources || []) {
     if (zr.ok === false) console.log(`   └ ${zr.label || zr.id}: ${zr.reason || "brak odpowiedzi"}`);
+
+    // Zero ofert po kilkunastu sekundach = błąd połknięty przez dostawcę
+    // i podany jako brak wyników. Reguła i uzasadnienie: src/audyt-reguly.js.
+    if (podejrzaneZero(zr)) {
+      zglos("WYSOKA", `„${zr.label || zr.id}" zwraca zero ofert po ${(zr.ms / 1000).toFixed(1)} s`,
+        "uczciwe zero przychodzi szybko — to wygląda na błąd połknięty przez dostawcę i zaraportowany jako brak wyników (ok:true zamiast ok:false)");
+    }
   }
 }
 
