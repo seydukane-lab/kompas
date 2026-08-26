@@ -1242,3 +1242,32 @@ test("koszyk i wydruk nie gubią informacji, że termin jest nasz", () => {
   assert.ok(!/do potwierdzenia z klientem/.test(paramsKod),
     "wydruk dla klienta zawiera instrukcję napisaną do konsultanta");
 });
+
+test("koszyk i szczegóły też pokazują znacznik terminu, nie tylko karta", () => {
+  // Luka wykryta przy porównaniu z raportem nocnego 25/26.08: testy pokrywały
+  // terminDemoBadge, kartę, cartSnap i wydruk, ale NIE renderCart ani nagłówka
+  // szczegółów. Sabotaż w tych dwóch miejscach przeszedłby niezauważony, a to
+  // właśnie tam konsultant patrzy, składając ofertę dla klienta.
+  const html = wczytaj("public/index.html");
+
+  // \r?\n, nie \n — pliki mają CRLF na Windowsie, a LF w kontenerze CI/nocnego.
+  // Regex zakotwiczony na samym \n przechodziłby zależnie od tego, gdzie go uruchomisz.
+  const cartFn = html.match(/function renderCart\(\)\{[\s\S]*?\r?\n  \}/)?.[0] || "";
+  assert.ok(cartFn, "brak funkcji renderCart");
+  assert.ok(!/function cartSnap/.test(cartFn),
+    "wycinek renderCart sięga poza samą funkcję — asercje niżej sprawdzą cudzy kod");
+  assert.match(cartFn, /terminDemoBadge\(x\)/,
+    "odłożona oferta gubi w koszyku informację, że termin jest przykładowy");
+  assert.match(cartFn, /x\.terminDomyslny\?/,
+    "koszyk renderuje znacznik bezwarunkowo — oferta pakietowa dostanie pusty element");
+
+  // Nagłówek szczegółów: wiersz z terminem pobytu pokazuje się dla KAŻDEJ oferty
+  // ze znanym oknem, nie tylko dla domyślnego. Hotel na terminie uzgodnionym
+  // z klientem też musi mieć widoczną datę przy cenie.
+  const detailFn = html.match(/function openDetail\(h,tabKey\)\{[\s\S]*?var naglowek=[\s\S]*?;\r?\n/)?.[0] || "";
+  assert.ok(detailFn, "brak funkcji openDetail lub zmieniła kształt");
+  assert.match(detailFn, /h\.terminOd&&h\.terminDo\?row\("Termin pobytu"/,
+    "szczegóły nie pokazują terminu pobytu hotelu bez lotu — przy cenie nie ma żadnej daty");
+  assert.match(detailFn, /h\.terminDomyslny\?' '\+terminDemoBadge\(h\):""/,
+    "szczegóły nie odróżniają terminu przykładowego od uzgodnionego z klientem");
+});
