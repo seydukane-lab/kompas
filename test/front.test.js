@@ -1271,3 +1271,43 @@ test("koszyk i szczegóły też pokazują znacznik terminu, nie tylko karta", ()
   assert.match(detailFn, /h\.terminDomyslny\?' '\+terminDemoBadge\(h\):""/,
     "szczegóły nie odróżniają terminu przykładowego od uzgodnionego z klientem");
 });
+
+test("panel mówi wprost, że lista jest niepełna, gdy źródło nie zdążyło", () => {
+  // Miękki limit (providers/index.js) oddaje wynik po ~6 s zamiast czekać na
+  // najwolniejszego dostawcę. To skraca czekanie z kilkunastu sekund, ale lista
+  // JEST wtedy niepełna — a konsultant czyta ją jako komplet i pokazuje klientowi.
+  // Bez tego zdania skrócenie czekania kupowałoby czas za ciche kłamstwo o rynku.
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/function renderSourceSkip\(sources\)\{[\s\S]*?\r?\n  \}/)?.[0] || "";
+  assert.ok(fn, "brak funkcji renderSourceSkip");
+  assert.ok(!/function api\(/.test(fn), "wycinek sięga poza funkcję — asercje sprawdzą cudzy kod");
+
+  const el = { hidden: true, innerHTML: "" };
+  const uruchom = (sources) => {
+    el.hidden = true; el.innerHTML = "";
+    new Function("sourceSkipEl", "sources", fn + "\nrenderSourceSkip(sources);")(el, sources);
+    return el;
+  };
+
+  const wDrodze = uruchom([
+    { id: "pl-packages", label: "Oferty PL (demo)", ok: true, count: 45 },
+    { id: "wakacje", label: "Wakacje.pl", ok: null, pending: true, count: 0 },
+  ]);
+  assert.equal(wDrodze.hidden, false, "źródło, które nie zdążyło, przeszło bez śladu — lista udaje komplet");
+  assert.match(wDrodze.innerHTML, /Wakacje\.pl/, "komunikat nie mówi, którego źródła brakuje");
+  assert.match(wDrodze.innerHTML, /niepełna/, "komunikat nie mówi wprost, że wyniki są niepełne");
+  // To nie awaria — dostawca pracuje dalej, więc ton musi być inny niż przy padnięciu.
+  assert.ok(!/nie odpowiedzia/.test(wDrodze.innerHTML), "pracujące źródło opisane jak padnięte");
+
+  // Oba stany naraz: niezdążone i pominięte to różne wiadomości, obie muszą dojść.
+  const oba = uruchom([
+    { id: "wakacje", label: "Wakacje.pl", ok: null, pending: true, count: 0 },
+    { id: "merlinx", label: "MerlinX", ok: null, skipped: true, rynkowy: true, count: 0 },
+  ]);
+  assert.match(oba.innerHTML, /Wakacje\.pl/, "przy dwóch stanach zgubiono źródło, które nie zdążyło");
+  assert.match(oba.innerHTML, /MerlinX/, "przy dwóch stanach zgubiono źródło pominięte");
+
+  // Komplet odpowiedzi = cisza.
+  const komplet = uruchom([{ id: "pl-packages", label: "Oferty PL (demo)", ok: true, count: 45 }]);
+  assert.equal(komplet.hidden, true, "komunikat wisi, choć wszystkie źródła odpowiedziały");
+});

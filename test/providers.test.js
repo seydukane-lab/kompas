@@ -635,3 +635,94 @@ test("powód pominięcia mówi prawdę — atrapa nie udaje braku kluczy", () =>
       "atrapa oznaczona jako czesc rynku — konsultant zobaczy, ze nie pytalismy o zrodlo, ktore nic nie znaczy");
   });
 });
+
+// ------------------------------------------------------------------
+//  MIĘKKI LIMIT CZASU — jedno wolne źródło nie może zatrzymać całego
+//  wyszukiwania. Zmierzone audytem 26.08.2026: katalog PL odpowiadał w 4-7 ms,
+//  Hotelbeds w 0,6 s, a każde zapytanie trwało 15 s, bo tyle wisiało martwe
+//  źródło lokalne. Konsultant czekał kwadrans sekund na dane gotowe po sekundzie.
+// ------------------------------------------------------------------
+
+// Świeży moduł z własnym, krótkim limitem — env czytane jest przy imporcie.
+async function modulZLimitem(miekki) {
+  process.env.PROVIDER_SOFT_TIMEOUT_MS = String(miekki);
+  const m = await import(`../src/providers/index.js?soft=${miekki}-${Date.now()}`);
+  delete process.env.PROVIDER_SOFT_TIMEOUT_MS;
+  return m;
+}
+
+const wolny = (id, ms, oferty) => ({
+  meta: { id, label: id, needsKeys: false },
+  isEnabled: () => true,
+  search: async () => { await new Promise((r) => setTimeout(r, ms)); return oferty; },
+});
+
+test("wolne źródło nie zatrzymuje wyszukiwania — wynik wraca z tego, co zdążyło", async () => {
+  const m = await modulZLimitem(60);
+  m.clearSearchCache();
+
+  const szybkie = atrapa("szybkie", async () => [{ id: "s1", name: "Szybki", price: 100 }]);
+  const t0 = Date.now();
+  const { offers, sources } = await m.searchAll({ dest: "test-miekki" }, [szybkie, wolny("wolne", 400, [{ id: "w1", name: "Wolny", price: 200 }])]);
+  const ms = Date.now() - t0;
+
+  assert.ok(ms < 350, `wyszukiwanie czekało ${ms} ms na najwolniejsze źródło zamiast oddać wynik po miękkim limicie`);
+  assert.equal(offers.length, 1, "oferty szybkiego źródła nie dojechały do konsultanta");
+
+  const w = sources.find((s) => s.id === "wolne");
+  assert.equal(w.pending, true, "źródło, które nie zdążyło, nie jest oznaczone jako pracujące dalej");
+  assert.equal(w.ok, null,
+    "źródło, które nie zdążyło, ma ok inne niż null — albo skłamie, że odpowiedziało zerem, albo zapali alarm o awarii");
+  assert.match(w.reason, /nie zdąży/, "brak wyjaśnienia, czemu tego źródła nie ma w wynikach");
+
+  await m.trwajaceOdswiezenia();
+});
+
+test("źródło, które nie zdążyło, dosyła oferty na następne pytanie", async () => {
+  // Sedno wzorca: nie przerywamy wolnego dostawcy, tylko przestajemy na niego
+  // czekać. Jego dane trafiają do cache, więc kolejne pytanie o te same kryteria
+  // ma je od ręki — inaczej „nie zdążył" znaczyłoby po prostu „przepadł".
+  const m = await modulZLimitem(60);
+  m.clearSearchCache();
+
+  const zrodla = [wolny("dosylajace", 300, [{ id: "d1", name: "Dosłany", price: 300 }])];
+  const pierwsze = await m.searchAll({ dest: "test-dosylka" }, zrodla);
+  assert.equal(pierwsze.offers.length, 0, "przy pierwszym pytaniu wolne źródło jednak zdążyło — test nic nie mierzy");
+
+  await m.trwajaceOdswiezenia();
+
+  const drugie = await m.searchAll({ dest: "test-dosylka" }, zrodla);
+  assert.equal(drugie.offers.length, 1, "oferty wolnego źródła przepadły zamiast dojechać na następne pytanie");
+  const s = drugie.sources.find((x) => x.id === "dosylajace");
+  assert.equal(s.cached, true, "drugie pytanie nie wzięło danych z cache — dostawca był odpytywany od nowa");
+});
+
+test("nie zdazyl to nie awaria i nie pominiecie — trzy stany zostaja rozdzielne", async () => {
+  // renderSourceWarn alarmuje wyłącznie przy ok===false, renderSourceSkip pokazuje
+  // skipped===true. Pending nie może wpaść do żadnego z nich, bo to co innego:
+  // dostawca żyje i pracuje, tylko nie zmieścił się w czasie.
+  const m = await modulZLimitem(60);
+  m.clearSearchCache();
+
+  const { sources } = await m.searchAll({ dest: "test-trzy-stany" }, [
+    wolny("pracuje", 400, []),
+    atrapa("padniete", async () => { throw new Error("HTTP 500"); }),
+    { meta: { id: "bez-kluczy", label: "Bez kluczy", needsKeys: true }, isEnabled: () => false, search: async () => [] },
+  ]);
+
+  const p = sources.find((s) => s.id === "pracuje");
+  const a = sources.find((s) => s.id === "padniete");
+  const b = sources.find((s) => s.id === "bez-kluczy");
+
+  assert.equal(p.pending, true);
+  assert.notEqual(p.ok, false, "pracujące źródło zapali czerwony alarm o awarii");
+  assert.ok(!p.skipped, "pracujące źródło udaje pominięte z braku kluczy");
+
+  assert.equal(a.ok, false, "padnięte źródło przestało być awarią");
+  assert.ok(!a.pending, "padnięte źródło oznaczone jako pracujące w tle");
+
+  assert.equal(b.skipped, true, "źródło bez kluczy przestało być pominięte");
+  assert.ok(!b.pending, "źródło bez kluczy oznaczone jako pracujące w tle");
+
+  await m.trwajaceOdswiezenia();
+});

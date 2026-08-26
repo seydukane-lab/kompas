@@ -1604,13 +1604,28 @@
   // byloby szumem podszytym nieprawda.
   function renderSourceSkip(sources){
     if(!sourceSkipEl)return;
-    var pominiete=(sources||[]).filter(function(s){return s.skipped===true&&s.rynkowy!==false;});
-    if(!pominiete.length){sourceSkipEl.hidden=true;sourceSkipEl.innerHTML="";return;}
-    var nazwy=pominiete.map(function(s){return s.label||s.id;}).join(", ");
-    sourceSkipEl.innerHTML=
-      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'+
-      '<span>Nie pytaliśmy tych źródeł: <b>'+nazwy+'</b>. Nie są skonfigurowane (brak kluczy), '+
-      'więc ich oferty nie są w wynikach — to nie awaria, tylko nieodpytana część rynku.</span>';
+    var lista=sources||[];
+    var pominiete=lista.filter(function(s){return s.skipped===true&&s.rynkowy!==false;});
+    // Źródła, które NIE ZDĄŻYŁY w miękkim limicie (providers/index.js). Od tej zmiany
+    // wyszukiwanie oddaje wynik po ~6 s zamiast czekać na najwolniejszego dostawcę —
+    // ale wtedy lista JEST niepełna, a konsultant czyta ją jako komplet i pokazuje
+    // klientowi. Bez tego zdania skrócenie czekania kupowałoby czas za ciche kłamstwo
+    // o stanie rynku. Nazwa „pending", nie „padło": dostawca żyje i pracuje dalej.
+    var wDrodze=lista.filter(function(s){return s.pending===true;});
+    if(!pominiete.length&&!wDrodze.length){sourceSkipEl.hidden=true;sourceSkipEl.innerHTML="";return;}
+
+    var ikona='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    var zdania=[];
+    if(wDrodze.length){
+      zdania.push('<b>'+wDrodze.map(function(s){return s.label||s.id;}).join(", ")+'</b> '+
+        (wDrodze.length>1?'nie zdążyły':'nie zdążyło')+' odpowiedzieć w tym wyszukiwaniu — '+
+        'lista jest niepełna. Kliknij „Szukaj ofert" ponownie za chwilę, żeby zobaczyć komplet.');
+    }
+    if(pominiete.length){
+      zdania.push('Nie pytaliśmy tych źródeł: <b>'+pominiete.map(function(s){return s.label||s.id;}).join(", ")+'</b>. '+
+        'Nie są skonfigurowane (brak kluczy), więc ich oferty nie są w wynikach — to nie awaria, tylko nieodpytana część rynku.');
+    }
+    sourceSkipEl.innerHTML=ikona+'<span>'+zdania.join('<br>')+'</span>';
     sourceSkipEl.hidden=false;
   }
 

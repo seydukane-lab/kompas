@@ -43,6 +43,26 @@ export function providerStatus() {
 // kolei (dostępność + treści), więc limit jest wyższy niż na pojedynczy fetch.
 const PROVIDER_DEADLINE_MS = Number(process.env.PROVIDER_TIMEOUT_MS) || 25000;
 
+// Ile czasu konsultant CZEKA na odpowiedź, zanim oddamy mu to, co już jest.
+//
+// Komentarz nad searchAll obiecywał: „wynik składamy z tych, które zdążyły" — ale
+// Promise.all czeka na WSZYSTKICH, więc jedno martwe źródło zatrzymywało całe
+// wyszukiwanie. Zmierzone 26.08.2026 audytem na żywych źródłach: katalog PL
+// odpowiadał w 4-7 ms, Hotelbeds w 0,6 s, a każde zapytanie i tak trwało 15 s,
+// bo tyle wisiał lokalny provider wakacje.pl, zanim padł na timeoucie. Pięć
+// scenariuszy audytu = 75 sekund czekania na dane, które były gotowe po sekundzie.
+//
+// Po tym progu oddajemy wynik z tego, co dojechało. Dostawca, który nie zdążył,
+// NIE jest przerywany: leci dalej do twardego PROVIDER_DEADLINE_MS i zapisuje się
+// do cache, więc następne pytanie o to samo ma jego oferty od ręki. To ten sam
+// wzorzec co odswiezWTle() niżej — konsultant nie czeka przy ekranie na
+// najwolniejsze źródło, a dane nie przepadają.
+const PROVIDER_SOFT_DEADLINE_MS = Number(process.env.PROVIDER_SOFT_TIMEOUT_MS) || 6000;
+
+// Znacznik wyścigu — własny obiekt, żeby nie dało się go pomylić z odpowiedzią
+// dostawcy (dostawca zwraca tablicę, więc żadna jego wartość tym nie będzie).
+const NIE_ZDAZYL = Symbol("nie zdążył w miękkim limicie");
+
 // ---------------------------------------------------------------
 //  Krótki cache wyników wyszukiwania
 //
@@ -182,15 +202,44 @@ export async function searchAll(crit, providers = null) {
     }
 
     const t0 = Date.now();
+    // Zadanie leci do TWARDEGO limitu i samo zapisuje się do cache — także wtedy,
+    // gdy przestaniemy na nie czekać. Dzięki temu wolne źródło nie przepada:
+    // jego oferty dojeżdżają na następne pytanie o te same kryteria.
+    const zadanie = withDeadline(prov.search(crit), PROVIDER_DEADLINE_MS, prov.meta.id)
+      .then((lista) => { if (Array.isArray(lista)) cacheSet(key, lista); return lista; });
+
+    let zegar;
+    const miekkiLimit = new Promise((res) => {
+      zegar = setTimeout(() => res(NIE_ZDAZYL), PROVIDER_SOFT_DEADLINE_MS);
+      // Zegar nie może trzymać procesu przy życiu — inaczej `npm test` wisiałby
+      // sekundami po ostatniej asercji, czekając na timery, na które nikt nie patrzy.
+      zegar.unref?.();
+    });
+
     try {
-      const lista = await withDeadline(prov.search(crit), PROVIDER_DEADLINE_MS, prov.meta.id);
+      const lista = await Promise.race([zadanie, miekkiLimit]);
       const ms = Date.now() - t0;
+
+      if (lista === NIE_ZDAZYL) {
+        // Rejestrujemy w `wLocie`, żeby liczyło się jako praca w tle: testy czekają
+        // na nią przez trwajaceOdswiezenia(), a równoległe pytanie o te same
+        // kryteria nie odpali drugiego zapytania do tego samego dostawcy.
+        if (!wLocie.has(key)) {
+          const wTle = zadanie
+            .catch((err) => { console.warn(`[${prov.meta.id}] nie zdążył i padł w tle:`, err?.message || err); })
+            .finally(() => { wLocie.delete(key); });
+          wLocie.set(key, wTle);
+        }
+        return { prov, offers: [], ok: null, pending: true, ms };
+      }
+
+      clearTimeout(zegar);
       // Dostawca, który zwrócił coś innego niż tablicę, jest pomijany tak jak dotąd:
       // nie mamy z tego ofert i nie umiemy uczciwie nazwać takiego stanu.
       if (!Array.isArray(lista)) return null;
-      cacheSet(key, lista);
       return { prov, offers: lista, ok: true, ms };
     } catch (err) {
+      clearTimeout(zegar);
       console.warn(`[${prov.meta.id}] search error:`, err?.message || err);
       // Padnięte źródło NIE trafia do cache — następne pytanie ma je odpytać ponownie.
       return { prov, offers: [], ok: false, ms: Date.now() - t0, reason: reasonFor(err) };
@@ -210,6 +259,14 @@ export async function searchAll(crit, providers = null) {
     // to inna sytuacja niż padnięcie, choć obie dają count:0.
     const wpis = { id: w.prov.meta.id, label: w.prov.meta.label, count: w.offers.length, ok: w.ok, ms: w.ms };
     if (w.reason) wpis.reason = w.reason;
+    // NIE ZDĄŻYŁ w miękkim limicie. To trzeci stan obok „odpowiedział" i „padł":
+    // dostawca dalej pracuje, więc `ok` zostaje NULL-em — ani nie skłamiemy, że
+    // odpowiedział (ok:true z zerem ofert znaczy „nic nie ma"), ani nie ogłosimy
+    // awarii, której nie stwierdziliśmy (ok:false zapala czerwony pasek).
+    if (w.pending) {
+      wpis.pending = true;
+      wpis.reason = "nie zdążył w limicie — jego oferty dojadą przy następnym wyszukiwaniu";
+    }
     if (w.cached) { wpis.cached = true; wpis.wiek = w.wiek; }
     sources.push(wpis);
   }
@@ -257,6 +314,9 @@ export async function searchAll(crit, providers = null) {
   // być widoczni, ale opisani tym, czym są, a nie „undefinedms/0".
   console.log("[search] " + sources.map((s) => {
     if (s.skipped) return `${s.id} pominięty(brak kluczy)`;
+    // Pending ma `ms` równe miękkiemu limitowi, nie czasowi odpowiedzi — pisanie
+    // „6000ms/0" sugerowałoby, że dostawca odpowiedział zerem po sześciu sekundach.
+    if (s.pending) return `${s.id} nie zdążył(${s.ms}ms, leci w tle)`;
     return `${s.id} ${s.cached ? "cache/" + s.wiek + "s" : s.ms + "ms"}/${s.count}`;
   }).join("  "));
 
