@@ -949,6 +949,23 @@
 
   function fmt(n){return Math.round(n).toLocaleString("pl-PL");}
   function fmtDate(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?iso:d.toLocaleDateString("pl-PL",{day:"2-digit",month:"short",year:"numeric"});}
+  // Hotelbeds NIE MA trybu "pokaż cokolwiek" — availability wymaga konkretnych dat.
+  // Gdy konsultant terminu nie podał, backend pyta o nasze okno +30/+37 dni i znaczy
+  // ofertę `terminDomyslny` (patrz oknoTerminu w src/providers/hotelbeds.js).
+  // Bez tego znacznika oferta wyceniona na tydzień, którego NIKT nie wybrał, wygląda
+  // na ekranie identycznie jak oferta na termin uzgodniony z klientem — a konsultant
+  // czyta z karty cenę i podaje ją dalej jako fakt.
+  //
+  // Od 8b329fe zdarza się to za KAZDYM razem, gdy konsultant nie ruszy kalendarza:
+  // nietknięta data celowo nie jedzie do /api/search, bo nie jest decyzją klienta.
+  //
+  // ⚠️ `terminDomyslny` to pole ofert HOTELBEDS. Oferty pakietowe go nie mają, a
+  // `undefined` nie może renderować się ani jako znacznik, ani jako pusty element —
+  // stąd twarde wyjście na początku i warunek przy każdym wywołaniu.
+  function terminDemoBadge(h){
+    if(!h.terminDomyslny)return "";
+    return '<span class="scatter-badge" title="Konsultant nie podał terminu — cena dotyczy naszego okna domyślnego, nie terminu uzgodnionego z klientem.">termin przykładowy: '+fmtDate(h.terminOd)+'–'+fmtDate(h.terminDo)+'</span>';
+  }
   function nights(){var f=document.getElementById("dateFrom").value,t=document.getElementById("dateTo").value;if(!f||!t)return 7;var d=Math.round((new Date(t)-new Date(f))/864e5);return d>0?d:7;}
   function paxCount(){return (+document.getElementById("adults").value||0)+(+document.getElementById("kids").value||0);}
   // Cena łączna za grupę: realna z API (rzadkość — packages.js jej nie ma) albo
@@ -1721,7 +1738,7 @@
   // Zapisujemy lekki snapshot oferty (nie całą kartę) — starczy do listy i zestawienia.
   // priceTotalPax zapisujemy RAZEM z kwotą: koszyk przeżywa zmianę składu w wyszukiwarce,
   // więc bez tego pokazywałby sumę policzoną dla poprzedniej rodziny jako aktualną.
-  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),priceTotalPax:paxCount(),stars:h.stars,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
+  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),priceTotalPax:paxCount(),stars:h.stars,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",terminOd:h.terminOd||"",terminDo:h.terminDo||"",terminDomyslny:!!h.terminDomyslny,transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
   function toggleCart(h){var i=cart.findIndex(function(x){return x.id===h.id;});var added;if(i>-1){cart.splice(i,1);added=false;}else{cart.push(cartSnap(h));added=true;}saveCart();updateCartCount();if(!cartDrawer.hidden)renderCart();return added;}
   function removeCart(id){var i=cart.findIndex(function(x){return x.id===id;});if(i>-1){cart.splice(i,1);saveCart();updateCartCount();renderCart();syncCardButtons();}}
   function updateCartCount(){var n=cart.length;cartCountEl.textContent=n;cartCountEl.classList.toggle("on",n>0);cartHeadN.textContent=n?("("+n+")"):"";}
@@ -1738,7 +1755,7 @@
       var os=x.priceTotalPax||0,teraz=paxCount();
       var t=x.priceTotal>0?(' · razem ~<b>'+fmt(x.priceTotal)+' zł</b>'+(os?' za '+os+' '+odmOsob(os):'')+(os&&os!==teraz?' <span class="ci-stale" title="Skład wyjazdu zmienił się od odłożenia tej oferty — odłóż ją ponownie, żeby przeliczyć.">skład się zmienił</span>':'')):'';
       var v=etaVerdict(x),medal=["🥇","🥈","🥉"][i]||("#"+(i+1));
-      return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener noreferrer">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
+      return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+(x.terminDomyslny?' · '+terminDemoBadge(x):'')+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener noreferrer">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
     }).join("");
   }
   document.getElementById("cartBtn").addEventListener("click",function(){renderCart();cartDrawer.hidden=false;});
@@ -1778,7 +1795,16 @@
   function offerParamsHtml(x,n){
     function r(k,v){return v?'<tr><td class="pk">'+k+'</td><td class="pv">'+v+'</td></tr>':'';}
     var dist=function(m){return m>=1000?(m/1000).toFixed(1).replace(".",",")+" km":m+" m";};
-    var termin=x.departDate?fmtDate(x.departDate)+(x.departureCity?" · wylot z "+x.departureCity:""):"";
+    // Hotel bez lotu (Hotelbeds) nie ma departDate — termin pobytu niosą wtedy
+    // terminOd/terminDo. Bez tej gałęzi wiersz „Termin" znikał z wydruku dla klienta
+    // CAŁKOWICIE, choć to ta sama cena i ten sam termin, które widać na karcie.
+    //
+    // Dopisek przy terminie domyślnym jest napisany DLA KLIENTA, nie dla konsultanta:
+    // ten dokument trafia wprost do klienta, więc nie może zawierać wewnętrznego
+    // polecenia w rodzaju „do potwierdzenia z klientem". Klient ma się dowiedzieć,
+    // że data jest przykładowa i podlega ustaleniu — i tyle.
+    var termin=x.departDate?fmtDate(x.departDate)+(x.departureCity?" · wylot z "+x.departureCity:""):
+      (x.terminOd&&x.terminDo?fmtDate(x.terminOd)+"–"+fmtDate(x.terminDo)+(x.terminDomyslny?" (termin przykładowy, do ustalenia)":""):"");
     return '<table class="params">'+
       r("Lokalizacja",(x.region?x.region+", ":"")+(x.country||""))+
       r("Kategoria",x.stars?x.stars+"★":"")+
@@ -1970,6 +1996,10 @@
       (h.nights?row("Długość pobytu",h.nights+" nocy"):"")+
       row("Ocena wartości ETA","<b>"+etaValue(h)+"/100</b> · "+etaVerdict(h).t)+
       row("Operator / źródło",h.operator||h.source||"—")+
+      // Termin pobytu hotelu bez lotu (Hotelbeds) nie ma gdzie indziej trafić:
+      // szczegóły pokazują „Wylot" tylko dla pakietów, więc bez tego wiersza
+      // konsultant nie widzi w szczegółach ŻADNEJ daty przy cenie, którą podaje.
+      (h.terminOd&&h.terminDo?row("Termin pobytu",fmtDate(h.terminOd)+"–"+fmtDate(h.terminDo)+(h.terminDomyslny?' '+terminDemoBadge(h):"")):"")+
       row("Nr oferty",h.offerNumber||"—");
 
     var amenityChips=Array.isArray(h.amenities)&&h.amenities.length
@@ -2450,6 +2480,8 @@
             // Żaden pojedynczy termin nie spełnia wszystkich aktywnych filtrów naraz —
             // flaga z backendu (server.js, patrz ranking.js:filtrRozproszony).
             (h.filtrRozproszony?'<span class="scatter-badge" title="Żaden pojedynczy termin nie spełnia wszystkich Twoich filtrów naraz — sprawdź zakładkę „Terminy i operatorzy”.">terminy rozproszone</span>':'')+
+            // Cena dotyczy okna, którego nikt nie wybrał — patrz terminDemoBadge().
+            terminDemoBadge(h)+
           '</div>'+
           (function(){var ci=destIntelClient(h.region,h.country);return ci?'<div class="card-intel" title="'+ci.vibe+' · dla: '+ci.forWho+'">💡 <b>Kierunek:</b> '+ci.watch+'</div>':'';})()+
         '</div>'+

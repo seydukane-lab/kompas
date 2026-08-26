@@ -1162,3 +1162,83 @@ test("źródła pominięte z braku kluczy mają spokojny komunikat, osobny od al
   const wszystkoOdpytane = uruchom([{ id: "pl-packages", label: "Oferty PL (demo)", ok: true, count: 12 }]);
   assert.equal(wszystkoOdpytane.hidden, true, "komunikat wisi, choć wszystkie źródła zostały odpytane");
 });
+
+// ============================================================
+//  Termin DOMYŚLNY (oferty Hotelbeds). Backend znaczy `terminDomyslny`, gdy
+//  konsultant terminu nie podał i pytaliśmy o nasze okno +30/+37 dni. Front musi
+//  to powiedzieć wszędzie, gdzie pokazuje cenę — inaczej oferta na tydzień,
+//  którego nikt nie wybrał, wygląda jak oferta na termin uzgodniony z klientem.
+// ============================================================
+
+function terminFn(html) {
+  const badge = html.match(/function terminDemoBadge\(h\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const fmt = html.match(/function fmtDate\(iso\)\{.*\}/)?.[0] || "";
+  return { badge, fmt };
+}
+
+test("znacznik terminu przykładowego pokazuje się TYLKO dla ofert z domyślnym terminem", () => {
+  const html = wczytaj("public/index.html");
+  const { badge, fmt } = terminFn(html);
+  assert.ok(badge, "brak funkcji terminDemoBadge");
+  assert.ok(fmt, "brak fmtDate — znacznik nie miałby jak sformatować okna");
+
+  const uruchom = (h) => new Function("h", fmt + "\n" + badge + "\nreturn terminDemoBadge(h);")(h);
+
+  // Oferta pakietowa NIE MA pola terminDomyslny — undefined nie może dać ani
+  // znacznika, ani pustego elementu wiszącego w layoucie.
+  assert.equal(uruchom({ id: "pkg", departDate: "2026-09-22" }), "",
+    "oferta bez pola terminDomyslny dostała znacznik");
+  assert.equal(uruchom({ id: "hb", terminDomyslny: false, terminOd: "2026-09-22", terminDo: "2026-09-29" }), "",
+    "oferta na terminie KLIENTA oznaczona jako przykładowa — konsultant przestanie ufać znacznikowi");
+
+  const zNaszymOknem = uruchom({ id: "hb", terminDomyslny: true, terminOd: "2026-09-22", terminDo: "2026-09-29" });
+  assert.notEqual(zNaszymOknem, "", "oferta na naszym oknie nie przyznaje się do tego");
+  assert.match(zNaszymOknem, /przykładowy/, "znacznik nie mówi, że termin jest przykładowy");
+
+  // Sama informacja „termin przykładowy" bez daty nie daje konsultantowi nic —
+  // musi wiedzieć, o JAKIE okno faktycznie pytaliśmy dostawcy.
+  assert.match(zNaszymOknem, /22 wrz 2026/, "znacznik nie pokazuje początku okna, o które pytaliśmy");
+  assert.match(zNaszymOknem, /29 wrz 2026/, "znacznik nie pokazuje końca okna, o które pytaliśmy");
+});
+
+test("karta oferty wywołuje znacznik terminu, a nie renderuje go bezwarunkowo", () => {
+  const html = wczytaj("public/index.html");
+  // Znacznik musi trafić na kartę przez samą funkcję (ona pilnuje warunku),
+  // a nie przez opakowanie, które dokłada pusty element ofertom pakietowym.
+  assert.match(html, /terminDemoBadge\(h\)\+/,
+    "karta nie pokazuje znacznika terminu przykładowego");
+});
+
+test("koszyk i wydruk nie gubią informacji, że termin jest nasz", () => {
+  const html = wczytaj("public/index.html");
+
+  // cartSnap kopiuje wybrane pola — bez jawnego przepisania znacznik ginie
+  // przy dodaniu do koszyka i konsultant wysyła klientowi ofertę bez ostrzeżenia.
+  // Regex MUSI kończyć się na samym cartSnap. Wersja „do najbliższego \n  }"
+  // wciągała też renderCart, w którym `terminDomyslny` występuje — i asercja
+  // przechodziła nawet po wycięciu pola z cartSnap. Test był ślepy, wykrył to
+  // dopiero sabotaż.
+  const snap = html.match(/function cartSnap\(h\)\{return \{.*?\};\}/)?.[0] || "";
+  assert.ok(snap, "brak funkcji cartSnap");
+  assert.ok(!/function renderCart/.test(snap),
+    "wycinek cartSnap sięga poza samą funkcję — asercje niżej sprawdzą cudzy kod");
+  assert.match(snap, /terminDomyslny/, "koszyk gubi informację, że termin jest przykładowy");
+  assert.match(snap, /terminOd/, "koszyk gubi okno terminu, o które pytaliśmy");
+
+  // Wydruk dla klienta: hotel bez lotu nie ma departDate, więc bez gałęzi na
+  // terminOd/terminDo wiersz „Termin" znikał z dokumentu całkowicie.
+  const params = html.match(/function offerParamsHtml\(x,n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(params, "brak funkcji offerParamsHtml");
+  assert.match(params, /x\.terminOd&&x\.terminDo/,
+    "wydruk dla klienta nie pokazuje terminu pobytu hotelu bez lotu");
+  assert.match(params, /termin przykładowy/,
+    "wydruk nie ostrzega, że termin jest naszym oknem domyślnym");
+
+  // Ten dokument czyta KLIENT — nie może zawierać wewnętrznego polecenia dla
+  // konsultanta. Asercja negatywna musi patrzeć na SAM KOD, bez komentarzy:
+  // komentarz wyjaśniający, czego tu nie wolno pisać, zawiera dokładnie ten
+  // podciąg i przewracał ten test na własnym uzasadnieniu.
+  const paramsKod = params.replace(/\/\/[^\n]*/g, "");
+  assert.ok(!/do potwierdzenia z klientem/.test(paramsKod),
+    "wydruk dla klienta zawiera instrukcję napisaną do konsultanta");
+});
