@@ -1443,6 +1443,6 @@ test("zdanie o danych demonstracyjnych nie kłamie o skali", () => {
   // „część pozycji" byłoby nieprawdą wobec klienta.
   assert.match(uruchom([{ demo: true }, { demo: true }]), /Wszystkie pozycje/,
     "komplet ofert poglądowych opisany jako część — to nieprawda wobec klienta");
-  assert.match(uruchom([{ demo: true }, { demo: false }]), /Czesc pozycji/,
+  assert.match(uruchom([{ demo: true }, { demo: false }]), /Część pozycji/,
     "mieszane zestawienie opisane tak, jakby całe było demonstracyjne");
 });

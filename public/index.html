@@ -1820,13 +1820,13 @@
   // bez polecen dla konsultanta - ten dokument czyta osoba, ktora ma podjac decyzje.
   // Rozroznienie "wszystkie/czesc" nie jest kosmetyka: na produkcji bez kluczy API
   // demo sa WSZYSTKIE oferty i napisanie wtedy "czesc pozycji" byloby nieprawda.
-  var DEMO_ZDANIE_JEDNA="To zestawienie ma charakter pogladowy: przedstawione dane pochodza z wersji demonstracyjnej systemu i nie sa potwierdzona oferta.";
+  var DEMO_ZDANIE_JEDNA="Ta oferta ma charakter poglądowy: przedstawione dane pochodzą z wersji demonstracyjnej systemu i nie są potwierdzoną ofertą.";
   function demoZdanie(lista){
     var ile=(lista||[]).filter(function(x){return x.demo;}).length;
     if(!ile)return "";
     return ile===(lista||[]).length
-      ? "Wszystkie pozycje w tym zestawieniu pochodza z wersji demonstracyjnej systemu - nie sa potwierdzona oferta."
-      : "Czesc pozycji (oznaczonych przy ofercie) pochodzi z wersji demonstracyjnej systemu - nie sa potwierdzona oferta.";
+      ? "Wszystkie pozycje w tym zestawieniu pochodzą z wersji demonstracyjnej systemu — nie są potwierdzoną ofertą."
+      : "Część pozycji (oznaczonych przy ofercie) pochodzi z wersji demonstracyjnej systemu — nie są to potwierdzone oferty.";
   }
   function offerParamsHtml(x,n){
     function r(k,v){return v?'<tr><td class="pk">'+k+'</td><td class="pv">'+v+'</td></tr>':'';}
@@ -1866,7 +1866,7 @@
       (intel?'<p class="intel">📍 <b>O kierunku:</b> '+intel.vibe+(intel.forWho?' · Dobry dla: '+intel.forWho:'')+'</p>':'')+
       // Oferta z danych demonstracyjnych musi powiedziec to sama za siebie - naglowek
       // ginie przy wyciecu jednej strony albo przy wyslaniu pojedynczej oferty.
-      (x.demo?'<p class="demo-note">⚠ Oferta pogladowa - dane demonstracyjne, nie stanowi potwierdzonej propozycji.</p>':'')+
+      (x.demo?'<p class="demo-note">⚠ Oferta poglądowa — dane demonstracyjne, nie stanowi potwierdzonej propozycji.</p>':'')+
       // Kwota łączna zawsze z informacją, ILU OSÓB dotyczy — ten wydruk ogląda klient
       // i „razem ok. 23 350 zł" bez składu jest liczbą, o którą zaraz zapyta.
       '<div class="price-big">Cena: od '+fmt(x.price)+' zł/os. &nbsp;·&nbsp; razem ok. '+fmt(offerTotal(x,paxCount()))+' zł za '+paxCount()+' '+odmOsob(paxCount())+'</div></div>';
