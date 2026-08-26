@@ -25,7 +25,7 @@ import { activeProviders, providerStatus } from "../src/providers/index.js";
 import { analizaProgu, najwiekszaPrzerwa } from "../src/czasy-zrodel.js";
 import { ensureRate } from "../src/fx.js";
 
-const PROG = Number(process.env.PROVIDER_SOFT_TIMEOUT_MS) || 6000;
+const PROG = Number(process.env.PROVIDER_SOFT_TIMEOUT_MS) || 2500;
 const KRAJE = process.argv.slice(2).length ? process.argv.slice(2) : ["Grecja", "Egipt", "Hiszpania", "Turcja"];
 
 // Kryteria możliwie neutralne — chodzi o czas źródła, nie o trafność wyniku.

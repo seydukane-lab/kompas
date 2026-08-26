@@ -3,7 +3,7 @@
 //
 //  PROVIDER_SOFT_TIMEOUT_MS mówi, ile konsultant czeka, zanim oddamy mu to,
 //  co już dojechało (patrz providers/index.js). Dobór tej jednej liczby był
-//  dotąd na wyczucie: 6000 ms „żeby Hotelbeds mieścił się z zapasem".
+//  początkowo na wyczucie: 6000 ms „żeby Hotelbeds mieścił się z zapasem".
 //
 //  Pomiar z 26.08.2026 pokazał, dlaczego wyczucie tu nie wystarcza. Czasy
 //  źródeł nie są rozłożone równomiernie — są w dwóch skupiskach:
@@ -14,7 +14,7 @@
 //  daje DOKŁADNIE ten sam wynik — te same oferty, te same stany źródeł —
 //  i różni się wyłącznie tym, ile konsultant czeka przy ekranie. Zmierzone:
 //  próg 6000 i próg 2000 dały po 126 ofert w pięciu scenariuszach, ale 30,0 s
-//  wobec 10,1 s łącznego czekania.
+//  wobec 10,1 s łącznego czekania. Po tym pomiarze domyślny próg zszedł na 2500 ms.
 //
 //  Stąd ten moduł. Nie zgaduje progu — liczy, gdzie leży najbliższa przerwa
 //  między skupiskami, i pokazuje, ile kosztuje trzymanie progu wyżej niż to

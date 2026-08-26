@@ -57,7 +57,18 @@ const PROVIDER_DEADLINE_MS = Number(process.env.PROVIDER_TIMEOUT_MS) || 25000;
 // do cache, więc następne pytanie o to samo ma jego oferty od ręki. To ten sam
 // wzorzec co odswiezWTle() niżej — konsultant nie czeka przy ekranie na
 // najwolniejsze źródło, a dane nie przepadają.
-const PROVIDER_SOFT_DEADLINE_MS = Number(process.env.PROVIDER_SOFT_TIMEOUT_MS) || 6000;
+//
+// 2500 ms, a nie 6000 jak w pierwszej wersji. Pierwsza liczba była z wyczucia,
+// ta jest z pomiaru (26.08.2026, npm run czasy): czasy źródeł są w dwóch
+// skupiskach — pl-packages 8 ms i hotelbeds 642 ms z jednej strony, wakacje
+// 7894-9964 ms z drugiej. Między 0,7 s a 7,9 s NIE MA ŻADNEGO ŹRÓDŁA, więc
+// każdy próg z tego przedziału przepuszcza dokładnie ten sam komplet: próg 6000
+// i próg 2000 dały po 126 ofert w pięciu scenariuszach, tyle że pierwszy kazał
+// czekać 30,0 s zamiast 10,1 s. Sześć sekund kupowało zero ofert.
+// Zapas nad Hotelbedsem jest prawie czterokrotny, bo jego 642 ms zmierzono na
+// odpowiedzi 403 — ze sprawną pulą robi kilka wywołań po kolei i będzie wolniejszy.
+// Gdy pula wróci: przemierzyć (npm run czasy) i podnieść, jeśli wypadnie z progu.
+const PROVIDER_SOFT_DEADLINE_MS = Number(process.env.PROVIDER_SOFT_TIMEOUT_MS) || 2500;
 
 // Znacznik wyścigu — własny obiekt, żeby nie dało się go pomylić z odpowiedzią
 // dostawcy (dostawca zwraca tablicę, więc żadna jego wartość tym nie będzie).
@@ -315,7 +326,7 @@ export async function searchAll(crit, providers = null) {
   console.log("[search] " + sources.map((s) => {
     if (s.skipped) return `${s.id} pominięty(brak kluczy)`;
     // Pending ma `ms` równe miękkiemu limitowi, nie czasowi odpowiedzi — pisanie
-    // „6000ms/0" sugerowałoby, że dostawca odpowiedział zerem po sześciu sekundach.
+    // „2500ms/0" sugerowałoby, że dostawca odpowiedział zerem po dwóch i pół sekundy.
     if (s.pending) return `${s.id} nie zdążył(${s.ms}ms, leci w tle)`;
     return `${s.id} ${s.cached ? "cache/" + s.wiek + "s" : s.ms + "ms"}/${s.count}`;
   }).join("  "));
