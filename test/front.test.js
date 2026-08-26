@@ -1372,3 +1372,77 @@ test("panel mówi wprost, gdy kryterium nie zostało użyte", () => {
   assert.ok(!/nie zostało użyte/.test(czysto.innerHTML),
     "alarm o nieużytym kryterium pokazuje się mimo poprawnych kluczy");
 });
+
+// ============================================================
+//  Oferta poglądowa nie może dojechać do klienta bez oznaczenia
+//
+//  cartSnap() przepisuje pola RĘCZNĄ listą, więc każde nowe pole oferty trzeba
+//  dopisać jawnie — inaczej ginie po odłożeniu do koszyka. 27.08.2026 okazało się,
+//  że ginęła tak flaga `demo`: karta pisze przy takiej ofercie „cena orientacyjna",
+//  ale wydruk DLA KLIENTA nie miał już żadnego śladu, że hotel i cena są poglądowe.
+//  Na produkcji (brak kluczy API) demo są WSZYSTKIE oferty.
+//
+//  Znacznik wchodzi w czterech miejscach i asercje pilnują wszystkich czterech —
+//  przy znaczniku terminu sabotaż w dwóch z nich przeszedł kiedyś niezauważony.
+// ============================================================
+
+test("flaga oferty poglądowej przeżywa odłożenie do koszyka", () => {
+  const html = wczytaj("public/index.html");
+  const snap = html.match(/function cartSnap\(h\)\{[^}]*\};\}/)?.[0] || "";
+  assert.ok(snap, "nie znalazłem cartSnap");
+
+  for (const pole of ["demo:", "filtrRozproszony:", "attrUnknown:"]) {
+    assert.ok(snap.includes(pole),
+      `cartSnap nie przepisuje ${pole} — flaga ginie w chwili odłożenia oferty do koszyka`);
+  }
+  // `demo:!!h.demo`, nie `demo:h.demo` — do koszyka i localStorage ma trafiać wartość
+  // logiczna, nie `undefined`, które po JSON.stringify znika z obiektu bez śladu.
+  assert.match(snap, /demo:!!h\.demo/,
+    "flaga demo bez normalizacji — undefined zniknie przy zapisie koszyka");
+});
+
+test("wydruk dla klienta mówi wprost, że oferta jest poglądowa", () => {
+  const html = wczytaj("public/index.html");
+
+  // 1. Przy KAŻDEJ ofercie osobno — nagłówek ginie przy wysłaniu jednej strony.
+  const doc = html.match(/function offerDocHtml\(x,n\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(doc, "nie znalazłem offerDocHtml");
+  assert.match(doc, /x\.demo/,
+    "dokument dla klienta nie sprawdza flagi demo — oferta poglądowa wygląda w nim jak realna");
+
+  // 2. W nagłówku wydruku całego koszyka.
+  const cart = html.match(/function printCart\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(cart, "nie znalazłem printCart");
+  assert.match(cart, /demoZdanie\(ranked\)/,
+    "wydruk koszyka nie mówi klientowi, że zestawienie zawiera dane demonstracyjne");
+
+  // 3. W nagłówku wydruku pojedynczej oferty.
+  const jedna = html.match(/function printOffer\(h,sc,n,pax\)\{[\s\S]*?window\.print/)?.[0] || "";
+  assert.ok(jedna, "nie znalazłem printOffer");
+  assert.match(jedna, /h\.demo/,
+    "wydruk pojedynczej oferty pomija informację o danych demonstracyjnych");
+
+  // 4. Konsultant widzi to w koszyku, ZANIM cokolwiek wydrukuje.
+  const render = html.match(/function renderCart\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(render, "nie znalazłem renderCart");
+  assert.match(render, /x\.demo/,
+    "koszyk nie oznacza ofert poglądowych — konsultant dowie się dopiero z wydruku");
+});
+
+test("zdanie o danych demonstracyjnych nie kłamie o skali", () => {
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/function demoZdanie\(lista\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "nie znalazłem demoZdanie");
+  const uruchom = (lista) => new Function("lista", fn + "\nreturn demoZdanie(lista);")(lista);
+
+  assert.equal(uruchom([{ demo: false }, { demo: false }]), "",
+    "zestawienie z samych realnych ofert dostaje ostrzeżenie, którego nie potrzebuje");
+  assert.equal(uruchom([]), "", "puste zestawienie generuje ostrzeżenie");
+
+  // Na produkcji bez kluczy API demo są WSZYSTKIE oferty — napisanie wtedy
+  // „część pozycji" byłoby nieprawdą wobec klienta.
+  assert.match(uruchom([{ demo: true }, { demo: true }]), /Wszystkie pozycje/,
+    "komplet ofert poglądowych opisany jako część — to nieprawda wobec klienta");
+  assert.match(uruchom([{ demo: true }, { demo: false }]), /Czesc pozycji/,
+    "mieszane zestawienie opisane tak, jakby całe było demonstracyjne");
+});

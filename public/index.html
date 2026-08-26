@@ -617,6 +617,7 @@
   .wr-th-sub{font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink-faint)}
   /* Ostrzeżenie w koszyku: kwota policzona dla innego składu niż aktualny. */
   .ci-stale{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--warn);border:1px solid var(--warn);border-radius:9px;padding:0 5px;margin-left:4px;cursor:help}
+  .ci-demo{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--warn);border:1px dashed var(--warn);border-radius:9px;padding:0 5px;cursor:help}
   /* Dopisek pod kwotą w porównywarce: dla ilu osób ją policzono. */
   .cmp-sub{display:block;font-size:11px;font-weight:500;color:var(--ink-faint)}
   /* Znacznik przy kwocie, której operator nie potwierdza dla tego składu. */
@@ -1753,7 +1754,15 @@
   // Zapisujemy lekki snapshot oferty (nie całą kartę) — starczy do listy i zestawienia.
   // priceTotalPax zapisujemy RAZEM z kwotą: koszyk przeżywa zmianę składu w wyszukiwarce,
   // więc bez tego pokazywałby sumę policzoną dla poprzedniej rodziny jako aktualną.
-  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),priceTotalPax:paxCount(),stars:h.stars,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",terminOd:h.terminOd||"",terminDo:h.terminDo||"",terminDomyslny:!!h.terminDomyslny,transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||""};}
+  // UWAGA: to RECZNA lista pol, wiec kazde nowe pole oferty trzeba tu dopisac jawnie.
+  // Kosztowalo to juz raz znacznik terminu przykladowego, a 27.08.2026 wyszlo, ze
+  // gubione byly rowniez trzy flagi uczciwosci: `demo` (oferta z danych pogladowych),
+  // `filtrRozproszony` i `attrUnknown`. Najgrozniejsza jest `demo`: karta pisze przy
+  // niej "cena orientacyjna", ale po odlozeniu do koszyka oferta trafia do WYDRUKU
+  // DLA KLIENTA - a tam nie bylo juz zadnego sladu, ze hotel i cena sa pogladowe.
+  // Na produkcji (brak kluczy API) demo sa WSZYSTKIE oferty, wiec klient dostawalby
+  // liste zmyslonych propozycji bez jednego slowa ostrzezenia. Patrz printCart().
+  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),priceTotalPax:paxCount(),stars:h.stars,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",terminOd:h.terminOd||"",terminDo:h.terminDo||"",terminDomyslny:!!h.terminDomyslny,transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||"",demo:!!h.demo,filtrRozproszony:!!h.filtrRozproszony,attrUnknown:(h.attrUnknown||[]).slice()};}
   function toggleCart(h){var i=cart.findIndex(function(x){return x.id===h.id;});var added;if(i>-1){cart.splice(i,1);added=false;}else{cart.push(cartSnap(h));added=true;}saveCart();updateCartCount();if(!cartDrawer.hidden)renderCart();return added;}
   function removeCart(id){var i=cart.findIndex(function(x){return x.id===id;});if(i>-1){cart.splice(i,1);saveCart();updateCartCount();renderCart();syncCardButtons();}}
   function updateCartCount(){var n=cart.length;cartCountEl.textContent=n;cartCountEl.classList.toggle("on",n>0);cartHeadN.textContent=n?("("+n+")"):"";}
@@ -1770,7 +1779,7 @@
       var os=x.priceTotalPax||0,teraz=paxCount();
       var t=x.priceTotal>0?(' · razem ~<b>'+fmt(x.priceTotal)+' zł</b>'+(os?' za '+os+' '+odmOsob(os):'')+(os&&os!==teraz?' <span class="ci-stale" title="Skład wyjazdu zmienił się od odłożenia tej oferty — odłóż ją ponownie, żeby przeliczyć.">skład się zmienił</span>':'')):'';
       var v=etaVerdict(x),medal=["🥇","🥈","🥉"][i]||("#"+(i+1));
-      return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+(x.terminDomyslny?' · '+terminDemoBadge(x):'')+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener noreferrer">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
+      return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+(x.terminDomyslny?' · '+terminDemoBadge(x):'')+(x.demo?' · <span class="ci-demo" title="Oferta z danych demonstracyjnych — hotel i cena są poglądowe. W wydruku dla klienta jest to oznaczone.">dane demo</span>':'')+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener noreferrer">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
     }).join("");
   }
   document.getElementById("cartBtn").addEventListener("click",function(){renderCart();cartDrawer.hidden=false;});
@@ -1805,8 +1814,20 @@
   // Drukowalna prezentacja koszyka dla klienta (pod „PREZENTACJĘ OFERTY").
   // ---- WYDRUK DLA KLIENTA (nie skrypt sprzedażowy!) — opis + parametry wyjazdu ----
   // Skrypt zostaje na ekranie dla doradcy; klient dostaje czyste, faktowe zestawienie.
-  var PRINT_CSS='body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F;line-height:1.5}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}.n{font-size:18px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 10px}table.params{width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:13.5px;margin:6px 0}table.params td{padding:5px 0;vertical-align:top;border-bottom:1px solid #efeae0}table.params .pk{color:#6a746f;width:44%;padding-right:12px}table.params .pv{color:#13201F;font-weight:600}.desc{font-size:14.5px;margin:12px 0 4px;color:#2b3634}.intel{font-family:system-ui,sans-serif;font-size:12.5px;color:#3A4744;background:#F4F1EA;border-radius:8px;padding:9px 12px;margin:10px 0 2px}.price-big{font-family:system-ui,sans-serif;font-size:17px;font-weight:bold;margin-top:10px}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}';
+  var PRINT_CSS='body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F;line-height:1.5}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}.n{font-size:18px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 10px}table.params{width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:13.5px;margin:6px 0}table.params td{padding:5px 0;vertical-align:top;border-bottom:1px solid #efeae0}table.params .pk{color:#6a746f;width:44%;padding-right:12px}table.params .pv{color:#13201F;font-weight:600}.desc{font-size:14.5px;margin:12px 0 4px;color:#2b3634}.intel{font-family:system-ui,sans-serif;font-size:12.5px;color:#3A4744;background:#F4F1EA;border-radius:8px;padding:9px 12px;margin:10px 0 2px}.price-big{font-family:system-ui,sans-serif;font-size:17px;font-weight:bold;margin-top:10px}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}.demo-note{font-family:system-ui,sans-serif;font-size:12px;color:#7A4A12;background:#FDF3E3;border:1px solid #EBD6AE;border-radius:8px;padding:8px 11px;margin:10px 0 2px}';
   // Parametry oferty jako tabela (tylko dane, które REALNIE mamy — anti-przekoloryzacja).
+  // Zdanie o danych pogladowych, wspolne dla obu wydrukow. Pisane DO KLIENTA, wiec
+  // bez polecen dla konsultanta - ten dokument czyta osoba, ktora ma podjac decyzje.
+  // Rozroznienie "wszystkie/czesc" nie jest kosmetyka: na produkcji bez kluczy API
+  // demo sa WSZYSTKIE oferty i napisanie wtedy "czesc pozycji" byloby nieprawda.
+  var DEMO_ZDANIE_JEDNA="To zestawienie ma charakter pogladowy: przedstawione dane pochodza z wersji demonstracyjnej systemu i nie sa potwierdzona oferta.";
+  function demoZdanie(lista){
+    var ile=(lista||[]).filter(function(x){return x.demo;}).length;
+    if(!ile)return "";
+    return ile===(lista||[]).length
+      ? "Wszystkie pozycje w tym zestawieniu pochodza z wersji demonstracyjnej systemu - nie sa potwierdzona oferta."
+      : "Czesc pozycji (oznaczonych przy ofercie) pochodzi z wersji demonstracyjnej systemu - nie sa potwierdzona oferta.";
+  }
   function offerParamsHtml(x,n){
     function r(k,v){return v?'<tr><td class="pk">'+k+'</td><td class="pv">'+v+'</td></tr>':'';}
     var dist=function(m){return m>=1000?(m/1000).toFixed(1).replace(".",",")+" km":m+" m";};
@@ -1843,6 +1864,9 @@
     return '<div class="off"><div class="n">'+x.name+' '+stars(x.stars)+'</div><div class="loc">'+(x.region||x.country||"")+'</div>'+
       offerParamsHtml(x,n)+
       (intel?'<p class="intel">📍 <b>O kierunku:</b> '+intel.vibe+(intel.forWho?' · Dobry dla: '+intel.forWho:'')+'</p>':'')+
+      // Oferta z danych demonstracyjnych musi powiedziec to sama za siebie - naglowek
+      // ginie przy wyciecu jednej strony albo przy wyslaniu pojedynczej oferty.
+      (x.demo?'<p class="demo-note">⚠ Oferta pogladowa - dane demonstracyjne, nie stanowi potwierdzonej propozycji.</p>':'')+
       // Kwota łączna zawsze z informacją, ILU OSÓB dotyczy — ten wydruk ogląda klient
       // i „razem ok. 23 350 zł" bez składu jest liczbą, o którą zaraz zapyta.
       '<div class="price-big">Cena: od '+fmt(x.price)+' zł/os. &nbsp;·&nbsp; razem ok. '+fmt(offerTotal(x,paxCount()))+' zł za '+paxCount()+' '+odmOsob(paxCount())+'</div></div>';
@@ -1853,7 +1877,7 @@
     var n=nights();
     var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
     var rows=ranked.map(function(x){return offerDocHtml(x,n);}).join("");
-    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>'+PRINT_CSS+'</style><h1>Propozycje wyjazdów</h1><div class="sub">'+cart.length+' ofert do wyboru · ceny orientacyjne, do potwierdzenia u organizatora</div>'+rows+'<div class="foot">Zestawienie przygotowane w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>'+PRINT_CSS+'</style><h1>Propozycje wyjazdów</h1><div class="sub">'+cart.length+' ofert do wyboru · ceny orientacyjne, do potwierdzenia u organizatora</div>'+(demoZdanie(ranked)?'<p class="demo-note">⚠ '+demoZdanie(ranked)+'</p>':'')+rows+'<div class="foot">Zestawienie przygotowane w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
     w.document.close();
   }
   document.getElementById("cartPrint").addEventListener("click",printCart);
@@ -2568,7 +2592,7 @@
   }
   function fallbackCopy(txt){var ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Skopiowano ofertę ✓");}catch(e){toast("Nie udało się skopiować");}document.body.removeChild(ta);}
   // Druk pojedynczej oferty — wersja dla KLIENTA (opis + parametry), bez skryptu sprzedażowego.
-  function printOffer(h,sc,n,pax){var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}w.document.write('<!doctype html><meta charset="utf-8"><title>Oferta — '+h.name+'</title><style>'+PRINT_CSS+'</style><h1>Oferta wyjazdu</h1><div class="sub">Ceny orientacyjne, do potwierdzenia u organizatora</div>'+offerDocHtml(h,n)+'<div class="foot">Oferta przygotowana w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');w.document.close();}
+  function printOffer(h,sc,n,pax){var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}w.document.write('<!doctype html><meta charset="utf-8"><title>Oferta — '+h.name+'</title><style>'+PRINT_CSS+'</style><h1>Oferta wyjazdu</h1><div class="sub">Ceny orientacyjne, do potwierdzenia u organizatora</div>'+(h.demo?'<p class="demo-note">⚠ '+DEMO_ZDANIE_JEDNA+'</p>':'')+offerDocHtml(h,n)+'<div class="foot">Oferta przygotowana w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');w.document.close();}
 
   /* ---------- Komunikacja z backendem ---------- */
   var searchBtn=document.getElementById("searchBtn");
