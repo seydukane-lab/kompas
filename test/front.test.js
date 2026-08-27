@@ -1638,3 +1638,98 @@ test("wyszukiwanie po nazwie nie twierdzi, że hotelu nie ma, gdy źródło milc
   assert.ok(!html.includes("<h3>Nie znaleziono „'+nm+'"),
     "stara, nieescape'owana wersja nagłówka wróciła");
 });
+
+// ============================================================
+//  Suwak nietknięty nie może wyglądać jak ustawiony
+//
+//  Flagi budgetTkniety/minRateTkniety pilnują LOGIKI od 22.08.2026 — nietknięty
+//  suwak nie jedzie do backendu jako filtr. Ale WYGLĄD o nich nie wiedział: tor
+//  był wypełniony kolorem aż do uchwytu, dokładnie jak przy realnie wybranym
+//  kryterium, podczas gdy etykieta mówiła „bez limitu". Kontrolka twierdziła
+//  więc, że filtruje, choć nie filtrowała — ta sama nieuczciwość co w danych,
+//  tylko w warstwie wizualnej.
+// ============================================================
+
+test("wypełnienie suwaka pokazuje stan, a nie samą pozycję uchwytu", () => {
+  const html = wczytaj("public/index.html");
+  const fn = html.match(/function rangeFill\(el,tkniety\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "rangeFill nie przyjmuje stanu — wygląd znów oderwie się od logiki");
+
+  const suwak = (over = {}) => ({
+    min: "1500", max: "30000", value: "6000",
+    klasy: [], styl: {},
+    style: { setProperty(k, v) { this.wartosci = this.wartosci || {}; this.wartosci[k] = v; } },
+    classList: { toggle(nazwa, wl) { this.stan = { nazwa, wl }; } },
+    ...over,
+  });
+  const uruchom = (el, tkniety) => {
+    new Function("el", "tkniety", fn + "\nrangeFill(el,tkniety);")(el, tkniety);
+    return el;
+  };
+
+  const nietkniety = uruchom(suwak(), false);
+  assert.deepEqual(nietkniety.classList.stan, { nazwa: "nietkniety", wl: true },
+    "nietknięty suwak nie dostał znacznika — wygląda jak ustawiony filtr");
+
+  const tkniety = uruchom(suwak(), true);
+  assert.deepEqual(tkniety.classList.stan, { nazwa: "nietkniety", wl: false },
+    "ustawiony suwak został wyszarzony — konsultant nie zobaczy, że kryterium działa");
+  // Pozycja uchwytu liczy się dalej normalnie, niezależnie od stanu.
+  // (6000-1500)/(30000-1500) = 15,79% — pozycja liczy się dalej normalnie,
+  // niezależnie od tego, czy suwak jest ustawiony.
+  assert.equal(tkniety.style.wartosci["--fill"], "15.789473684210526%",
+    "wypełnienie przestało być liczone z min/max/value");
+});
+
+test("start i reset zostawiają suwaki w stanie nieustawionym", () => {
+  const html = wczytaj("public/index.html");
+
+  // Wywołanie startowe MUSI przekazać flagę, a nie `true` na sztywno — inaczej
+  // panel od pierwszej sekundy pokazuje dwa aktywne filtry, których nikt nie wybrał.
+  assert.match(html, /rangeFill\(budget,budgetTkniety\);rangeFill\(minRate,minRateTkniety\);/,
+    "start nie przekazuje stanu suwaków — wracają wypełnione bez decyzji konsultanta");
+  assert.ok(!/rangeFill\(budget\)|rangeFill\(minRate\)/.test(html),
+    "został gdzieś stary jednoargumentowy rangeFill — ten suwak zawsze wygląda na ustawiony");
+
+  // Przełączenie trybu budżetu to jeszcze NIE ustawienie limitu (ta sama zasada,
+  // co przy budgetOpis) — więc po zmianie trybu suwak ma zostać nieustawiony.
+  const tryb = html.match(/function applyBudgetMode\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(tryb, "nie znalazłem applyBudgetMode");
+  assert.match(tryb, /rangeFill\(budget,budgetTkniety\)/,
+    "zmiana trybu budżetu oznacza suwak jako ustawiony, choć limitu nikt nie wybrał");
+});
+
+test("skala mówi, jaki jest zakres suwaka", () => {
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /<div class="range-skala"><span id="budgetMin"><\/span><span id="budgetMax">/,
+    "brak skali pod budżetem — pozycja uchwytu nic nie mówi o kwocie");
+  assert.match(html, /<div class="range-skala"><span>6,0<\/span><span>9,5<\/span>/,
+    "brak skali pod oceną");
+
+  // Zakres budżetu ZMIENIA SIĘ z trybem („za osobę" 1500-30000, „za wszystkich"
+  // 3000-120000), więc podpisy muszą być liczone z kontrolki, nie wpisane w HTML.
+  const tryb = html.match(/function applyBudgetMode\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.match(tryb, /rangeSkala\(budget,"budgetMin","budgetMax"/,
+    "po zmianie trybu skala pokazuje zakres poprzedniego trybu — czyli kłamie");
+
+  const fn = html.match(/function rangeSkala\([\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fn, "nie znalazłem rangeSkala");
+  const box = { a: {}, b: {} };
+  new Function("document", "fmt", "el", fn +
+    "\nrangeSkala(el,'a','b',' zł');")(
+    { getElementById: (id) => (id === "a" ? box.a : box.b) },
+    (n) => String(n),
+    { min: "3000", max: "120000" });
+  assert.equal(box.a.textContent, "3000 zł", "dolna granica skali nie pochodzi z kontrolki");
+  assert.equal(box.b.textContent, "120000 zł", "górna granica skali nie pochodzi z kontrolki");
+});
+
+test("stan nieustawiony ma własny wygląd w CSS, nie tylko w JS", () => {
+  const html = wczytaj("public/index.html");
+  // Sam znacznik w klasie nic nie zmienia, jeśli nie ma reguły, która go czyta.
+  assert.match(html, /input\[type=range\]\.nietkniety::-webkit-slider-runnable-track\{background:var\(--line\)\}/,
+    "brak reguły neutralizującej wypełnienie toru — znacznik jest, a suwak dalej wygląda na ustawiony");
+  assert.match(html, /input\[type=range\]\.nietkniety::-moz-range-progress\{background:var\(--line\)\}/,
+    "Firefox rysuje ::-moz-range-progress sam — bez tej reguły tam dalej będzie wypełnienie");
+});

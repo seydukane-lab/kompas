@@ -148,6 +148,24 @@
      input kurczy się do wysokości toru i uchwyt wystaje poza element — suwak wygląda
      wtedy jak cienka kreska i trudno go złapać myszą. */
   input[type=range]{width:100%;height:18px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;margin:2px 0}
+  /* NIETKNIĘTY SUWAK NIE MOŻE WYGLĄDAĆ JAK USTAWIONY. Etykieta mówiła „bez limitu",
+     a tor był wypełniony kolorem aż do uchwytu — czyli dokładnie tak, jak przy realnie
+     wybranym kryterium. To ta sama nieuczciwość, którą tępimy w danych, tylko w warstwie
+     wizualnej: kontrolka twierdziła, że filtruje, choć nie filtrowała. Flagi
+     budgetTkniety/minRateTkniety istniały od 22.08 i sterowały LOGIKĄ, ale nie wyglądem.
+     Stan nietknięty: jednolity tor i pusty uchwyt — widać, że nikt tu nic nie ustawił. */
+  input[type=range].nietkniety::-webkit-slider-runnable-track{background:var(--line)}
+  input[type=range].nietkniety::-moz-range-track{background:var(--line)}
+  input[type=range].nietkniety::-webkit-slider-thumb{background:var(--surface);
+    border:2.5px solid var(--line-strong);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  input[type=range].nietkniety::-moz-range-thumb{background:var(--surface);
+    border:2.5px solid var(--line-strong);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  input[type=range].nietkniety::-moz-range-progress{background:var(--line)}
+  /* Skala pod torem: bez niej pozycja uchwytu nic nie znaczy — konsultant nie wie,
+     czy zakres to 1500–30000 zł, czy 6–9,5 punktu. Granice zmieniają się przy
+     przełączeniu trybu budżetu, więc podpisy są aktualizowane z JS, nie zapisane w HTML. */
+  .range-skala{display:flex;justify-content:space-between;margin-top:1px;
+    font-size:10.5px;color:var(--ink-faint);font-variant-numeric:tabular-nums;letter-spacing:.01em}
   input[type=range]:focus{outline:none}
   input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;
     background:linear-gradient(to right,var(--accent) 0%,var(--accent-deep) var(--fill,50%),var(--line) var(--fill,50%),var(--line) 100%)}
@@ -758,8 +776,8 @@
           <button type="button" class="bt-opt active" data-bmode="person">za osobę</button>
           <button type="button" class="bt-opt" data-bmode="total">za wszystkich</button>
         </div>
-        <input type="range" id="budget" min="1500" max="30000" step="250" value="6000"></div>
-      <div class="field"><label for="minRate">Min. ocena gości <span class="range-val" id="minRateVal">dowolna</span></label><input type="range" id="minRate" min="6" max="9.5" step="0.1" value="7.5"></div>
+        <input type="range" id="budget" min="1500" max="30000" step="250" value="6000" class="nietkniety"><div class="range-skala"><span id="budgetMin"></span><span id="budgetMax"></span></div></div>
+      <div class="field"><label for="minRate">Min. ocena gości <span class="range-val" id="minRateVal">dowolna</span></label><input type="range" id="minRate" min="6" max="9.5" step="0.1" value="7.5" class="nietkniety"><div class="range-skala"><span>6,0</span><span>9,5</span></div></div>
       <div class="sec-head">Doprecyzuj</div>
       <div class="field"><label>Wyżywienie</label><div class="chips" id="boardChips">
         <button class="chip" data-board="All Inclusive" aria-pressed="false">All Inclusive</button>
@@ -1161,10 +1179,21 @@
   // Odmalowuje wypełnienie toru suwaka do pozycji uchwytu (WebKit nie robi tego sam).
   // MUSI być wołane wszędzie, gdzie zmienia się value albo zakres min/max — inaczej
   // pasek zostaje w starym miejscu i pokazuje co innego niż liczba obok.
-  function rangeFill(el){
+  // Drugi argument to NIE kosmetyka: nietknięty suwak z wypełnionym torem wygląda
+  // dokładnie jak ustawiony, choć etykieta mówi „bez limitu" i filtr nie jedzie do
+  // backendu. Wygląd musi mówić to samo co logika, inaczej kontrolka kłamie.
+  function rangeFill(el,tkniety){
     var min=+el.min||0,max=+el.max||100,v=+el.value;
     var pct=max>min?((v-min)/(max-min))*100:0;
     el.style.setProperty("--fill",Math.max(0,Math.min(100,pct))+"%");
+    el.classList.toggle("nietkniety",!tkniety);
+  }
+  // Podpisy skali. Dla budżetu zmieniają się z trybem („za osobę" ma inny zakres niż
+  // „za wszystkich"), więc liczymy je z min/max kontrolki, a nie wpisujemy w HTML.
+  function rangeSkala(el,idMin,idMax,jednostka){
+    var a=document.getElementById(idMin),b=document.getElementById(idMax);
+    if(a)a.textContent=fmt(+el.min)+jednostka;
+    if(b)b.textContent=fmt(+el.max)+jednostka;
   }
   // SUWAKI STARTUJĄ JAKO NIEUSTAWIONE. Uchwyt suwaka musi gdzieś stać, ale jego
   // pozycja startowa NIE jest decyzją konsultanta — a do 22.08.2026 była tak traktowana:
@@ -1175,7 +1204,7 @@
   var budgetTkniety=false,minRateTkniety=false;
   function budgetOpis(){return budgetTkniety?fmt(+budget.value)+" zł":"bez limitu";}
   function minRateOpis(){return minRateTkniety?(+minRate.value).toFixed(1).replace(".",","):"dowolna";}
-  budget.addEventListener("input",function(){budgetTkniety=true;budgetVal.textContent=budgetOpis();rangeFill(budget);updateFilterCount();});
+  budget.addEventListener("input",function(){budgetTkniety=true;budgetVal.textContent=budgetOpis();rangeFill(budget,budgetTkniety);updateFilterCount();});
   // Przełącznik budżetu: „za osobę" (cena/os.) vs „za wszystkich" (cena łączna).
   // Twardy limit — filtr odcina wszystko powyżej wybranej kwoty w danym trybie.
   // „Za wszystkich" ma większy zakres suwaka (bo to suma za cały wyjazd).
@@ -1191,7 +1220,8 @@
       document.getElementById("budgetLabel").textContent="Budżet / os. — max";
     }
     budgetVal.textContent=budgetOpis(); // przełączenie trybu to jeszcze nie ustawienie limitu
-    rangeFill(budget); // zmiana trybu zmienia min/max, więc samo value nie wystarczy
+    rangeFill(budget,budgetTkniety); // zmiana trybu zmienia min/max, więc samo value nie wystarczy
+    rangeSkala(budget,"budgetMin","budgetMax"," zł"); // inny tryb = inny zakres na skali
   }
   document.getElementById("budgetToggle").addEventListener("click",function(e){
     var b=e.target.closest(".bt-opt");if(!b)return;
@@ -1199,8 +1229,10 @@
     this.querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x===b);});
     applyBudgetMode();
   });
-  minRate.addEventListener("input",function(){minRateTkniety=true;minRateVal.textContent=minRateOpis();rangeFill(minRate);updateFilterCount();});
-  rangeFill(budget);rangeFill(minRate); // wypełnienie startowe, zanim ktokolwiek dotknie suwaka
+  minRate.addEventListener("input",function(){minRateTkniety=true;minRateVal.textContent=minRateOpis();rangeFill(minRate,minRateTkniety);updateFilterCount();});
+  // Start: OBA suwaki nietknięte, więc bez wypełnienia — tak wygląda „nic nie ustawiono".
+  rangeFill(budget,budgetTkniety);rangeFill(minRate,minRateTkniety);
+  rangeSkala(budget,"budgetMin","budgetMax"," zł");
 
   // Bliźniak trustLabel() z src/ranking.js — oba muszą mówić to samo. Oferta bez ZNANEJ
   // liczby opinii nie dostaje podpisu o wolumenie („mało / stare"), bo tego nie wiemy:
@@ -2653,7 +2685,7 @@
   var hotelName=document.getElementById("hotelName");
   hotelName.addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   document.getElementById("hotelNameClr").addEventListener("click",function(){hotelName.value="";hotelName.focus();search();});
-  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetTkniety=false;minRateTkniety=false;budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent=budgetOpis();rangeFill(budget);minRate.value=7.5;minRateVal.textContent=minRateOpis();rangeFill(minRate);activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
+  document.getElementById("resetBtn").addEventListener("click",function(){document.getElementById("hotelName").value="";clearGeo();document.getElementById("practical").classList.remove("show","open");document.getElementById("adults").value=2;document.getElementById("kids").value=0;document.getElementById("kids").dispatchEvent(new Event("input",{bubbles:true}));budgetTkniety=false;minRateTkniety=false;budgetMode="person";document.getElementById("budgetToggle").querySelectorAll(".bt-opt").forEach(function(x){x.classList.toggle("active",x.dataset.bmode==="person");});applyBudgetMode();budget.value=6000;budgetVal.textContent=budgetOpis();rangeFill(budget,budgetTkniety);minRate.value=7.5;minRateVal.textContent=minRateOpis();rangeFill(minRate,minRateTkniety);activeBoards.length=0;activeTags.length=0;activeTrans.length=0;activeDeps.length=0;activeAttrs.length=0;activeWeekdays.length=0;activeMinStars=0;onlyReviewed=false;activeNights=0;activeFlex=0;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});var dw=starChips.querySelector('[data-stars="0"]');if(dw)dw.setAttribute("aria-pressed","true");var dn=nightsChips.querySelector('[data-nights="0"]');if(dn)dn.setAttribute("aria-pressed","true");var df=dateFlexChips.querySelector('[data-flex="0"]');if(df)df.setAttribute("aria-pressed","true");updateFilterCount();search();});
 
   // Uwaga na kolejność: daty startowe ustawiane są PO spięciu pól (spinajDaty wyżej),
   // więc bez tego `change` powrót nie dostałby atrybutu min aż do pierwszej ręcznej zmiany.
