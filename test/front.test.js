@@ -1609,3 +1609,32 @@ test("pusty ekran czyta nagłówek z zeroNaglowek, a nie ze sztywnego tekstu", (
   assert.match(html, /ostatnieZrodla=data\.sources\|\|\[\]/,
     "panel nie zapamiętuje źródeł z odpowiedzi — zeroNaglowek zawsze zobaczy pustą listę");
 });
+
+// ============================================================
+//  Szukanie po nazwie hotelu — ta sama zasada co przy zerze wyników
+//
+//  „Nie znaleziono X" to twierdzenie o rynku. Gdy źródło padło albo nie zdążyło,
+//  nie wiemy, czy tego hotelu nie ma — wiemy tylko, że go nie zobaczyliśmy.
+//  Ta gałąź została pominięta przy pierwszej poprawce pustego ekranu (27.08),
+//  choć popełnia dokładnie ten sam błąd.
+// ============================================================
+
+test("wyszukiwanie po nazwie nie twierdzi, że hotelu nie ma, gdy źródło milczy", () => {
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /var nwN=zeroNaglowek\(\),nmB=htmlNaZywo\(nm\);/,
+    "gałąź szukania po nazwie nie pyta o stan źródeł ani nie ucieka znaków w nazwie");
+  assert.match(html, /nwN\?'Nie wiemy, czy/,
+    "przy niesprawdzonym rynku panel dalej twierdzi „nie znaleziono");
+
+  // Nazwę wpisuje konsultant, a wraca ona do innerHTML — ten sam wzorzec, przez
+  // który wcześniej dało się wstrzyknąć znacznik przez nieznane kryterium filtra.
+  // Do nagłówka ma iść WYŁĄCZNIE wersja po escape (nmB); surowe `nm` zostaje
+  // tylko w textContent paska pod licznikiem, gdzie przeglądarka nie parsuje HTML.
+  assert.match(html, /Nie wiemy, czy „'\+nmB\+'/,
+    "nagłówek buduje się z surowej nazwy zamiast z wersji po escape");
+  assert.match(html, /Nie znaleziono „'\+nmB\+'/,
+    "drugi wariant nagłówka dalej wstawia surową nazwę do innerHTML");
+  assert.ok(!html.includes("<h3>Nie znaleziono „'+nm+'"),
+    "stara, nieescape'owana wersja nagłówka wróciła");
+});
