@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
+import { wersjaKodu } from "./src/wersja.js";
 import { applyFilters, promoteMatchingVariant, filtrRozproszony, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia, znanyAtrybut } from "./src/ranking.js";
 import { clientData, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
@@ -177,8 +178,17 @@ app.post("/api/advisor", async (req, res) => {
 
 // Kontrola życia procesu — dla hostingu i prostego monitoringu.
 // Poza /api, więc nie wymaga sesji: monitoring nie ma się jak zalogować.
+// `wersja` to jedyny sposób, żeby SPRAWDZIĆ z zewnątrz, co naprawdę stoi pod tym
+// adresem — auto-deploy jest wyłączony, więc push nie jest wdrożeniem, a kliknięcie
+// „Deploy" nie jest dowodem, że wdrożenie się udało. Patrz src/wersja.js.
+// `null` znaczy „środowisko nie zna hasha", a nie „nieaktualne" — nie zgadujemy.
 app.get("/healthz", (req, res) => {
-  res.json({ ok: true, uptime: Math.round(process.uptime()), time: new Date().toISOString() });
+  res.json({
+    ok: true,
+    uptime: Math.round(process.uptime()),
+    time: new Date().toISOString(),
+    wersja: wersjaKodu(),
+  });
 });
 
 // --- Status dostawców (do baneru w panelu) ---

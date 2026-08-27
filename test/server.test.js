@@ -323,3 +323,28 @@ test("znane kryterium nie wywoluje falszywego alarmu o nieuzytym filtrze", async
   assert.equal(d.attrsNieznane, undefined,
     "poprawny klucz zglaszany jako nieznany - panel bilby na alarm przy kazdym wyszukiwaniu");
 });
+
+// ============================================================
+//  /healthz mówi, KTÓRA wersja stoi pod tym adresem
+//
+//  Auto-deploy jest wyłączony, więc push nie jest wdrożeniem, a kliknięcie
+//  „Deploy" nie jest dowodem, że wdrożenie się udało. Bez tego pola jedynym
+//  sposobem sprawdzenia produkcji jest zalogowanie się do panelu hostingu.
+// ============================================================
+
+test("/healthz podaje wersję kodu, którą uruchomiono", async () => {
+  const r = await fetch(BASE + "/healthz");
+  assert.equal(r.status, 200);
+  const d = await r.json();
+
+  assert.ok("wersja" in d,
+    "/healthz nie podaje wersji — nie da się z zewnątrz sprawdzić, co stoi na produkcji");
+  // Testy startują z repo, więc hash MUSI się odczytać. `null` znaczyłoby, że
+  // odczyt się wysypał i produkcja też przestałaby cokolwiek raportować.
+  assert.match(String(d.wersja), /^[0-9a-f]{7}$/,
+    `oczekiwano skróconego hasha, dostałem ${JSON.stringify(d.wersja)}`);
+
+  // Sonda żywotności ma zostać sondą: reszta pól nie może zniknąć.
+  assert.equal(d.ok, true);
+  assert.equal(typeof d.uptime, "number");
+});
