@@ -12,6 +12,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname } from "node:path";
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { wersjaKodu } from "../src/wersja.js";
@@ -81,5 +85,48 @@ test("uszkodzony wskaźnik gałęzi nie wywraca serwera", () => {
     assert.equal(wersjaKodu({}, zepsuty), null, "uszkodzony HEAD powinien dać null");
   } finally {
     rmSync(zepsuty, { recursive: true, force: true });
+  }
+});
+
+test("wersja jest zamrożona przy starcie, nie czytana przy każdym żądaniu", () => {
+  // Wpadka z 28.08.2026: lokalny serwer chodził blisko trzy godziny, a /healthz
+  // podawał hash commita zrobionego minutę wcześniej — bo `.git/HEAD` czytany przy
+  // każdym żądaniu mówi, co jest W REPO, a nie co wykonuje proces. Endpoint mający
+  // chronić przed pomyłką co do wdrożonej wersji sam zaczynał kłamać, i to zawsze
+  // na korzyść najnowszego kodu, czyli w stronę „poprawka już działa".
+  //
+  // Test MUSI iść przez osobny proces z własnym katalogiem: w tym samym procesie
+  // ponowny odczyt zwraca tę samą wartość, więc różnicy nie widać i sabotaż
+  // (powrót do liczenia na żądanie) przechodzi. Pierwsza wersja tego testu
+  // właśnie tak przeszła obok — wyglądała mocno i nie sprawdzała niczego.
+  const A = "aaaaaaa1111111111111111111111111111111111";
+  const B = "bbbbbbb2222222222222222222222222222222222";
+  const dir = mkdtempSync(join(tmpdir(), "kompas-zamrozona-"));
+  try {
+    mkdirSync(join(dir, ".git"), { recursive: true });
+    writeFileSync(join(dir, ".git", "HEAD"), A + "\n");
+
+    const modul = pathToFileURL(join(ROOT, "src", "wersja.js")).href;
+    const skrypt =
+      `const { wersjaUruchomienia, wersjaKodu } = await import(${JSON.stringify(modul)});` +
+      `const przed = wersjaUruchomienia();` +
+      `require("fs").writeFileSync(".git/HEAD", ${JSON.stringify(B)});` +
+      `console.log(JSON.stringify({ przed, po: wersjaUruchomienia(), swiezy: wersjaKodu() }));`;
+
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e",
+      `const require = (await import("node:module")).createRequire(import.meta.url);` + skrypt],
+      { cwd: dir, encoding: "utf8" });
+    assert.equal(r.status, 0, `proces potomny padł: ${r.stderr}`);
+    const d = JSON.parse(r.stdout.trim());
+
+    assert.equal(d.przed, "aaaaaaa", "moduł nie odczytał wersji przy starcie");
+    assert.equal(d.po, "aaaaaaa",
+      "wersja zmieniła się w trakcie życia procesu — /healthz zacznie raportować stan repo zamiast uruchomionego kodu");
+    // Kontrola, że plik NAPRAWDĘ się zmienił — inaczej test przechodziłby przez
+    // nieudaną podmianę, a nie przez zamrożenie wartości.
+    assert.equal(d.swiezy, "bbbbbbb",
+      "podmiana .git/HEAD nie zaszła, więc test niczego nie dowodzi");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

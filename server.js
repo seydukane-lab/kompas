@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
-import { wersjaKodu } from "./src/wersja.js";
+import { wersjaUruchomienia } from "./src/wersja.js";
 import { applyFilters, promoteMatchingVariant, filtrRozproszony, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia, znanyAtrybut } from "./src/ranking.js";
 import { clientData, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
@@ -187,7 +187,7 @@ app.get("/healthz", (req, res) => {
     ok: true,
     uptime: Math.round(process.uptime()),
     time: new Date().toISOString(),
-    wersja: wersjaKodu(),
+    wersja: wersjaUruchomienia(), // odczyt z chwili STARTU, nie z biezacego stanu repo
   });
 });
 

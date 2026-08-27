@@ -40,3 +40,22 @@ export function wersjaKodu(env = process.env, katalog = process.cwd()) {
     return null; // brak .git (np. wdrożenie z archiwum) — nie zgadujemy
   }
 }
+
+// ODCZYT RAZ, PRZY STARCIE — nie przy każdym żądaniu.
+//
+// Wpadka złapana 28.08.2026 zaraz po wdrożeniu tego modułu: lokalny serwer chodził
+// od blisko trzech godzin, a `/healthz` podawał hash commita zrobionego minutę
+// wcześniej. Bo `.git/HEAD` czytany per żądanie mówi, co jest W REPO TERAZ, a nie
+// co wykonuje uruchomiony proces. Czyli endpoint stworzony po to, żeby nie dać się
+// okłamać co do wdrożonej wersji, sam zaczynał kłamać — i to w najgorszy sposób,
+// bo zawsze na korzyść „najnowszego" kodu.
+//
+// Na produkcji problem nie występuje (hash idzie ze zmiennej ustawionej przy
+// wdrożeniu), ale to właśnie lokalnie i u nocnego agenta sprawdza się „czy na pewno
+// uruchomiłem to, co myślę". Wartość zamrażamy w chwili importu modułu.
+const PRZY_STARCIE = wersjaKodu();
+
+/** Wersja kodu, z którą wystartował TEN proces. Nie zmienia się w trakcie życia serwera. */
+export function wersjaUruchomienia() {
+  return PRZY_STARCIE;
+}
