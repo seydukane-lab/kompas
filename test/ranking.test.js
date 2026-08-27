@@ -965,12 +965,28 @@ test("bez podanego terminu filtr w ogóle nie działa", () => {
     "puste pola dat zaczęły filtrować — nietknięty termin wraca tylnymi drzwiami");
 });
 
-test("powrót po końcu okna nie przechodzi, choć wylot mieści się w terminie", () => {
-  // „22–29.09, dokładny termin" nie może wpuścić wyjazdu 28.09–12.10: formalnie
-  // zaczyna się w oknie, realnie jest zupełnie innym wyjazdem.
-  const lista = [wyjazd("2026-09-28", "2026-10-12", { id: "dwutygodniowy" })];
-  assert.equal(applyFilters(lista, { from: "2026-09-22", to: "2026-09-29" }).length, 0,
-    "wyjazd wystający poza okno klienta przeszedł filtr terminu");
+test("okno terminu dotyczy WYLOTU, a długość pobytu przycina osobne kryterium", () => {
+  // ZMIANA SEMANTYKI 27.08.2026, decyzja właściciela na pomiarze. Wcześniej w oknie
+  // musiał zmieścić się cały wyjazd — brzmiało ostrożniej, ale przy „Dokładnym
+  // terminie" okno ma dokładnie długość wyjazdu, więc wylot musiał trafić co do dnia
+  // w jego pierwszy dzień. Zmierzone na katalogu PL (453 warianty, 72 zapytania):
+  // 3 zapytania zwracały ZERO ofert wyłącznie przez tę semantykę, a przy wylocie
+  // +16 dni przechodziło 13 ofert zamiast 207.
+  const dwutygodniowy = wyjazd("2026-09-28", "2026-10-12", { id: "dwutygodniowy", nights: 14 });
+  const okno = { from: "2026-09-22", to: "2026-09-29" };
+
+  assert.equal(applyFilters([dwutygodniowy], okno).length, 1,
+    "wylot w oknie odpadł przez datę powrotu — wróciła semantyka sprzed 27.08");
+
+  // I ZABEZPIECZENIE TEJ DECYZJI: skoro okno przestało ograniczać czas trwania,
+  // robi to kryterium „długość pobytu". Bez tego zmiana byłaby zwykłym poluzowaniem.
+  assert.equal(applyFilters([dwutygodniowy], { ...okno, nights: 7 }).length, 0,
+    "dwutygodniowy wyjazd przeszedł przy wybranych 7 nocach — nic już nie pilnuje długości");
+
+  // Wylot PO końcu okna dalej odpada — inaczej filtr przestałby cokolwiek znaczyć.
+  const poOknie = [wyjazd("2026-09-30", "2026-10-07", { id: "po-oknie" })];
+  assert.equal(applyFilters(poOknie, okno).length, 0,
+    "wylot poza oknem klienta przeszedł filtr terminu");
 });
 
 test("nieznana data powrotu nie odsiewa oferty, nieznany wylot tak", () => {

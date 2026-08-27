@@ -118,24 +118,33 @@ export function matchesAnyVariant(offer, warunek) {
   return warianty.some((v) => warunek(v));
 }
 
-// Termin = OKNO, w którym klient może być na wyjeździe, a nie sama data wylotu.
-// Front wysyła je JUŻ poszerzone o wybraną elastyczność (widenDate, chipy
-// „±1/±3/±7 dni"), więc tutaj [from, to] traktujemy dosłownie: cały wyjazd —
-// wylot i powrót — musi się w oknie zmieścić. Inaczej „22–29.09, dokładny termin"
-// wpuszczałoby wylot 28.09 z powrotem 12.10, formalnie zaczynający się w oknie,
-// a realnie będący zupełnie innym wyjazdem.
+// Termin = OKNO, w którym klient chce WYLECIEĆ. Data powrotu nie jest tu warunkiem.
+//
+// DO 27.08.2026 BYŁO ODWROTNIE: w oknie musiał zmieścić się CAŁY wyjazd, wylot
+// i powrót. Brzmiało ostrożniej, ale przy „Dokładnym terminie" okno ma dokładnie
+// długość wyjazdu, więc wylot musiał trafić co do dnia w pierwszy dzień okna.
+// Zmierzone 27.08 na katalogu PL (453 warianty, 72 realistyczne zapytania,
+// pomiar nocnego potwierdzony niezależnie): przy 7 nocach i elastyczności ±0
+// wylot +16 dni dawał 13 ofert zamiast 207, +32 dni 3 zamiast 36, a wyloty
+// +40/+44/+48 dni ZERO zamiast 27/27/20. Trzy zapytania z 72 zwracały pustkę
+// wyłącznie przez semantykę filtra — czyli konsultant mówił klientowi „nie ma nic"
+// o terminie, w którym oferty były. Decyzja właściciela z 27.08: okno dotyczy wylotu.
+//
+// Czas trwania wyjazdu ogranicza OSOBNE kryterium „długość pobytu" (crit.nights,
+// tolerancja ±1 noc) — i to ono, a nie okno terminu, jest właściwym miejscem na tę
+// decyzję. Świadomy koszt: przy wylocie ostatniego dnia okna i długim pobycie klient
+// wróci po dacie, którą wpisał; kryterium liczby nocy to przycina, gdy jest ustawione.
 //
 // Daty są w ISO (YYYY-MM-DD), więc porównanie stringów jest porównaniem
 // chronologicznym — bez parsowania i bez stref czasowych.
 //
 // Wariant BEZ daty wylotu nie pasuje do wybranego terminu (ta sama zasada co przy
-// dniach tygodnia). Ale brak daty POWROTU już nie odsiewa: to niewiadoma, a nie
-// dowód niezgodności — ta sama reguła co przy ocenie, gwiazdkach i wyżywieniu.
+// dniach tygodnia): nie da się go przypisać do żadnego okna. Data powrotu nie jest
+// tu w ogóle czytana, więc jej brak nie ma jak zaszkodzić.
 export function variantWithinDates(v, from, to) {
   if (!v.departDate) return false;
   if (from && v.departDate < from) return false;
   if (to && v.departDate > to) return false;
-  if (to && v.returnDate && v.returnDate > to) return false;
   return true;
 }
 
