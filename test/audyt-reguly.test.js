@@ -8,7 +8,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { podejrzaneZero, PROG_CISZY_MS, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen } from "../src/audyt-reguly.js";
+import { podejrzaneZero, PROG_CISZY_MS, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen, rozproszenieZWariantow, plakietkiRozproszenia } from "../src/audyt-reguly.js";
 
 // Wpis w sources[] taki, jaki realnie wraca z /api/search.
 const zrodlo = (over = {}) => ({ id: "x", label: "Źródło", count: 0, ok: true, ms: 5, ...over });
@@ -126,4 +126,65 @@ test("przecieku nie da się zagłuszyć niewiadomymi", () => {
   assert.equal(ocena.przyklady.length, 1, "raport puchnie zamiast wskazać przykłady");
   assert.equal(filtrBezPotwierdzen(ocena), false,
     "lista z przeciekiem zgłoszona TAKŻE jako pusta — jedno znalezisko zamieniłoby się w dwa");
+});
+
+// ============================================================
+//  Plakietka „terminy rozproszone" — sprawdzana niezależnie
+//
+//  Panel twierdzi, że ŻADEN pojedynczy termin nie spełnia wszystkich filtrów naraz.
+//  Konsultant uprzedza na tej podstawie klienta, że wyjazd trzeba poskładać inaczej,
+//  niż wygląda na karcie. Audyt liczy to OD NOWA z wariantów, a nie przez ranking.js —
+//  inaczej potwierdzałby sam siebie i przespał błąd obecny po obu stronach naraz.
+// ============================================================
+
+// Wariant pakietu: tylko pola, po których filtruje się termin.
+const wariant = (over = {}) => ({ departureCity: "Katowice", transport: "Samolot", departDate: "2026-09-05", ...over });
+// 2026-09-05 to sobota, 2026-09-06 niedziela — dni tygodnia liczone jak Date#getDay.
+const pakiet = (warianty) => ({ id: "p", name: "Hotel", type: "package", variants: warianty });
+
+test("rozproszenie widać dopiero wtedy, gdy ŻADEN termin nie łapie kompletu", () => {
+  const kryteria = { departures: ["Katowice"], weekdays: [6] };
+
+  // Jeden wariant spełnia oba kryteria naraz — nie ma rozproszenia.
+  assert.equal(rozproszenieZWariantow(pakiet([
+    wariant({ departureCity: "Katowice", departDate: "2026-09-05" }),
+    wariant({ departureCity: "Warszawa", departDate: "2026-09-06" }),
+  ]), kryteria), false, "oferta z pasującym terminem oznaczona jako rozproszona");
+
+  // Każde kryterium spełnia INNY wariant — to właśnie rozproszenie.
+  assert.equal(rozproszenieZWariantow(pakiet([
+    wariant({ departureCity: "Katowice", departDate: "2026-09-06" }),
+    wariant({ departureCity: "Warszawa", departDate: "2026-09-05" }),
+  ]), kryteria), true, "rozproszenie przeoczone — konsultant obieca wyjazd, którego nie ma");
+});
+
+test("bez dwóch kryteriów albo dwóch terminów nie ma o czym mówić", () => {
+  const dwa = [wariant(), wariant({ departureCity: "Warszawa" })];
+
+  assert.equal(rozproszenieZWariantow(pakiet(dwa), { departures: ["Katowice"] }), null,
+    "jedno kryterium nie ma się jak rozproszyć — flaga z definicji nie powstaje");
+  assert.equal(rozproszenieZWariantow(pakiet([wariant()]), { departures: ["Katowice"], weekdays: [6] }), null,
+    "pojedynczy termin nie może być rozproszony między terminami");
+  assert.equal(rozproszenieZWariantow({ id: "h", type: "hotel", variants: dwa }, { departures: ["Katowice"], weekdays: [6] }), null,
+    "hotel bez lotu nie ma terminów wylotu — nie wolno mu doklejać tej plakietki");
+});
+
+test("obie pomyłki plakietki są wychwytywane osobno", () => {
+  const kryteria = { departures: ["Katowice"], weekdays: [6] };
+  const rozproszony = [wariant({ departDate: "2026-09-06" }), wariant({ departureCity: "Warszawa" })];
+  const zwarty = [wariant(), wariant({ departureCity: "Warszawa", departDate: "2026-09-06" })];
+
+  const w = plakietkiRozproszenia([
+    { ...pakiet(rozproszony), name: "BezPlakietki", filtrRozproszony: false },
+    { ...pakiet(zwarty), name: "Nadmiarowa", filtrRozproszony: true },
+    { ...pakiet(zwarty), name: "Zgodna", filtrRozproszony: false },
+    { id: "x", name: "Pominieta", type: "hotel" },
+  ], kryteria);
+
+  assert.equal(w.sprawdzone, 3, "do porównania weszła oferta, której ta plakietka nie dotyczy");
+  assert.equal(w.zgodne, 1);
+  assert.deepEqual(w.brakujaca, ["BezPlakietki"],
+    "brakująca plakietka nie została wykryta — to groźniejszy kierunek pomyłki");
+  assert.deepEqual(w.nadmiarowa, ["Nadmiarowa"],
+    "nadmiarowa plakietka nie została wykryta — panel straszy rozproszeniem, którego nie ma");
 });

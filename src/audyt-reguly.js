@@ -86,3 +86,57 @@ export function filtrPrzecieka(ocena) {
 export function filtrBezPotwierdzen(ocena) {
   return !!ocena && ocena.razem > 0 && ocena.potwierdza === 0 && ocena.lamie === 0;
 }
+
+/**
+ * Czy plakietka „terminy rozproszone" mówi prawdę o TEJ ofercie.
+ *
+ * Panel pisze przy ofercie, że żaden pojedynczy termin nie spełnia wszystkich
+ * aktywnych filtrów naraz. To mocne zdanie handlowe — na jego podstawie konsultant
+ * uprzedza klienta, że wyjazd trzeba będzie poskładać inaczej, niż wygląda na karcie.
+ * Musi więc dać się sprawdzić NIEZALEŻNIE od kodu, który je wystawia.
+ *
+ * Dlatego ta funkcja liczy wszystko OD NOWA z danych, które wróciły z API, zamiast
+ * wołać ranking.js — inaczej audyt potwierdzałby sam siebie i przespałby błąd
+ * po obu stronach naraz.
+ *
+ * Zwraca: `true` (rozproszone), `false` (jest wariant spełniający komplet),
+ * albo `null`, gdy nie ma czego sprawdzać (mniej niż dwa warianty lub mniej niż
+ * dwa aktywne kryteria wariantowe — wtedy flaga z definicji nie powstaje).
+ */
+export function rozproszenieZWariantow(oferta, kryteria) {
+  if (!oferta || oferta.type !== "package") return null;
+  const warianty = (oferta.variants && oferta.variants.length) ? oferta.variants : [oferta];
+  if (warianty.length < 2) return null;
+
+  const k = kryteria || {};
+  const testy = [];
+  if (k.departures && k.departures.length) testy.push((v) => k.departures.includes(v.departureCity));
+  if (k.transports && k.transports.length) testy.push((v) => k.transports.includes(v.transport));
+  if (k.weekdays && k.weekdays.length) {
+    testy.push((v) => !!v.departDate && k.weekdays.includes(new Date(v.departDate + "T00:00:00").getDay()));
+  }
+  if (testy.length < 2) return null;
+
+  return !warianty.some((v) => testy.every((t) => t(v)));
+}
+
+/**
+ * Oferty, przy których plakietka rozproszenia kłamie — w którąkolwiek stronę.
+ * Obie pomyłki są szkodliwe, choć inaczej:
+ *  - `brakujaca`: rozproszenie JEST, a panel milczy → konsultant obiecuje klientowi
+ *    wyjazd, którego w tym układzie nie ma,
+ *  - `nadmiarowa`: panel straszy rozproszeniem, którego nie ma → konsultant sam
+ *    odradza dobrą ofertę albo przestaje ufać plakietce.
+ */
+export function plakietkiRozproszenia(oferty, kryteria) {
+  const wynik = { sprawdzone: 0, zgodne: 0, brakujaca: [], nadmiarowa: [] };
+  for (const o of oferty || []) {
+    const oczekiwane = rozproszenieZWariantow(o, kryteria);
+    if (oczekiwane === null) continue;
+    wynik.sprawdzone++;
+    const pokazane = !!o.filtrRozproszony;
+    if (pokazane === oczekiwane) { wynik.zgodne++; continue; }
+    (oczekiwane ? wynik.brakujaca : wynik.nadmiarowa).push(o.name || o.id);
+  }
+  return wynik;
+}

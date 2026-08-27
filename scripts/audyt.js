@@ -19,7 +19,7 @@
 //    KOMPAS_URL=... KOMPAS_EMAIL=... KOMPAS_PASS=... npm run audyt
 // ============================================================
 
-import { podejrzaneZero, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen } from "../src/audyt-reguly.js";
+import { podejrzaneZero, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen, plakietkiRozproszenia } from "../src/audyt-reguly.js";
 
 const BASE = process.env.KOMPAS_URL || "http://127.0.0.1:3000";
 const EMAIL = process.env.KOMPAS_EMAIL || "test@local.test";
@@ -189,6 +189,49 @@ for (const ob of OBIETNICE) {
   if (filtrBezPotwierdzen(ocena)) {
     zglos("INFO", `filtr „${ob.opis}" niczego nie potwierdza`,
       `${ocena.razem} ofert przeszło wyłącznie na braku danych — lista wygląda na zawężoną, a nie jest`);
+  }
+}
+
+// ------------------------------------------------------------------
+//  Czy plakietka „terminy rozproszone" mówi prawdę
+//
+//  Panel pisze przy ofercie, że ŻADEN pojedynczy termin nie spełnia wszystkich
+//  filtrów naraz. To zdanie idzie dalej do klienta — konsultant uprzedza go, że
+//  wyjazd trzeba poskładać inaczej, niż wygląda na karcie. Sprawdzamy je licząc
+//  wszystko OD NOWA z wariantów, które wróciły z API (patrz audyt-reguly.js:
+//  rozproszenieZWariantow), a nie wołając ranking.js — inaczej audyt potwierdzałby
+//  sam siebie i przespał błąd obecny po obu stronach naraz.
+//
+//  Kombinacje dobrane pod zjawisko: to pary „miasto wylotu + dzień tygodnia" dawały
+//  76% rozproszonych ofert (pomiar z 18.08.2026), a Warszawa+Autokar zero.
+// ------------------------------------------------------------------
+const ROZPROSZENIA = [
+  { opis: "Katowice + sobota", query: "countries=Grecja,Egipt,Turcja&adults=2&departures=Katowice&weekdays=6",
+    kryteria: { departures: ["Katowice"], weekdays: [6] } },
+  { opis: "Samolot + niedziela", query: "countries=Grecja,Egipt,Turcja&adults=2&transports=Samolot&weekdays=0",
+    kryteria: { transports: ["Samolot"], weekdays: [0] } },
+  { opis: "Warszawa + Autokar", query: "countries=Grecja,Egipt,Turcja&adults=2&departures=Warszawa&transports=Autokar",
+    kryteria: { departures: ["Warszawa"], transports: ["Autokar"] } },
+];
+
+console.log("");
+for (const r of ROZPROSZENIA) {
+  const d = await szukaj(cookie, r.query);
+  if (d.status !== 200) { zglos("WYSOKA", `„${r.opis}" zwrócił HTTP ${d.status}`, ""); continue; }
+  const w = plakietkiRozproszenia(d.offers || [], r.kryteria);
+  if (!w.sprawdzone) { console.log(`rozproszenie ${r.opis.padEnd(22)}    — brak ofert z kilkoma terminami`); continue; }
+  console.log(`rozproszenie ${r.opis.padEnd(22)} ${licz(w.sprawdzone)} ofert = ${w.zgodne} zgodnych + ${w.brakujaca.length} bez plakietki + ${w.nadmiarowa.length} z nadmiarową`);
+
+  // Plakietki BRAKUJĄCEJ nie widać — konsultant obiecuje klientowi wyjazd,
+  // którego w tym układzie nie ma. To groźniejszy kierunek pomyłki.
+  if (w.brakujaca.length) {
+    zglos("WYSOKA", `brak plakietki „terminy rozproszone" przy „${r.opis}"`,
+      `${w.brakujaca.length} ofert: ${w.brakujaca.slice(0, 3).join(", ")}`);
+  }
+  // Plakietka NADMIAROWA straszy rozproszeniem, którego nie ma.
+  if (w.nadmiarowa.length) {
+    zglos("ŚREDNIA", `nadmiarowa plakietka „terminy rozproszone" przy „${r.opis}"`,
+      `${w.nadmiarowa.length} ofert: ${w.nadmiarowa.slice(0, 3).join(", ")}`);
   }
 }
 
