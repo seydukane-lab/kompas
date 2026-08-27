@@ -21,7 +21,8 @@
     "user:off": "node scripts/user.js off",
     "user:on": "node scripts/user.js on",
     "wjazd": "node scripts/wjazd-sprawdz.js",
-    "czasy": "node scripts/czasy-zrodel.js"
+    "czasy": "node scripts/czasy-zrodel.js",
+    "wdroz": "node scripts/wdroz.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
