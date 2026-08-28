@@ -1733,3 +1733,26 @@ test("stan nieustawiony ma własny wygląd w CSS, nie tylko w JS", () => {
   assert.match(html, /input\[type=range\]\.nietkniety::-moz-range-progress\{background:var\(--line\)\}/,
     "Firefox rysuje ::-moz-range-progress sam — bez tej reguły tam dalej będzie wypełnienie");
 });
+
+test("paski przewijania sa ostylowane i zmieniaja sie razem z motywem", () => {
+  // Zgloszenie z 28.08.2026: listy w panelu (kierunki, cale kryteria) mialy natywny
+  // pasek Windows - bialy tor, szary kciuk, strzalki na koncach. W ciemnym motywie
+  // wchodzil w karte jasna wstega, wygladajac jak element z innej aplikacji.
+  const html = wczytaj("public/index.html");
+
+  assert.match(html, /scrollbar-width:thin/,
+    "brak reguly dla Firefoksa - tam pasek zostaje natywny mimo ostylowanego WebKita");
+  assert.match(html, /::-webkit-scrollbar-thumb\{background:var\(--line-strong\)/,
+    "kciuk paska nie jest ostylowany albo nie bierze koloru ze zmiennej motywu");
+  assert.match(html, /::-webkit-scrollbar-button\{display:none/,
+    "strzalki na koncach toru wracaja jako szare trojkaty przy zaokraglonym kciuku");
+
+  // Kolory MUSZA pochodzic ze zmiennych: panel ma przelacznik motywu, a wpisany
+  // na sztywno kolor zostalby ten sam po przelaczeniu - czyli jasny pasek w ciemnym
+  // motywie, dokladnie ten sam objaw, ktory tu naprawiamy.
+  const blok = html.match(/\*\{scrollbar-width[\s\S]*?::-webkit-scrollbar-corner\{[^}]*\}/)?.[0] || "";
+  assert.ok(blok, "nie znalazlem bloku regul paska przewijania");
+  const kolory = blok.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+  assert.deepEqual(kolory, [],
+    `pasek ma kolor wpisany na sztywno (${kolory.join(", ")}) - przelacznik motywu go nie zmieni`);
+});

@@ -28,6 +28,28 @@
   button{font-family:inherit;cursor:pointer}
   input,select{font-family:inherit}
   img{max-width:100%;display:block}
+  /* PASKI PRZEWIJANIA. Chrome bez stylowania rysuje natywny pasek systemu: biały
+     tor, szary kciuk i strzałki na końcach. W ciemnym motywie wchodzi to w kartę
+     jasną wstęgą — wygląda jak element wklejony z innej aplikacji, a przy liście
+     kierunków (.geo-tree) dodatkowo tłoczy się na treści. Kolory bierzemy z tych
+     samych zmiennych co reszta panelu, więc przełącznik motywu zmienia je razem
+     z nim i nie trzeba tego pamiętać przy kolejnej zmianie palety.
+     scrollbar-width/-color to standard (Firefox), ::-webkit-* to WebKit — dlatego
+     obie deklaracje, nie jedna. */
+  *{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-track{background:transparent}
+  /* Przezroczysta ramka + background-clip robi odstęp od krawędzi, przez co kciuk
+     nie dotyka treści. Bez tego cienki pasek wygląda jak przyklejona kreska. */
+  ::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:999px;
+    border:3px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--ink-faint);
+    border:3px solid transparent;background-clip:padding-box}
+  /* Strzałki na końcach toru: WebKit dorysowuje je nawet przy ostylowanym pasku
+     i wracają jako szare trójkąty wystające poza zaokrąglony kciuk. */
+  ::-webkit-scrollbar-button{display:none;width:0;height:0}
+  ::-webkit-scrollbar-corner{background:transparent}
+
 
   .topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
   .topbar-inner{max-width:var(--maxw);margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px}
