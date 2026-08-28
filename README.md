@@ -103,6 +103,25 @@ Najważniejszy test w całym zestawie nazywa się `ANTY-PRZEKOLORYZACJA` i pilnu
 świeżych opinii. To jest obietnica produktu — musi być weryfikowalna, nie
 deklaratywna.
 
+### Co stoi na produkcji
+
+```powershell
+npm run produkcja   # czyta i porównuje, niczego nie wdraża
+npm run wdroz       # ręczny spust wdrożenia (potrzebuje RENDER_DEPLOY_HOOK w .env)
+```
+
+**Repo to nie produkcja.** Auto-deploy na Renderze jest wyłączony celowo — to on
+chroni klientów przed każdym commitem, który trafia na `main` w nocy. Skutek uboczny:
+kod bywa naprawiony w repo, ma zielony test, a pod adresem, którego używa konsultant,
+dalej stoi stara wersja. Zdarzyło się to 28.08.2026 przy suwakach: naprawa leżała
+w repo dwa dni, produkcja stała trzy commity wcześniej, a diagnoza poszła w kod,
+w którym błędu już nie było.
+
+`npm run produkcja` odpowiada na to jednym przebiegiem: pyta `/healthz` o wersję
+i **wymienia z nazwy commity, których pod tym adresem nie ma**. Osobno pokazuje
+commity siedzące tylko lokalnie — te nie pojadą nawet po wdrożeniu, bo hook wdraża
+czubek gałęzi zdalnej. Kod wyjścia 1, gdy produkcja odstaje.
+
 ## Jak to zbudowane
 
 ```
@@ -117,6 +136,7 @@ src/providers/
   hotelbeds.js            – adapter Hotelbeds (dostępność + treści + zdjęcia)
 public/index.html         – panel doradcy (UI + generator skryptów)
 scripts/audyt.js          – audyt danych na żywych źródłach (`npm run audyt`)
+src/wersje.js             – co stoi na produkcji i czego tam nie ma (`npm run produkcja`)
 docs/struktura-oferty-pakietowej.md – kontrakt oferty; czytaj przed dodaniem źródła
 ```
 
