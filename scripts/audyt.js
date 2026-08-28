@@ -19,7 +19,7 @@
 //    KOMPAS_URL=... KOMPAS_EMAIL=... KOMPAS_PASS=... npm run audyt
 // ============================================================
 
-import { podejrzaneZero, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen, plakietkiRozproszenia } from "../src/audyt-reguly.js";
+import { podejrzaneZero, ocenObietnice, filtrPrzecieka, filtrBezPotwierdzen, plakietkiRozproszenia, ocenFiltrWariantowy } from "../src/audyt-reguly.js";
 
 const BASE = process.env.KOMPAS_URL || "http://127.0.0.1:3000";
 const EMAIL = process.env.KOMPAS_EMAIL || "test@local.test";
@@ -232,6 +232,62 @@ for (const r of ROZPROSZENIA) {
   if (w.nadmiarowa.length) {
     zglos("ŚREDNIA", `nadmiarowa plakietka „terminy rozproszone" przy „${r.opis}"`,
       `${w.nadmiarowa.length} ofert: ${w.nadmiarowa.slice(0, 3).join(", ")}`);
+  }
+}
+
+// ------------------------------------------------------------------
+//  Czy filtry WARIANTOWE (pakietowe) trzymają obietnicę
+//
+//  Sekcja OBIETNICE wyżej pyta o pola SAMEJ oferty. Wylot z miasta, transport,
+//  dzień tygodnia i okno terminu odpowiadają na inne pytanie: oferta przechodzi,
+//  gdy KTÓRYKOLWIEK z jej terminów spełnia kryterium (ranking.js:matchesAnyVariant).
+//  Reprezentant na karcie bywa innym wariantem niż ten, który filtr przepuścił,
+//  więc tamta reguła nie umiałaby tych czterech filtrów sprawdzić — i do 28.08.2026
+//  nikt ich maszynowo nie sprawdzał, mimo że 27.08 zmieniła się semantyka terminu.
+//
+//  Liczone OD NOWA z variants[] (audyt-reguly.js:ocenFiltrWariantowy), nie przez
+//  ranking.js — inaczej audyt potwierdzałby sam siebie.
+//
+//  Okno terminu sprawdzamy po dacie WYLOTU wariantu, zgodnie z decyzją właściciela
+//  z 27.08.2026 (patrz variantWithinDates): data powrotu nie jest tu warunkiem.
+//  Gdyby ktoś cofnął tamtą zmianę, ten test zapali się jako przeciek.
+// ------------------------------------------------------------------
+// Okno liczone od DZIŚ, żeby audyt nie zestarzał się razem z wpisaną datą.
+// Ta sama para OD/DO idzie do zapytania i do testu, więc nie ma jak się rozjechać.
+const zaDni = (dni) => new Date(Date.now() + dni * 86400000).toISOString().slice(0, 10);
+const OD = zaDni(10);
+const DO = zaDni(30);
+
+const WARIANTOWE = [
+  { opis: "wylot z Katowic", query: "countries=Grecja,Egipt,Turcja&adults=2&departures=Katowice",
+    test: (v) => v.departureCity === "Katowice" },
+  { opis: "transport: Samolot", query: "countries=Grecja,Egipt,Turcja&adults=2&transports=Samolot",
+    test: (v) => v.transport === "Samolot" },
+  { opis: "wylot w sobotę", query: "countries=Grecja,Egipt,Turcja&adults=2&weekdays=6",
+    test: (v) => !!v.departDate && new Date(v.departDate + "T00:00:00").getDay() === 6 },
+  { opis: `okno terminu ${OD}..${DO}`, query: `countries=Grecja,Egipt,Turcja&adults=2&from=${OD}&to=${DO}`,
+    test: (v) => !!v.departDate && v.departDate >= OD && v.departDate <= DO },
+];
+
+console.log("");
+for (const w of WARIANTOWE) {
+  const d = await szukaj(cookie, w.query);
+  if (d.status !== 200) { zglos("WYSOKA", `filtr „${w.opis}" zwrócił HTTP ${d.status}`, ""); continue; }
+  const oferty = d.offers || [];
+  const ocena = ocenFiltrWariantowy(oferty, w.test);
+
+  if (!ocena.razem) {
+    console.log(`wariant ${w.opis.padEnd(31)}    0 ofert pakietowych — nie ma czego sprawdzać`);
+    continue;
+  }
+  console.log(`wariant ${w.opis.padEnd(31)} ${licz(ocena.razem)} ofert = ${ocena.potwierdza} potwierdza + ${ocena.lamie} łamie`);
+
+  // Tu nie ma stanu „bez danych": wariant bez daty czy bez miasta po prostu nie
+  // spełnia kryterium, dokładnie jak w applyFilters. Każde złamanie jest jawne.
+  if (filtrPrzecieka(ocena)) {
+    const p = ocena.przyklady[0];
+    zglos("WYSOKA", `filtr „${w.opis}" przecieka`,
+      `${ocena.lamie} z ${ocena.razem} ofert nie ma ANI JEDNEGO pasującego terminu, np. ${p.name} (${p.source || "?"})`);
   }
 }
 

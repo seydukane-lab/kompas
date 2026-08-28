@@ -140,3 +140,46 @@ export function plakietkiRozproszenia(oferty, kryteria) {
   }
   return wynik;
 }
+
+/**
+ * Czy filtr WARIANTOWY (pakietowy) trzyma to, co obiecał.
+ *
+ * Filtry z sekcji OBIETNICE pytają o pola samej oferty (gwiazdki, wyżywienie, cena).
+ * Wylot z miasta, transport, dzień tygodnia i okno terminu działają inaczej: oferta
+ * przechodzi, gdy KTÓRYKOLWIEK jej wariant spełnia kryterium (patrz ranking.js:
+ * matchesAnyVariant) — bo jeden hotel niesie po kilkanaście terminów z różnych
+ * lotnisk i od różnych operatorów. Reprezentant pokazany na karcie bywa innym
+ * wariantem niż ten, który filtr przepuścił, więc sprawdzanie pól reprezentanta
+ * odpowiadałoby na inne pytanie niż zadane.
+ *
+ * Liczymy OD NOWA z `offer.variants`, bez wołania matchesAnyVariant,
+ * activeVariantPredicates ani variantWithinDates — tak samo jak przy plakietce
+ * rozproszenia i z tego samego powodu: audyt wołający sprawdzany kod potwierdzałby
+ * sam siebie i przespał błąd obecny po obu stronach naraz.
+ *
+ * Ocena jest BINARNA — nie ma tu stanu „bez danych". Wariant bez daty wylotu czy
+ * bez miasta po prostu nie spełnia testu, dokładnie jak w applyFilters, gdzie brak
+ * takiej danej odsiewa (inaczej niż przy atrybutach). Dzięki temu `filtrPrzecieka()`
+ * działa na tym wyniku bez zmian, a `filtrBezPotwierdzen()` nie ma jak fałszywie
+ * zapalić: każda policzona oferta ląduje w `potwierdza` albo w `lamie`.
+ *
+ * Oferty hotel-only są POMIJANE, nie liczone jako łamiące: przy aktywnym filtrze
+ * pakietowym applyFilters odsiewa je z definicji, a Hotelbeds jest odpytywany po
+ * datach już u dostawcy (patrz komentarz przy crit.from w applyFilters). Liczenie
+ * ich jako przecieku zamieniłoby świadomą zasadę w co-przebiegowy fałszywy alarm.
+ *
+ * @param oferty lista z /api/search
+ * @param test   warunek dla POJEDYNCZEGO wariantu, np. (v) => v.transport === "Samolot"
+ */
+export function ocenFiltrWariantowy(oferty, test) {
+  const wynik = { razem: 0, potwierdza: 0, bezDanych: 0, lamie: 0, pominiete: 0, przyklady: [] };
+  for (const o of oferty || []) {
+    if (!o || o.type !== "package") { wynik.pominiete++; continue; }
+    const warianty = (o.variants && o.variants.length) ? o.variants : [o];
+    wynik.razem++;
+    if (warianty.some((v) => test(v))) { wynik.potwierdza++; continue; }
+    wynik.lamie++;
+    if (wynik.przyklady.length < 3) wynik.przyklady.push(o);
+  }
+  return wynik;
+}
