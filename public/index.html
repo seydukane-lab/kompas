@@ -1414,6 +1414,34 @@
 
   // Czysta, FAKTOWA wiadomość dla klienta (WhatsApp/mail) — tylko dane, które REALNIE
   // mamy. Anti-przekoloryzacja: opinie tylko gdy reviews>0; atrybuty tylko gdy znane.
+  // --- Formularz „dane do rezerwacji" -----------------------------------
+  // Doklejane do tego, co idzie DO KLIENTA (mail z oferty, mail z koszyka,
+  // wydruk). Link niesie kod konsultanta, nie jego adres — czemu, patrz
+  // public/dane-do-rezerwacji.html i server.js:/api/konsultant/:kod.
+  //
+  // Komunikat jest warunkowy z premedytacją: klient, który jechał już z tego
+  // profilu, ma to po prostu zignorować, zamiast drugi raz przepisywać dane.
+  // Ten sam komunikat co w mailu, ale dla wydruku: kartki nie da się kliknąć,
+  // więc adres musi być wypisany tekstem, a nie schowany pod słowem „tutaj".
+  function blokDanychHtml(){
+    var url=linkDoDanych();
+    if(!url)return"";
+    return '<div class="dane-box"><b>Pierwszy wyjazd z nami?</b> Jeśli nigdy nie korzystałeś'
+      +' u nas z wakacje.pl — albo uczestnicy wycieczki nigdy nie jechali z Twojego profilu —'
+      +' podaj dane do założenia rezerwacji pod adresem:<br><span class="dane-url">'+url+'</span></div>';
+  }
+
+  function linkDoDanych(){
+    if(!ME||!ME.kod)return"";
+    return location.origin+"/dane-do-rezerwacji.html?k="+encodeURIComponent(ME.kod);
+  }
+  function blokDaneDoRezerwacji(){
+    var url=linkDoDanych();
+    if(!url)return"";
+    return "\n\n──────────\n\n📋 Jeśli nigdy nie korzystałeś u nas z wakacje.pl — albo uczestnicy"
+      +" wycieczki nigdy nie jechali z Twojego profilu — podaj dane do założenia rezerwacji:\n"+url;
+  }
+
   function clientOffer(h,n,pax){
     var dist=function(m){return m>=1000?(m/1000).toFixed(1).replace(".",",")+" km":m+" m";};
     var total=offerTotal(h,pax);
@@ -1453,7 +1481,7 @@
     document.getElementById("sendMail").href="mailto:?subject="+encodeURIComponent(subject||"")+"&body="+enc;
     document.getElementById("sendModal").hidden=false;
   }
-  function openSend(h,n,pax){openSendText(clientOffer(h,n,pax),"Oferta: "+h.name);}
+  function openSend(h,n,pax){openSendText(clientOffer(h,n,pax)+blokDaneDoRezerwacji(),"Oferta: "+h.name);}
   // Czysta wiadomość dla klienta z CAŁEGO koszyka (kilka propozycji) — fakty, bez skryptu.
   function clientCartText(){
     if(!cart.length)return"";
@@ -1461,7 +1489,7 @@
     var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
     var sep="\n\n──────────\n\n";
     var blocks=ranked.map(function(x,i){return "PROPOZYCJA "+(i+1)+"\n"+clientOffer(x,x.nights||nights(),pax);});
-    return "Dzień dobry,\n\nponiżej wybrane propozycje wyjazdów:\n\n"+blocks.join(sep)+"\n\nCeny orientacyjne, do potwierdzenia. Chętnie doradzę w wyborze. 🙂";
+    return "Dzień dobry,\n\nponiżej wybrane propozycje wyjazdów:\n\n"+blocks.join(sep)+"\n\nCeny orientacyjne, do potwierdzenia. Chętnie doradzę w wyborze. 🙂"+blokDaneDoRezerwacji();
   }
   document.getElementById("sendClose").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
   document.getElementById("sendBackdrop").addEventListener("click",function(){document.getElementById("sendModal").hidden=true;});
@@ -1868,7 +1896,7 @@
   // Drukowalna prezentacja koszyka dla klienta (pod „PREZENTACJĘ OFERTY").
   // ---- WYDRUK DLA KLIENTA (nie skrypt sprzedażowy!) — opis + parametry wyjazdu ----
   // Skrypt zostaje na ekranie dla doradcy; klient dostaje czyste, faktowe zestawienie.
-  var PRINT_CSS='body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F;line-height:1.5}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}.n{font-size:18px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 10px}table.params{width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:13.5px;margin:6px 0}table.params td{padding:5px 0;vertical-align:top;border-bottom:1px solid #efeae0}table.params .pk{color:#6a746f;width:44%;padding-right:12px}table.params .pv{color:#13201F;font-weight:600}.desc{font-size:14.5px;margin:12px 0 4px;color:#2b3634}.intel{font-family:system-ui,sans-serif;font-size:12.5px;color:#3A4744;background:#F4F1EA;border-radius:8px;padding:9px 12px;margin:10px 0 2px}.price-big{font-family:system-ui,sans-serif;font-size:17px;font-weight:bold;margin-top:10px}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}.demo-note{font-family:system-ui,sans-serif;font-size:12px;color:#7A4A12;background:#FDF3E3;border:1px solid #EBD6AE;border-radius:8px;padding:8px 11px;margin:10px 0 2px}';
+  var PRINT_CSS='body{font-family:Georgia,serif;max-width:720px;margin:36px auto;padding:0 24px;color:#13201F;line-height:1.5}h1{font-size:24px;margin:0 0 4px}.sub{font-family:system-ui,sans-serif;color:#46534F;font-size:13px;margin-bottom:24px}.off{border:1px solid #e4dfd4;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}.n{font-size:18px;font-weight:bold}.loc{font-family:system-ui,sans-serif;color:#0A4F4C;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 10px}table.params{width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:13.5px;margin:6px 0}table.params td{padding:5px 0;vertical-align:top;border-bottom:1px solid #efeae0}table.params .pk{color:#6a746f;width:44%;padding-right:12px}table.params .pv{color:#13201F;font-weight:600}.desc{font-size:14.5px;margin:12px 0 4px;color:#2b3634}.intel{font-family:system-ui,sans-serif;font-size:12.5px;color:#3A4744;background:#F4F1EA;border-radius:8px;padding:9px 12px;margin:10px 0 2px}.price-big{font-family:system-ui,sans-serif;font-size:17px;font-weight:bold;margin-top:10px}.foot{font-family:system-ui,sans-serif;font-size:11px;color:#7C8783;margin-top:24px;border-top:1px solid #ddd;padding-top:12px}.demo-note{font-family:system-ui,sans-serif;font-size:12px;color:#7A4A12;background:#FDF3E3;border:1px solid #EBD6AE;border-radius:8px;padding:8px 11px;margin:10px 0 2px}.dane-box{margin:14px 0 0;padding:10px 12px;border:1px solid #999;border-radius:6px;font-size:12px}.dane-url{font-family:monospace;word-break:break-all}';
   // Parametry oferty jako tabela (tylko dane, które REALNIE mamy — anti-przekoloryzacja).
   // Zdanie o danych pogladowych, wspolne dla obu wydrukow. Pisane DO KLIENTA, wiec
   // bez polecen dla konsultanta - ten dokument czyta osoba, ktora ma podjac decyzje.
@@ -1931,7 +1959,7 @@
     var n=nights();
     var ranked=cart.slice().sort(function(a,b){return etaValue(b)-etaValue(a);});
     var rows=ranked.map(function(x){return offerDocHtml(x,n);}).join("");
-    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>'+PRINT_CSS+'</style><h1>Propozycje wyjazdów</h1><div class="sub">'+cart.length+' ofert do wyboru · ceny orientacyjne, do potwierdzenia u organizatora</div>'+(demoZdanie(ranked)?'<p class="demo-note">⚠ '+demoZdanie(ranked)+'</p>':'')+rows+'<div class="foot">Zestawienie przygotowane w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>'+PRINT_CSS+'</style><h1>Propozycje wyjazdów</h1><div class="sub">'+cart.length+' ofert do wyboru · ceny orientacyjne, do potwierdzenia u organizatora</div>'+(demoZdanie(ranked)?'<p class="demo-note">⚠ '+demoZdanie(ranked)+'</p>':'')+rows+''+blokDanychHtml()+'<div class="foot">Zestawienie przygotowane w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
     w.document.close();
   }
   document.getElementById("cartPrint").addEventListener("click",printCart);
@@ -2679,7 +2707,7 @@
   }
   function fallbackCopy(txt){var ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Skopiowano ofertę ✓");}catch(e){toast("Nie udało się skopiować");}document.body.removeChild(ta);}
   // Druk pojedynczej oferty — wersja dla KLIENTA (opis + parametry), bez skryptu sprzedażowego.
-  function printOffer(h,sc,n,pax){var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}w.document.write('<!doctype html><meta charset="utf-8"><title>Oferta — '+h.name+'</title><style>'+PRINT_CSS+'</style><h1>Oferta wyjazdu</h1><div class="sub">Ceny orientacyjne, do potwierdzenia u organizatora</div>'+(h.demo?'<p class="demo-note">⚠ '+DEMO_ZDANIE_JEDNA+'</p>':'')+offerDocHtml(h,n)+'<div class="foot">Oferta przygotowana w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');w.document.close();}
+  function printOffer(h,sc,n,pax){var w=window.open("","_blank");if(!w){toast("Zezwól na wyskakujące okna");return;}w.document.write('<!doctype html><meta charset="utf-8"><title>Oferta — '+h.name+'</title><style>'+PRINT_CSS+'</style><h1>Oferta wyjazdu</h1><div class="sub">Ceny orientacyjne, do potwierdzenia u organizatora</div>'+(h.demo?'<p class="demo-note">⚠ '+DEMO_ZDANIE_JEDNA+'</p>':'')+offerDocHtml(h,n)+''+blokDanychHtml()+'<div class="foot">Oferta przygotowana w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');w.document.close();}
 
   /* ---------- Komunikacja z backendem ---------- */
   var searchBtn=document.getElementById("searchBtn");

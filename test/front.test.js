@@ -16,7 +16,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const STRONY = ["public/index.html", "public/login.html", "public/o-serwisie.html"];
+const STRONY = ["public/index.html", "public/login.html", "public/o-serwisie.html", "public/dane-do-rezerwacji.html"];
 
 function wczytaj(plik) {
   return readFileSync(join(ROOT, plik), "utf8");
@@ -1755,4 +1755,64 @@ test("paski przewijania sa ostylowane i zmieniaja sie razem z motywem", () => {
   const kolory = blok.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
   assert.deepEqual(kolory, [],
     `pasek ma kolor wpisany na sztywno (${kolory.join(", ")}) - przelacznik motywu go nie zmieni`);
+});
+
+test("formularz danych do rezerwacji NIE wysyla niczego na nasz serwer", () => {
+  // To jest jedyny powod, dla ktorego ta strona mogla powstac przed rozmowa
+  // z prawnikiem: klient wpisuje imie, nazwisko, date urodzenia i adres, a Kompas
+  // ich nie widzi i nie zapisuje — wiadomosc idzie z jego wlasnej skrzynki.
+  // Dopisanie tu POST-a zamienia nas w procesora danych osobowych i wymaga umowy
+  // powierzenia, retencji i zgody. Test ma o tym przypomniec, zanim to sie stanie.
+  const html = wczytaj("public/dane-do-rezerwacji.html");
+
+  const fetche = [...html.matchAll(/fetch\(([^)]*)\)/g)].map((m) => m[1]);
+  assert.equal(fetche.length, 1, `strona wola fetch ${fetche.length} razy — powinna dokladnie raz, po dane konsultanta`);
+  assert.match(fetche[0], /api\/konsultant/, "jedyne wywolanie sieciowe to nie pobranie danych konsultanta");
+
+  assert.doesNotMatch(html, /method:\s*["']POST["']/i,
+    "strona wysyla POST — dane klienta trafiaja na serwer, a to zmienia status prawny calego Kompasa");
+  assert.doesNotMatch(html, /<form[^>]+action=/i,
+    "formularz ma action — przegladarka wysle dane na serwer nawet bez JS-a");
+});
+
+test("tresc dla klienta niesie link do formularza danych", () => {
+  // Bez tego funkcja istnieje, ale nikt jej nie widzi: klient dostaje oferte
+  // i dalej odsyla dane luznym mailem, czyli dokladnie tak jak przed zmiana.
+  const html = wczytaj("public/index.html");
+  assert.match(html, /function blokDaneDoRezerwacji\(\)/, "brak bloku doklejanego do wiadomosci");
+  assert.match(html, /openSendText\(clientOffer\(h,n,pax\)\+blokDaneDoRezerwacji\(\)/,
+    "mail z pojedyncza oferta nie niesie linku do formularza");
+  assert.match(html, /Chętnie doradzę w wyborze\. 🙂"\+blokDaneDoRezerwacji\(\)/,
+    "mail z koszyka nie niesie linku do formularza");
+  assert.match(html, /blokDanychHtml\(\)\+'<div class="foot">Oferta/,
+    "wydruk pojedynczej oferty nie niesie adresu formularza");
+  assert.match(html, /blokDanychHtml\(\)\+'<div class="foot">Zestawienie/,
+    "wydruk koszyka nie niesie adresu formularza");
+
+  // Link musi niesc KOD, nie adres e-mail konsultanta.
+  assert.match(html, /dane-do-rezerwacji\.html\?k="\+encodeURIComponent\(ME\.kod\)/,
+    "link nie jest budowany z kodu konta — sprawdz, czy nie wstawiono tam adresu e-mail");
+});
+
+test("blok danych do rezerwacji sklada sie w dzialajacy adres, a nie w puste zdanie", () => {
+  // Wyciagamy funkcje z panelu i wykonujemy ja w izolacji (ten sam wzorzec co przy
+  // rangeSkala): wydruk otwiera window.print(), wiec nie da sie go obejrzec testem,
+  // a to JEDYNA zywa droga do klienta — „do wyslania" jest wylaczone od 15.08.2026.
+  const html = wczytaj("public/index.html");
+  const fnLink = html.match(/function linkDoDanych\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  const fnHtml = html.match(/function blokDanychHtml\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.ok(fnLink && fnHtml, "nie znalazlem funkcji budujacych blok");
+
+  const zbuduj = (ME) => new Function("ME", "location",
+    fnLink + "\n" + fnHtml + "\nreturn { url: linkDoDanych(), html: blokDanychHtml() };"
+  )(ME, { origin: "https://kompas-2tax.onrender.com" });
+
+  const z = zbuduj({ kod: "abc123XYZ_-", email: "wiktor@example.com" });
+  assert.equal(z.url, "https://kompas-2tax.onrender.com/dane-do-rezerwacji.html?k=abc123XYZ_-");
+  assert.match(z.html, /dane-do-rezerwacji\.html\?k=abc123XYZ_-/, "wydruk nie niesie adresu formularza");
+  assert.doesNotMatch(z.html, /wiktor@example\.com/, "adres e-mail konsultanta wyciekl do wydruku dla klienta");
+
+  // Konto bez kodu (sprzed migracji, gdyby uzupelnianie zawiodlo) nie moze wydrukowac
+  // zaproszenia prowadzacego donikad — lepiej nie pokazac nic niz martwy link.
+  assert.equal(zbuduj({ email: "x@y.pl" }).html, "", "bez kodu konta wydruk niesie niedzialajacy link");
 });

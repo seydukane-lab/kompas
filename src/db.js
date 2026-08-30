@@ -61,6 +61,22 @@ db.exec(`
   );
 `);
 
+// --- Migracja: publiczny kod konsultanta -----------------------------
+// Formularz „dane do rezerwacji" wypełnia KLIENT, więc jego adres musi działać
+// bez logowania. Adresu konsultanta nie wolno wstawić w link: e-mail w query
+// stringu krąży potem w skrzynkach i wyciekach, a to dane osobowe. Zamiast tego
+// każde konto dostaje losowy, nieodgadywalny kod — link niesie kod, a adres
+// zna wyłącznie serwer.
+//
+// Kod siedzi w BAZIE, nie liczy się z sekretu w .env: produkcja ma dziś tylko
+// trzy zmienne środowiskowe, a link raz wysłany klientowi musi działać także
+// po zmianie konfiguracji. ALTER TABLE w try/catch, bo node:sqlite nie ma
+// "ADD COLUMN IF NOT EXISTS" — przy drugim starcie rzuca i to jest w porządku.
+try {
+  db.exec("ALTER TABLE users ADD COLUMN kod TEXT");
+} catch { /* kolumna już jest — to normalny stan po pierwszym uruchomieniu */ }
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_kod ON users(kod)");
+
 /** Ile kont istnieje — pierwsze uruchomienie pokazuje podpowiedź w konsoli. */
 export function userCount() {
   return db.prepare("SELECT COUNT(*) AS n FROM users").get().n;

@@ -348,3 +348,62 @@ test("/healthz podaje wersję kodu, którą uruchomiono", async () => {
   assert.equal(d.ok, true);
   assert.equal(typeof d.uptime, "number");
 });
+
+// ============================================================
+//  Publiczny kod konsultanta — formularz „dane do rezerwacji"
+//
+//  Formularz wypelnia KLIENT, ktory konta nie ma. Jedyne, czego strona potrzebuje
+//  z serwera, to imie i adres konsultanta — i to jest jedyny endpoint /api dzialajacy
+//  bez sesji. Reszta granicy musi zostac nietknieta, wiec sprawdzamy oba kierunki:
+//  ze ten jeden dziala bez logowania I ze nie otworzyl przy okazji niczego innego.
+// ============================================================
+
+test("kod konsultanta otwiera dane kontaktowe bez logowania — i tylko je", async () => {
+  const cookie = await zaloguj(KONSULTANT.email, KONSULTANT.pass);
+  const ja = await (await fetch(BASE + "/api/auth/me", { headers: { cookie } })).json();
+  const kod = ja.user.kod;
+  assert.ok(kod, "konto nie ma kodu — konsultant nie ma jak wygenerowac linku dla klienta");
+
+  // Bez ciasteczka, dokladnie jak przegladarka klienta.
+  const r = await fetch(`${BASE}/api/konsultant/${kod}`);
+  assert.equal(r.status, 200, "klient bez konta nie moze pobrac adresu konsultanta — formularz nie ma komu wyslac danych");
+  const d = await r.json();
+  assert.equal(d.konsultant.email, KONSULTANT.email);
+
+  // Z konta nie moze wyciec nic ponad to, co potrzebne do zaadresowania wiadomosci.
+  assert.deepEqual(Object.keys(d.konsultant).sort(), ["email", "name"],
+    "publiczna odpowiedz niesie wiecej niz imie i adres");
+});
+
+test("nieznany kod nie zdradza, czy konto istnieje, a reszta API zostaje zamknieta", async () => {
+  const zly = await fetch(BASE + "/api/konsultant/nieistniejacy-kod");
+  assert.equal(zly.status, 404);
+
+  // Kluczowe: dodanie publicznego endpointu NIE moglo otworzyc calego /api.
+  const szukanie = await fetch(BASE + "/api/search?countries=Grecja");
+  assert.equal(szukanie.status, 401, "publiczny endpoint przepuscil za soba reszte API");
+  const konta = await fetch(BASE + "/api/users");
+  assert.equal(konta.status, 401, "lista kont stala sie dostepna bez logowania");
+});
+
+test("kod przestaje dzialac razem z odcieciem dostepu konsultantowi", async () => {
+  // Link zyje w wydrukach i skrzynkach klientow. Gdy konto jest wylaczane, adres
+  // ma przestac odpowiadac — inaczej wylaczony konsultant dalej zbiera dane klientow.
+  const admin = await zaloguj(ADMIN.email, ADMIN.pass);
+  const lista = await (await fetch(BASE + "/api/users", { headers: { cookie: admin } })).json();
+  const k = lista.users.find((u) => u.email === KONSULTANT.email);
+  assert.ok(k, "nie znalazlem konta konsultanta na liscie");
+
+  await fetch(`${BASE}/api/users/${k.id}/active`, {
+    method: "POST", headers: { "Content-Type": "application/json", cookie: admin },
+    body: JSON.stringify({ active: false }),
+  });
+  const po = await fetch(`${BASE}/api/konsultant/${k.kod}`);
+  assert.equal(po.status, 404, "kod wylaczonego konta dalej zwraca jego adres");
+
+  // Sprzatanie: kolejne testy moga potrzebowac tego konta.
+  await fetch(`${BASE}/api/users/${k.id}/active`, {
+    method: "POST", headers: { "Content-Type": "application/json", cookie: admin },
+    body: JSON.stringify({ active: true }),
+  });
+});

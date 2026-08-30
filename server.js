@@ -27,7 +27,7 @@ import {
   verifyLogin, createSession, destroySession, purgeExpiredSessions,
   setSessionCookie, clearSessionCookie,
   listUsers, createUser, setPassword, setActive,
-  getCart, saveCart, seedAdminFromEnv,
+  getCart, saveCart, seedAdminFromEnv, uzupelnijKody, findByKod,
 } from "./src/auth.js";
 
 // Doradca ETA OS (Claude) — provider LOKALNY (prompt = know-how użytkownika, gitignored).
@@ -98,6 +98,21 @@ app.post("/api/auth/logout", (req, res) => {
 // Bootstrap frontu — jedyny endpoint, który wolno wołać bez sesji.
 app.get("/api/auth/me", (req, res) => {
   res.json({ user: req.user || null });
+});
+
+// Konsultant po kodzie z linku — JEDYNY endpoint /api dostępny bez logowania.
+// Formularz „dane do rezerwacji" wypełnia klient, który konta nie ma i mieć nie
+// będzie. Zwracamy wyłącznie imię i adres aktywnego konta (patrz auth.js:findByKod),
+// żeby strona miała komu zaadresować wiadomość — nic więcej stąd nie wychodzi.
+//
+// ⚠️ Ten endpoint NIE PRZYJMUJE żadnych danych klienta i nigdy nie ma ich przyjmować.
+// Dane z formularza idą prosto ze skrzynki klienta do konsultanta; Kompas ich nie
+// widzi, nie zapisuje i nie jest ich procesorem. To jedyny powód, dla którego ta
+// funkcja może powstać przed rozmową z prawnikiem o RODO.
+app.get("/api/konsultant/:kod", (req, res) => {
+  const k = findByKod(req.params.kod);
+  if (!k) return res.status(404).json({ error: "Nie znaleziono konsultanta." });
+  res.json({ konsultant: { name: k.name, email: k.email } });
 });
 
 // Od tego miejsca całe API wymaga zalogowania.
@@ -363,6 +378,9 @@ process.on("uncaughtException", (err) => {
 });
 
 purgeExpiredSessions();
+// Konta sprzed wprowadzenia kodu (w tym admin z ADMIN_EMAIL) maja go NULL —
+// bez tego konsultant nie mialby jak wygenerowac linku dla klienta.
+uzupelnijKody();
 
 // Konto startowe na hostingu bez konsoli (Render): zakładane tylko przy pustej bazie.
 try {

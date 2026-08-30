@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Kompas — dane do rezerwacji</title>
+<!--
+  Formularz wypełnia KLIENT, nie konsultant — strona jest więc publiczna
+  (chronione jest tylko "/" i "/index.html", patrz server.js).
+
+  ⚠️ NAJWAŻNIEJSZA ZASADA TEJ STRONY: dane z formularza NIE TRAFIAJĄ NA NASZ SERWER.
+  Nie ma tu ani jednego POST-a. Wypełnione pola składają się w treść wiadomości,
+  którą klient wysyła ZE SWOJEJ skrzynki do konsultanta — dokładnie tak, jak gdyby
+  napisał ją ręcznie, tylko bez pominiętych pól i literówek w dacie urodzenia.
+
+  To nie jest szczegół implementacyjny, tylko powód, dla którego ta funkcja mogła
+  powstać przed rozmową z prawnikiem: Kompas nie widzi tych danych, nie zapisuje ich
+  i nie jest ich procesorem. Gdyby ktoś kiedyś chciał dopisać tu wysyłkę na serwer —
+  to jest moment, w którym potrzebna jest umowa powierzenia, retencja i zgoda.
+
+  Z serwera pobieramy WYŁĄCZNIE imię i adres konsultanta (GET /api/konsultant/:kod),
+  żeby wiadomość miała komu trafić. Adresu nie ma w linku celowo: e-mail w query
+  stringu zostaje w historii przeglądarki, w logach i w każdej przesłanej dalej kopii.
+-->
+<style>
+  :root {
+    --paper:#FBFAF6;--surface:#fff;--surface-2:#F4F1EA;--ink:#13201F;--ink-soft:#46534F;--ink-faint:#7C8783;
+    --line:#E4DFD4;--line-strong:#D2CBBB;--accent:#0F6B68;--accent-deep:#0A4F4C;--accent-soft:#E1EEED;
+    --good:#2F7D57;--good-soft:#E4F1E9;--crit:#B23B3B;--crit-soft:#F7E4E1;
+    --shadow:0 1px 2px rgba(19,32,31,.05),0 8px 24px rgba(19,32,31,.06);
+    --shadow-lg:0 4px 12px rgba(19,32,31,.08),0 24px 48px rgba(19,32,31,.10);
+    --radius:14px;--radius-sm:9px;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#0E1615;--surface:#151F1E;--surface-2:#1B2726;--ink:#EDF1EF;--ink-soft:#AEBAB6;--ink-faint:#7E8B87;
+    --line:#263332;--line-strong:#33413F;--accent:#3FB0AB;--accent-deep:#63C6C1;--accent-soft:#14302E;
+    --good:#5FB985;--good-soft:#172C21;--crit:#E0736E;--crit-soft:#2E1917;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);--shadow-lg:0 4px 12px rgba(0,0,0,.4),0 24px 48px rgba(0,0,0,.5);
+  }}
+
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;padding:24px 20px 56px;
+       font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.5;font-size:15px;-webkit-font-smoothing:antialiased}
+  .card{width:100%;max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--line);
+        border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:30px 28px 26px}
+
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:22px}
+  .mark{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;box-shadow:var(--shadow);
+        background:radial-gradient(120% 120% at 30% 20%,var(--accent) 0%,var(--accent-deep) 100%)}
+  .mark svg{width:20px;height:20px}
+  .brand-name{font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .brand-sub{font-size:11.5px;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase}
+
+  h1{margin:0 0 6px;font-size:20px;font-weight:650;letter-spacing:-.01em}
+  .lead{margin:0 0 18px;font-size:14px;color:var(--ink-soft)}
+  h2{margin:22px 0 10px;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft)}
+
+  .kto{margin:0 0 18px;padding:11px 13px;border-radius:var(--radius-sm);
+       background:var(--accent-soft);font-size:13.5px;color:var(--ink)}
+  .kto b{font-weight:650}
+
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row > .field{flex:1 1 200px}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:13px}
+  .field label{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+  input{width:100%;padding:10px 12px;font-size:14px;font-family:inherit;border:1px solid var(--line-strong);
+        border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* Dopiero po interakcji: :placeholder-shown nie działa dla type=date, więc
+     nietknięte pole daty świeciło się na czerwono, zanim ktokolwiek je kliknął. */
+  input:user-invalid{border-color:var(--crit)}
+
+  .osoba{border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px 14px 2px;margin-bottom:12px;background:var(--surface-2)}
+  .osoba-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .osoba-nr{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint)}
+  .usun{width:auto;margin:0;padding:4px 10px;font-size:12px;font-weight:600;color:var(--ink-soft);
+        background:none;border:1px solid var(--line-strong);border-radius:999px}
+  .usun:hover{color:var(--crit);border-color:var(--crit)}
+
+  button{width:100%;margin-top:6px;padding:11px 16px;font-family:inherit;font-size:14.5px;font-weight:650;
+         border:none;border-radius:var(--radius-sm);cursor:pointer;color:#fff;
+         background:linear-gradient(180deg,var(--accent) 0%,var(--accent-deep) 100%)}
+  button:hover{filter:brightness(1.06)}
+  button:disabled{opacity:.6;cursor:default;filter:none}
+  .btn-2{margin-top:9px;color:var(--ink-soft);background:none;border:1px solid var(--line-strong)}
+  .btn-2:hover{filter:none;border-color:var(--accent);color:var(--accent)}
+  .dodaj{margin:0 0 4px;color:var(--ink-soft);background:none;border:1px dashed var(--line-strong)}
+  .dodaj:hover{filter:none;border-color:var(--accent);color:var(--accent)}
+
+  /* Widocznością steruje WYŁĄCZNIE atrybut hidden. Klasa włączająca display
+     wygrywała z [hidden] i pusty pasek błędu wisiał na stronie od załadowania. */
+  .msg{margin:14px 0 0;padding:10px 13px;font-size:13.5px;border-radius:var(--radius-sm)}
+  [hidden]{display:none !important}
+  .msg.err{color:var(--crit);background:var(--crit-soft)}
+  .msg.ok{color:var(--good);background:var(--good-soft)}
+
+  .prywatnosc{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-faint)}
+  .prywatnosc b{color:var(--ink-soft);font-weight:650}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="7" stroke="#fff" stroke-width="1.6"/><path d="M15 9l-2.2 4.8L8 16l2.2-4.8L15 9z" fill="#fff"/></svg></div>
+    <div><div class="brand-name">Kompas</div><div class="brand-sub">Dane do rezerwacji</div></div>
+  </div>
+
+  <h1>Dane do założenia rezerwacji</h1>
+  <p class="lead">Jeśli nigdy nie korzystałeś u nas z wakacje.pl — albo uczestnicy wycieczki nigdy nie jechali z Twojego profilu — podaj dane potrzebne do założenia rezerwacji. Zajmie to minutę.</p>
+
+  <p class="kto" id="kto" hidden></p>
+  <p class="msg err" id="blad" role="alert" hidden></p>
+
+  <form id="form" autocomplete="on">
+    <h2>Osoba rezerwująca</h2>
+    <div class="row">
+      <div class="field">
+        <label for="imie">Imię</label>
+        <input type="text" id="imie" autocomplete="given-name" placeholder=" " required>
+      </div>
+      <div class="field">
+        <label for="nazwisko">Nazwisko</label>
+        <input type="text" id="nazwisko" autocomplete="family-name" placeholder=" " required>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="urodziny">Data urodzenia</label>
+        <input type="date" id="urodziny" autocomplete="bday" required>
+      </div>
+      <div class="field">
+        <label for="telefon">Telefon</label>
+        <input type="tel" id="telefon" autocomplete="tel" placeholder=" " required>
+      </div>
+    </div>
+    <div class="field">
+      <label for="email">Adres e-mail</label>
+      <input type="email" id="email" autocomplete="email" placeholder=" " required>
+    </div>
+    <div class="field">
+      <label for="adres">Adres zamieszkania</label>
+      <input type="text" id="adres" autocomplete="street-address" placeholder="ulica, numer, kod pocztowy, miejscowość" required>
+    </div>
+
+    <h2>Pozostali uczestnicy</h2>
+    <div id="uczestnicy"></div>
+    <button type="button" class="dodaj" id="dodaj">+ Dodaj uczestnika</button>
+
+    <button type="submit" id="wyslij">Wyślij do konsultanta</button>
+    <button type="button" class="btn-2" id="kopiuj">Skopiuj treść wiadomości</button>
+  </form>
+
+  <p class="msg ok" id="info" hidden></p>
+
+  <p class="prywatnosc">
+    <b>Co się dzieje z tymi danymi.</b> Formularz niczego nie wysyła do systemu Kompas
+    i nigdzie ich nie zapisuje — po kliknięciu otworzy się Twój program pocztowy
+    z gotową wiadomością, którą wysyłasz ze swojej skrzynki bezpośrednio do konsultanta.
+    Nie prosimy o dane karty ani o hasła; płatność i rezerwacja odbywają się poza tym formularzem.
+  </p>
+</main>
+
+<script>
+  var params = new URLSearchParams(location.search);
+  var kod = (params.get("k") || "").trim();
+  var konsultant = null;
+
+  var elKto = document.getElementById("kto");
+  var elBlad = document.getElementById("blad");
+  var elInfo = document.getElementById("info");
+  var form = document.getElementById("form");
+  var wyslij = document.getElementById("wyslij");
+
+  function pokazBlad(t) { elBlad.textContent = t; elBlad.hidden = false; }
+  function pokazInfo(t) { elInfo.textContent = t; elInfo.hidden = false; }
+
+  // Bez konsultanta nie ma dokąd wysłać — formularz zostaje wyłączony, zamiast
+  // pozwolić komuś wypełnić dwadzieścia pól i dowiedzieć się tego na końcu.
+  if (!kod) {
+    pokazBlad("Ten link jest niekompletny — brakuje w nim identyfikatora konsultanta. Poproś swojego doradcę o ponowne przesłanie linku.");
+    wyslij.disabled = true;
+  } else {
+    fetch("/api/konsultant/" + encodeURIComponent(kod))
+      .then(function (r) { if (!r.ok) throw new Error("nieznany"); return r.json(); })
+      .then(function (d) {
+        konsultant = d.konsultant;
+        elKto.innerHTML = "Wiadomość trafi do: <b>" + escapeHtml(konsultant.name || konsultant.email) + "</b>";
+        elKto.hidden = false;
+      })
+      .catch(function () {
+        pokazBlad("Nie rozpoznajemy tego linku — mógł wygasnąć albo konsultant nie ma już aktywnego konta. Poproś o nowy link.");
+        wyslij.disabled = true;
+      });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // --- Pozostali uczestnicy -------------------------------------------------
+  // Minimalizacja danych: od współuczestników bierzemy tylko to, co jest potrzebne
+  // do wpisania ich na rezerwację. Adres i kontakt podaje wyłącznie osoba rezerwująca.
+  var uczestnicy = document.getElementById("uczestnicy");
+  var licznik = 0;
+
+  document.getElementById("dodaj").addEventListener("click", function () {
+    licznik++;
+    var box = document.createElement("div");
+    box.className = "osoba";
+    box.innerHTML =
+      '<div class="osoba-head"><span class="osoba-nr">Uczestnik ' + licznik + '</span>' +
+      '<button type="button" class="usun">Usuń</button></div>' +
+      '<div class="row">' +
+      '<div class="field"><label>Imię</label><input type="text" class="u-imie" placeholder=" " required></div>' +
+      '<div class="field"><label>Nazwisko</label><input type="text" class="u-nazwisko" placeholder=" " required></div>' +
+      '</div>' +
+      '<div class="field"><label>Data urodzenia</label><input type="date" class="u-urodziny" required></div>';
+    box.querySelector(".usun").addEventListener("click", function () {
+      box.remove();
+      przenumeruj();
+    });
+    uczestnicy.appendChild(box);
+    box.querySelector(".u-imie").focus();
+  });
+
+  function przenumeruj() {
+    var boxy = uczestnicy.querySelectorAll(".osoba");
+    licznik = boxy.length;
+    for (var i = 0; i < boxy.length; i++) {
+      boxy[i].querySelector(".osoba-nr").textContent = "Uczestnik " + (i + 1);
+    }
+  }
+
+  // --- Treść wiadomości -----------------------------------------------------
+  function wartosc(id) { return document.getElementById(id).value.trim(); }
+
+  function trescWiadomosci() {
+    var linie = [
+      "Dane do założenia rezerwacji",
+      "",
+      "OSOBA REZERWUJĄCA",
+      "Imię i nazwisko: " + wartosc("imie") + " " + wartosc("nazwisko"),
+      "Data urodzenia: " + wartosc("urodziny"),
+      "Adres zamieszkania: " + wartosc("adres"),
+      "E-mail: " + wartosc("email"),
+      "Telefon: " + wartosc("telefon"),
+    ];
+
+    var boxy = uczestnicy.querySelectorAll(".osoba");
+    if (boxy.length) {
+      linie.push("", "POZOSTALI UCZESTNICY");
+      for (var i = 0; i < boxy.length; i++) {
+        var b = boxy[i];
+        linie.push(
+          (i + 1) + ". " + b.querySelector(".u-imie").value.trim() + " " +
+          b.querySelector(".u-nazwisko").value.trim() +
+          ", ur. " + b.querySelector(".u-urodziny").value
+        );
+      }
+    }
+
+    linie.push("", "Wysłane z formularza Kompasa.");
+    return linie.join("\n");
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!konsultant) return;
+    elInfo.hidden = true;
+
+    var tresc = trescWiadomosci();
+    var temat = "Dane do rezerwacji — " + wartosc("imie") + " " + wartosc("nazwisko");
+    var link = "mailto:" + encodeURIComponent(konsultant.email) +
+      "?subject=" + encodeURIComponent(temat) +
+      "&body=" + encodeURIComponent(tresc);
+
+    // Bardzo długie mailto bywa ucinane przez klienty pocztowe (Outlook ~2000 znaków).
+    // Lepiej powiedzieć to wprost i wskazać kopiowanie, niż wysłać obciętą listę uczestników.
+    if (link.length > 1900) {
+      pokazInfo("Lista jest długa i część programów pocztowych mogłaby ją uciąć. Kliknij „Skopiuj treść wiadomości” i wklej ją do maila do konsultanta.");
+      return;
+    }
+
+    location.href = link;
+    pokazInfo("Otworzyliśmy Twój program pocztowy z gotową wiadomością. Sprawdź ją i wyślij — dopiero wtedy dane trafią do konsultanta.");
+  });
+
+  document.getElementById("kopiuj").addEventListener("click", function () {
+    var tresc = trescWiadomosci() +
+      (konsultant ? "\n\nWyślij na adres: " + konsultant.email : "");
+    navigator.clipboard.writeText(tresc).then(function () {
+      pokazInfo("Treść skopiowana. Wklej ją do wiadomości e-mail" + (konsultant ? " na adres " + konsultant.email : "") + ".");
+    }).catch(function () {
+      pokazBlad("Nie udało się skopiować automatycznie — zaznacz treść ręcznie albo użyj przycisku wysyłki.");
+    });
+  });
+</script>
+</body>
+</html>

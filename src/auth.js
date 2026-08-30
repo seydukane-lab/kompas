@@ -33,9 +33,51 @@ function passwordMatches(password, stored) {
   return timingSafeEqual(expected, actual);
 }
 
+// --- Publiczny kod konsultanta -------------------------------
+//
+// Formularz „dane do rezerwacji" wypełnia KLIENT — bez konta i bez logowania.
+// Link do niego musi więc wskazywać konsultanta, ale NIE WOLNO wstawiać tam
+// adresu e-mail: query string wędruje przez skrzynki, historię przeglądarki
+// i logi, a to dane osobowe. Link niesie sam kod, adres zna wyłącznie serwer.
+//
+// Kod jest losowy, nie liczony z id — inaczej dałoby się przejechać kolejne
+// numery i zebrać adresy całego biura.
+
+/** Losowy identyfikator konta bezpieczny do umieszczenia w adresie URL. */
+export function generujKod() {
+  return randomBytes(9).toString("base64url"); // 12 znaków, bez znaków wymagających kodowania
+}
+
+/**
+ * Nadaje kod kontom, które go jeszcze nie mają. Wołane przy starcie serwera,
+ * bo konta założone przed tą zmianą (w tym admin z ADMIN_EMAIL) mają NULL,
+ * a bez kodu konsultant nie ma jak wygenerować linku dla klienta.
+ * Zwraca liczbę uzupełnionych kont.
+ */
+export function uzupelnijKody() {
+  const bezKodu = db.prepare("SELECT id FROM users WHERE kod IS NULL OR kod = ''").all();
+  const zapisz = db.prepare("UPDATE users SET kod = ? WHERE id = ?");
+  for (const u of bezKodu) zapisz.run(generujKod(), u.id);
+  return bezKodu.length;
+}
+
+/**
+ * Konsultant po kodzie z linku — TYLKO imię i adres, TYLKO konto aktywne.
+ * Reszta pól (rola, daty, id) nie ma czego szukać w odpowiedzi dostępnej bez
+ * logowania. Konto wyłączone nie odpowiada, bo link ma przestać działać razem
+ * z odcięciem dostępu, a nie żyć własnym życiem w wydrukach u klientów.
+ */
+export function findByKod(kod) {
+  const k = String(kod || "").trim();
+  if (!k) return null;
+  return db
+    .prepare("SELECT name, email FROM users WHERE kod = ? AND active = 1")
+    .get(k) || null;
+}
+
 // --- Użytkownicy ---------------------------------------------
 
-const PUBLIC_FIELDS = "id, email, name, role, active, created_at, last_login";
+const PUBLIC_FIELDS = "id, email, name, role, active, created_at, last_login, kod";
 
 export function createUser({ email, name = "", password, role = "consultant" }) {
   const mail = String(email || "").trim().toLowerCase();
@@ -45,8 +87,8 @@ export function createUser({ email, name = "", password, role = "consultant" }) 
   if (findByEmail(mail)) throw new Error("Konto z tym adresem już istnieje.");
 
   const info = db
-    .prepare("INSERT INTO users (email, name, role, pass_hash) VALUES (?, ?, ?, ?)")
-    .run(mail, String(name).trim(), role, hashPassword(password));
+    .prepare("INSERT INTO users (email, name, role, pass_hash, kod) VALUES (?, ?, ?, ?, ?)")
+    .run(mail, String(name).trim(), role, hashPassword(password), generujKod());
   return getUser(Number(info.lastInsertRowid));
 }
 
@@ -122,7 +164,9 @@ export function sessionUser(token) {
   if (!token) return null;
   const row = db
     .prepare(
-      `SELECT u.id, u.email, u.name, u.role, u.active, u.created_at, u.last_login
+      // Lista pól jest tu RĘCZNA (nie PUBLIC_FIELDS, bo doszedł prefiks tabeli) —
+      // nowe pole konta trzeba dopisać także tutaj, inaczej panel go nie zobaczy.
+      `SELECT u.id, u.email, u.name, u.role, u.active, u.created_at, u.last_login, u.kod
          FROM sessions s JOIN users u ON u.id = s.user_id
         WHERE s.token = ? AND s.expires_at > datetime('now') AND u.active = 1`
     )
