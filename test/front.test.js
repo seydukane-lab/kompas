@@ -1816,3 +1816,33 @@ test("blok danych do rezerwacji sklada sie w dzialajacy adres, a nie w puste zda
   // zaproszenia prowadzacego donikad — lepiej nie pokazac nic niz martwy link.
   assert.equal(zbuduj({ email: "x@y.pl" }).html, "", "bez kodu konta wydruk niesie niedzialajacy link");
 });
+
+test("kazde wejscie do wysylki ma swoj listener — przycisk i obsluga chodza parami", () => {
+  // Wyjatek na null w addEventListener zabija CALY inline script, a wiec cala strone.
+  // Dlatego przycisk bez listenera (albo odwrotnie) to nie kosmetyka, tylko bialy ekran.
+  // Wejscia byly wylaczone 15.08.2026 i przywrocone 30.08 — ten test pilnuje kompletu.
+  const html = wczytaj("public/index.html");
+
+  const pary = [
+    ["karta wyniku", /data-send>/, /querySelector\("\[data-send\]"\)[\s\S]{0,80}addEventListener/],
+    ["modal Szczegoly", /data-detsend>/, /closest\("\[data-detsend\]"\)/],
+    ["stopka koszyka", /id="cartSend"/, /getElementById\("cartSend"\)\.addEventListener/],
+    ["wspolny wyjazd", /data-mrsend="/, /closest\("\[data-mrsend\]"\)/],
+  ];
+  for (const [nazwa, przycisk, listener] of pary) {
+    assert.match(html, przycisk, `brak przycisku wysylki: ${nazwa}`);
+    assert.match(html, listener, `przycisk „${nazwa}" nie ma listenera — klik nic nie zrobi`);
+  }
+
+  // Galaz [data-detsend] MUSI stac przed `if(!b)return` z obslugi zakladek,
+  // inaczej klikniecie nigdy do niej nie dojdzie.
+  const handler = html.match(/getElementById\("detailBody"\)\.addEventListener[\s\S]{0,700}?\n  \}\);/)?.[0] || "";
+  assert.ok(handler, "nie znalazlem handlera modalu szczegolow");
+  assert.ok(handler.indexOf("data-detsend") < handler.indexOf('data-dtab]");if(!b)return'),
+    "obsluga [data-detsend] stoi za wczesnym returnem — przycisk w szczegolach bylby martwy");
+
+  // Koszyk doklaja blok RAZ na cala wiadomosc, nie przy kazdej ofercie.
+  const cart = html.match(/function clientCartText\(\)\{[\s\S]*?\n  \}/)?.[0] || "";
+  assert.equal((cart.match(/blokDaneDoRezerwacji/g) || []).length, 1,
+    "blok danych doklejany wielokrotnie — klient dostanie ten sam link przy kazdej propozycji");
+});

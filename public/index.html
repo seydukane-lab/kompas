@@ -894,7 +894,7 @@
     <div class="cart-list" id="cartList"></div>
     <div class="cart-foot">
       <button class="cart-report-btn" id="cartReport">🏆 Raport doradcy — ranking + skrypty</button>
-      <div class="cart-foot-row"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
+      <div class="cart-foot-row"><button class="cart-foot-btn" id="cartCompare">⚖ Porównaj</button><button class="cart-foot-btn" id="cartPrint">🖨 Prezentacja</button><button class="cart-foot-btn" id="cartSend">📤 Wyślij</button><button class="cart-foot-btn danger" id="cartClear">Wyczyść</button></div>
     </div>
   </aside>
 </div>
@@ -1466,14 +1466,16 @@
     if(h.bookingUrl)L.push("\n🔗 "+h.bookingUrl);
     return L.join("\n");
   }
-  // ⏸ „DO WYSŁANIA" JEST WYŁĄCZONE OD 15.08.2026 — decyzja właściciela: „na razie zbędne".
-  // Usunięte zostały WYŁĄCZNIE wejścia do tej funkcji (przycisk na karcie, przycisk
-  // w szczegółach, „Wyślij" w koszyku, przycisk we wspólnym wyjeździe) wraz z ich
-  // listenerami — parami, bo sam addEventListener na nieistniejącym elemencie rzuca
-  // wyjątek na null i zabija CAŁY inline script, a więc i całą stronę.
-  // Kod poniżej (openSendText, openSend, clientOffer, clientCartText, mrClientText)
-  // oraz modal #sendModal zostają CELOWO, żeby dało się to przywrócić jednym commitem.
-  // To nie jest martwy kod do sprzątnięcia — nie usuwać bez pytania właściciela.
+  // „DO WYSŁANIA" — wyłączone 15.08.2026 („na razie zbędne"), PRZYWRÓCONE 30.08.2026
+  // na prośbę właściciela, razem z formularzem „dane do rezerwacji": to mail jest
+  // miejscem, w którym ten formularz ma dotrzeć do klienta.
+  //
+  // Wejścia są CZTERY i każde ma swój listener: przycisk na karcie wyniku, przycisk
+  // w modalu Szczegóły, „Wyślij" w stopce koszyka i przycisk we wspólnym wyjeździe.
+  // ⚠️ Przycisk i listener dodaje się oraz usuwa PARAMI — addEventListener na
+  // nieistniejącym elemencie rzuca wyjątek na null i zabija CAŁY inline script,
+  // a więc i całą stronę. Dlatego listenery na karcie sprawdzają wpierw, czy
+  // element w ogóle istnieje.
   function openSendText(text,subject){
     document.getElementById("sendText").value=text;
     var enc=encodeURIComponent(text);
@@ -1598,7 +1600,7 @@
         body='<ul class="mr-bd">'+mrRoomsBreakdownHtml(h.roomsBreakdown)+'</ul>';
       }
       var totLabel=h.compareConfigs?'od '+fmt(h.priceTotal)+' zł':fmt(h.priceTotal)+' zł';
-      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars)+'</span>'+(h.compareConfigs?'':badge)+'</div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+totLabel+'</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div>'+body+'</div>';
+      return '<div class="mr-off"><div class="mr-h"><div><div class="mr-name">'+h.name+' <span class="stars">'+stars(h.stars)+'</span>'+(h.compareConfigs?'':badge)+'</div><div class="mr-loc">'+(h.region||h.country||"")+'</div></div><div class="mr-tot"><b>'+totLabel+'</b><div class="mr-loc">za grupę · od '+fmt(h.price)+' zł/os.</div></div></div>'+body+'<button class="mr-send" data-mrsend="'+idx+'">📤 Do wysłania</button></div>';
     }).join("");
   }
   // Wiadomość dla klienta dla oferty multiroom (fakty + rozbicie na pokoje).
@@ -1962,7 +1964,13 @@
     w.document.write('<!doctype html><meta charset="utf-8"><title>Propozycje wyjazdów — Kompas</title><style>'+PRINT_CSS+'</style><h1>Propozycje wyjazdów</h1><div class="sub">'+cart.length+' ofert do wyboru · ceny orientacyjne, do potwierdzenia u organizatora</div>'+(demoZdanie(ranked)?'<p class="demo-note">⚠ '+demoZdanie(ranked)+'</p>':'')+rows+''+blokDanychHtml()+'<div class="foot">Zestawienie przygotowane w systemie Kompas.</div><scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>');
     w.document.close();
   }
+  document.getElementById("mrResults").addEventListener("click",function(e){
+    var b=e.target.closest("[data-mrsend]");if(!b)return;
+    var h=mrLast[+b.dataset.mrsend];if(!h)return;
+    mrModal.hidden=true;openSendText(mrClientText(h),"Wspólny wyjazd — "+h.name);
+  });
   document.getElementById("cartPrint").addEventListener("click",printCart);
+  document.getElementById("cartSend").addEventListener("click",function(){if(!cart.length){toast("Koszyk jest pusty");return;}cartDrawer.hidden=true;openSendText(clientCartText(),"Propozycje wyjazdów");});
 
   /* ---------- Raport doradcy (ETA OS Faza A: ranking value-for-money + werdykt + skrypt) ---------- */
   // Ocena wartości 0-100 z DANYCH KTÓRE MAMY (cena, opinie ważone wiarygodnością,
@@ -2270,6 +2278,7 @@
       : '<p class="det-empty">Brak kuratorowanej wiedzy o tym kierunku — sprawdź linki researchowe niżej.</p>';
     document.getElementById("detailBody").innerHTML=
       '<div class="det-note">Dane z listingu są orientacyjne. Szczegóły (plaża, pokoje, jedzenie, aktualne opinie) potwierdź researchem — linki niżej otwierają realne źródła, jak w warsztacie doradcy.</div>'+
+      '<div class="det-actions"><button type="button" class="btn-script" data-detsend><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button></div>'+
       '<div class="det-sec">'+naglowek+'</div>'+
       tabsNav+tabsPanels+
       '<div class="det-sec"><h4>Kierunek</h4>'+kier+'</div>'+
@@ -2278,6 +2287,9 @@
     document.getElementById("detailModal").hidden=false;
   }
   document.getElementById("detailBody").addEventListener("click",function(e){
+    // Ta gałąź MUSI stać przed sprawdzeniem [data-dtab]: tamto kończy się `return`
+    // przy każdym kliknięciu poza zakładką, więc niżej nic już się nie wykona.
+    if(e.target.closest("[data-detsend]")){document.getElementById("detailModal").hidden=true;openSend(detailOfferCtx,nights(),paxCount());return;}
     var b=e.target.closest("[data-dtab]");if(!b)return;
     var key=b.getAttribute("data-dtab");
     document.querySelectorAll(".det-tab-btn").forEach(function(x){x.setAttribute("aria-selected",String(x===b));});
@@ -2665,7 +2677,7 @@
           // i operatorzy", patrz openDetail(h,tabKey).
           (function(){var vi=variantInfo(h);return vi?('<button type="button" class="price-variants" data-variants>+'+vi.other+' '+odmInny(vi.other)+' '+odmTerminow(vi.other)+', najtaniej <b>'+fmt(vi.minTotal)+' zł</b> za grupę</button>'):'';})()+
           (offerNo?'<button class="offer-no" data-copyno="'+offerNo+'" title="Kopiuj numer oferty">Nr oferty: <b>'+offerNo+'</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button>':'')+
-          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
+          '<div class="card-actions">'+(h.bookingUrl?'<a class="btn-script btn-book" href="'+h.bookingUrl+'" target="_blank" rel="noopener noreferrer">Przejdź do oferty ↗</a>':'')+'<button class="btn-script" data-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Skrypt sprzedażowy</button>'+'<button class="btn-script" data-detail><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v0M11 11v3"/></svg>Szczegóły</button>'+(practInner?'<button class="btn-script btn-pract" data-pract><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg>Informacje praktyczne</button>':'')+'<button class="btn-script btn-send" data-send><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>Do wysłania</button>'+'<button class="btn-script btn-cart'+(inCart(h.id)?' saved':'')+'" data-cart data-cid="'+h.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg><span class="ct-lbl">'+(inCart(h.id)?'Odłożone':'Odłóż')+'</span></button>'+'</div>'+
         '</div>'+
       '</div>'+
       '<div class="script js-script"><div class="script-inner"></div></div>'+
@@ -2694,6 +2706,7 @@
     var viBtn=el.querySelector("[data-variants]");if(viBtn)viBtn.addEventListener("click",function(){openDetail(h,"terminy");});
     var pBtn=el.querySelector("[data-pract]");if(pBtn)pBtn.addEventListener("click",function(){pDrawer.classList.toggle("open");sDrawer.classList.remove("open");});
     var noBtn=el.querySelector("[data-copyno]");if(noBtn)noBtn.addEventListener("click",function(){var nn=noBtn.getAttribute("data-copyno");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(nn).then(function(){toast("Skopiowano nr oferty: "+nn+" ✓");},function(){fallbackCopy(nn);});else fallbackCopy(nn);});
+    var sendBtn=el.querySelector("[data-send]");if(sendBtn)sendBtn.addEventListener("click",function(){openSend(h,n,pax);});
     var cartBtnCard=el.querySelector("[data-cart]");if(cartBtnCard)cartBtnCard.addEventListener("click",function(){var added=toggleCart(h);syncCardButtons();toast(added?"Dodano do koszyka ✓":"Usunięto z koszyka");});
     // Delegacja: przełącznik grupy, „inny wariant", kopiowanie i druk — jeden listener.
     scriptInner.addEventListener("click",function(e){
