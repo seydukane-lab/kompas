@@ -66,11 +66,21 @@ export function przygotujPodmiane(tresc, z, na) {
  * Czy plik NAPRAWDĘ został zmieniony tak, jak chcieliśmy. Wołane po zapisie,
  * na treści wczytanej z dysku — bo tylko to jest dowodem, a nie zmienna w pamięci.
  */
-export function potwierdzPodmiane(treschPoZapisie, szukany, docelowy) {
-  const maDocelowy = ileWystapien(treschPoZapisie, docelowy) > 0;
-  const maSzukany = ileWystapien(treschPoZapisie, szukany) > 0;
-  if (!maDocelowy) return { ok: false, powod: "po zapisie nie ma zmienionego fragmentu — podmiana nie weszła" };
-  if (maSzukany) return { ok: false, powod: "po zapisie oryginalny fragment nadal tam jest — podmiana weszła nie tam, gdzie trzeba" };
+export function potwierdzPodmiane(treschPoZapisie, szukany, docelowy, trescPrzed) {
+  if (ileWystapien(treschPoZapisie, docelowy) === 0) {
+    return { ok: false, powod: "po zapisie nie ma zmienionego fragmentu — podmiana nie weszła" };
+  }
+  if (trescPrzed !== undefined && String(treschPoZapisie) === String(trescPrzed)) {
+    return { ok: false, powod: "plik jest bajt w bajt taki sam jak przed podmianą" };
+  }
+  // Sprawdzenie „oryginał zniknął" ma sens TYLKO wtedy, gdy zamiennik nie zawiera
+  // wzorca w sobie. Przy rozszerzeniu w rodzaju `f() {` → `f() { return [];`
+  // oryginał z definicji zostaje i odrzucanie tego było fałszywym alarmem —
+  // znalezionym 31.08.2026 podczas pierwszego audytu pokrycia tym narzędziem.
+  if (!dopasujKoncowki(docelowy, koncowkaLinii(treschPoZapisie)).includes(dopasujKoncowki(szukany, koncowkaLinii(treschPoZapisie)))
+      && ileWystapien(treschPoZapisie, szukany) > 0) {
+    return { ok: false, powod: "po zapisie oryginalny fragment nadal tam jest — podmiana weszła nie tam, gdzie trzeba" };
+  }
   return { ok: true };
 }
 

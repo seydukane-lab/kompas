@@ -103,3 +103,31 @@ test("werdykt broni się przed pomiarem na czerwonym repo i przed brakiem przywr
   assert.equal(poPsu.kod, 2);
   assert.match(poPsu.tekst, /po przywróceniu/);
 });
+
+test("rozszerzenie fragmentu nie jest odrzucane jako nieudana podmiana", () => {
+  // Falszywy alarm znaleziony 31.08.2026 podczas pierwszego audytu pokrycia TYM
+  // narzedziem: sabotaz w rodzaju `f() {` → `f() { return [];` jest poprawny, ale
+  // oryginal z definicji zostaje w pliku jako prefiks zamiennika. Poprzednia wersja
+  // odrzucala to jako "podmiana weszla nie tam, gdzie trzeba" i blokowala badanie
+  // calej klasy regul.
+  const przed = "export function f(a) {\n  return a;\n}\n";
+  const po = "export function f(a) { return null;\n  return a;\n}\n";
+  const w = potwierdzPodmiane(po, "export function f(a) {", "export function f(a) { return null;", przed);
+  assert.equal(w.ok, true, w.powod);
+});
+
+test("podmiana, ktora nie zmienila pliku, dalej jest odrzucana", () => {
+  // Zlagodzenie warunku wyzej nie moze otworzyc furtki na sabotaz pozorny.
+  const tresc = "export function f(a) {\n  return a;\n}\n";
+  const w = potwierdzPodmiane(tresc, "export function f(a) {", "export function f(a) {", tresc);
+  assert.equal(w.ok, false);
+  assert.match(w.powod, /bajt w bajt|nie weszła/);
+});
+
+test("podmiana w zlym miejscu nadal jest lapana", () => {
+  // Gdy zamiennik NIE zawiera wzorca, obecnosc oryginalu po zapisie znaczy, ze
+  // podmieniono co innego — i to musi zostac odrzucone.
+  const w = potwierdzPodmiane("stara i nowa", "stara", "nowa", "stara");
+  assert.equal(w.ok, false);
+  assert.match(w.powod, /nadal tam jest/);
+});

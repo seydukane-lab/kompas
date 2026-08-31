@@ -96,7 +96,7 @@ writeFileSync(PLIK, podmiana.tresc, "utf8");
 
 // Dowodem jest odczyt z dysku, nie zmienna w pamięci.
 const poZapisie = readFileSync(PLIK, "utf8");
-const potwierdzenie = potwierdzPodmiane(poZapisie, podmiana.szukany, podmiana.docelowy);
+const potwierdzenie = potwierdzPodmiane(poZapisie, podmiana.szukany, podmiana.docelowy, oryginal);
 if (!potwierdzenie.ok) {
   copyFileSync(KOPIA, PLIK);
   unlinkSync(KOPIA);
