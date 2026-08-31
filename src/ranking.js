@@ -620,3 +620,63 @@ export function applyFilters(list, crit) {
     return true;
   });
 }
+
+/**
+ * Czy pokazany klientowi termin KOŃCZY SIĘ po dacie, którą klient wpisał.
+ *
+ * Od 27.08.2026 okno terminu dotyczy wyłącznie WYLOTU (patrz variantWithinDates) —
+ * i to była dobra zmiana, bo poprzednia semantyka wycinała oferty realnie pasujące.
+ * Ma jednak koszt, który do tej pory nigdzie nie był widoczny: przy oknie węższym
+ * niż długość pobytu powrót niemal zawsze wypada za jego górną granicą.
+ *
+ * Zmierzone na katalogu PL w nocy 30/31.08.2026, bez filtra długości pobytu:
+ *   okno  7 dni → 14 z 14 ofert (100%) ma powrót po dacie „do",
+ *   okno 14 dni → 23 z 45 (51%),
+ *   okno 30 dni → 0 z 38 (0%).
+ * Skala zależy od stosunku szerokości okna do typowego pobytu (7 nocy), więc przy
+ * szerokim oknie ta flaga nie zapali się ANI RAZU — to nie jest znacznik „na wszelki
+ * wypadek", tylko odpowiedź na realny rozjazd między tym, co klient wpisał, a tym,
+ * kiedy faktycznie wróci.
+ *
+ * Dlaczego to w ogóle trzeba mówić: konsultant wpisuje termin klienta, pokazuje
+ * ofertę i oboje widzą pasujący wylot. To, że powrót wypada trzy dni po końcu urlopu,
+ * wychodzi dopiero wtedy, gdy ktoś policzy daty — czyli w najgorszym momencie.
+ *
+ * ⚠️ Liczone na ofercie PO promocji wariantu (promoteMatchingVariant), bo pytanie
+ * dotyczy terminu POKAZANEGO na karcie, a nie dowolnego wariantu tego hotelu.
+ *
+ * Brak daty powrotu NIE jest ostrzeżeniem — o czym nie wiemy, o tym nie straszymy.
+ * Oferty hotel-only są poza tym: nie mają lotu powrotnego, a dostawca odpytuje je
+ * po datach już u siebie (patrz komentarz przy crit.from w applyFilters).
+ */
+export function powrotPoOknie(oferta, crit) {
+  if (!crit || !crit.to) return false;
+  if (!oferta || oferta.type !== "package") return false;
+  if (!oferta.returnDate) return false;
+  // Daty są w ISO (YYYY-MM-DD), więc porównanie stringów jest chronologiczne.
+  return oferta.returnDate > crit.to;
+}
+
+/**
+ * Oferta gotowa do wysłania na front: reprezentant po promocji + flagi zależne
+ * od KRYTERIÓW TEGO zapytania.
+ *
+ * ⚠️ ZAWSZE zwraca nowy obiekt, gdy dokłada choć jedną flagę — nigdy nie dopisuje
+ * pól do przekazanego obiektu. Powód jest konkretny: promoteMatchingVariant oddaje
+ * ORYGINAŁ (bez kopiowania), gdy nie ma czego promować — dla hotelu bez lotu, przy
+ * jednym wariancie albo gdy żaden filtr wariantowy nie jest aktywny. Ten oryginał
+ * przychodzi z cache dostawcy i żyje między wyszukiwaniami, więc dopisanie do niego
+ * `powrotPoOknie` oznaczałoby, że następny konsultant — z zupełnie innym terminem —
+ * zobaczy plakietkę policzoną dla cudzych kryteriów.
+ *
+ * To nie jest hipoteza: ta klasa błędu wystąpiła już w tym projekcie przy fladze
+ * zależnej od zapytania. Dlatego składanie flag mieszka tutaj, w funkcji, którą
+ * da się o to zapytać testem, a nie w środku pętli w server.js.
+ */
+export function ofertaZFlagami(oferta, promowana, crit) {
+  const flagi = {};
+  if (filtrRozproszony(oferta, crit)) flagi.filtrRozproszony = true;
+  // Powrót liczymy na wariancie POKAZANYM na karcie, czyli już po promocji.
+  if (powrotPoOknie(promowana, crit)) flagi.powrotPoOknie = true;
+  return Object.keys(flagi).length ? { ...promowana, ...flagi } : promowana;
+}

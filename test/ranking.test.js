@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, filtrRozproszony, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, znanyAtrybut, offerGroupTotal, isGroupTotalExact, podpowiedziRozluznienia,
+  trustScore, trustLabel, scoreOffer, sortOffers, normalizeName, applyFilters, promoteMatchingVariant, filtrRozproszony, powrotPoOknie, ofertaZFlagami, hasAttribute, isDividedRoom, attributeCoverage, unknownAttrs, znanyAtrybut, offerGroupTotal, isGroupTotalExact, podpowiedziRozluznienia,
 } from "../src/ranking.js";
 import { mapBoard } from "../src/providers/hotelbeds.js";
 
@@ -1075,4 +1075,73 @@ test("nieznany atrybut nie odsiewa ani jednej oferty — dlatego serwer musi go 
     "zmieniła się semantyka nieznanego klucza — sprawdź, czy nie zaczął cicho wycinać ofert");
   assert.equal(hasAttribute(lista[1], "plaza-blisko"), undefined,
     "nieznany klucz przestał być brakiem danych — grozi cichym odsiewaniem");
+});
+
+// ============================================================
+//  „Powrót poza wpisanym oknem"
+//
+//  Od 27.08.2026 okno terminu dotyczy WYLOTU. Zmierzone w nocy 30/31.08 na katalogu
+//  PL: przy oknie 7-dniowym 14 z 14 ofert ma powrot po dacie „do", przy 14-dniowym
+//  23 z 45, przy 30-dniowym ZERO. Konsultant wpisuje termin klienta i widzi pasujacy
+//  wylot — to, ze klient wroci po koncu urlopu, wychodzi dopiero przy liczeniu dat.
+// ============================================================
+
+test("powrót po górnej granicy okna jest oznaczany, a mieszczący się nie", () => {
+  const crit = { from: "2026-09-10", to: "2026-09-17" };
+  const pakiet = (returnDate) => ({ type: "package", departDate: "2026-09-15", returnDate });
+
+  assert.equal(powrotPoOknie(pakiet("2026-09-22"), crit), true,
+    "powrót 5 dni po końcu okna nie został oznaczony — konsultant nie ma jak tego zauważyć");
+  assert.equal(powrotPoOknie(pakiet("2026-09-17"), crit), false,
+    "powrót DOKŁADNIE w ostatnim dniu okna oznaczony jako wykraczający — plakietka kłamałaby");
+  assert.equal(powrotPoOknie(pakiet("2026-09-14"), crit), false);
+});
+
+test("bez górnej granicy okna nie ma o czym ostrzegać", () => {
+  // Klient nie podał „do" — nie ma czego przekroczyć. Ostrzeżenie bez kryterium
+  // byłoby czystym hałasem na każdej karcie.
+  const p = { type: "package", departDate: "2026-09-15", returnDate: "2026-12-31" };
+  assert.equal(powrotPoOknie(p, { from: "2026-09-10" }), false);
+  assert.equal(powrotPoOknie(p, {}), false);
+  assert.equal(powrotPoOknie(p, null), false);
+});
+
+test("brak daty powrotu i hotel bez lotu nie są ostrzeżeniem", () => {
+  // O czym nie wiemy, o tym nie straszymy — ta sama zasada co przy atrybutach.
+  // Hotel-only nie ma lotu powrotnego, a dostawca odpytuje go po datach u siebie.
+  const crit = { to: "2026-09-17" };
+  assert.equal(powrotPoOknie({ type: "package", departDate: "2026-09-15" }, crit), false,
+    "oferta bez znanej daty powrotu dostała ostrzeżenie — to zgadywanie, nie fakt");
+  assert.equal(powrotPoOknie({ type: "hotel", terminDo: "2026-09-30" }, crit), false,
+    "hotel bez lotu dostał plakietkę o powrocie, którego nie ma");
+});
+
+test("flagi zapytania NIGDY nie dopisuja sie do oferty z cache", () => {
+  // promoteMatchingVariant oddaje ORYGINAL, gdy nie ma czego promowac (hotel bez lotu,
+  // jeden wariant, brak aktywnych filtrow wariantowych). Ten oryginal przychodzi
+  // z cache dostawcy i zyje miedzy wyszukiwaniami — dopisanie do niego flagi znaczy,
+  // ze nastepny konsultant z INNYM terminem zobaczy plakietke policzona dla cudzych
+  // kryteriow. Ta klasa bledu juz w tym projekcie wystapila.
+  const zCache = { type: "package", id: "x", departDate: "2026-09-15", returnDate: "2026-09-22" };
+  const crit = { to: "2026-09-17" };
+
+  // Przypadek, w ktorym promocja zwraca ten SAM obiekt (brak variants).
+  const promowana = promoteMatchingVariant(zCache, crit);
+  assert.equal(promowana, zCache, "zalozenie testu nieaktualne — promocja skopiowala oferte");
+
+  const wynik = ofertaZFlagami(zCache, promowana, crit);
+  assert.equal(wynik.powrotPoOknie, true, "flaga w ogole nie powstala");
+  assert.notEqual(wynik, zCache, "flaga dopisana do obiektu z cache zamiast do kopii");
+  assert.equal("powrotPoOknie" in zCache, false,
+    "oferta z cache zostala ZATRUTA flaga — nastepne wyszukiwanie pokaze ja z cudzymi kryteriami");
+  assert.equal("filtrRozproszony" in zCache, false, "oferta z cache zatruta flaga rozproszenia");
+});
+
+test("bez zadnej flagi oferta idzie dalej bez zbednego kopiowania", () => {
+  // Gdy nie ma czego oznaczyc, nie ma powodu mnozyc obiektow — a jednoczesnie
+  // to potwierdza, ze funkcja nie dopisuje pol "na wszelki wypadek".
+  const o = { type: "package", departDate: "2026-09-15", returnDate: "2026-09-16" };
+  const wynik = ofertaZFlagami(o, o, { to: "2026-09-17" });
+  assert.equal(wynik, o);
+  assert.deepEqual(Object.keys(o), ["type", "departDate", "returnDate"]);
 });

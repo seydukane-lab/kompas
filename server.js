@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { searchAll, providerStatus } from "./src/providers/index.js";
 import * as hotelbeds from "./src/providers/hotelbeds.js";
 import { wersjaUruchomienia } from "./src/wersja.js";
-import { applyFilters, promoteMatchingVariant, filtrRozproszony, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia, znanyAtrybut } from "./src/ranking.js";
+import { applyFilters, promoteMatchingVariant, filtrRozproszony, powrotPoOknie, ofertaZFlagami, scoreOffer, sortOffers, attributeCoverage, unknownAttrs, podpowiedziRozluznienia, znanyAtrybut } from "./src/ranking.js";
 import { clientData, PRACTICAL_DATA_DATE, practicalDataAgeMonths } from "./src/countries.js";
 import { allDestinations } from "./src/destinations.js";
 import { db, userCount, DB_PATH } from "./src/db.js";
@@ -323,7 +323,9 @@ app.get("/api/search", async (req, res) => {
     // żeby nie dopisywać pola do oferty współdzielonej przez cache dostawców.
     const promoted = filtered.map((o) => {
       const p = promoteMatchingVariant(o, crit);
-      return filtrRozproszony(o, crit) ? { ...p, filtrRozproszony: true } : p;
+      // Flagi zależne od kryteriów TEGO zapytania — składane w ranking.js,
+      // bo tam da się testem sprawdzić, że nie mutują oferty z cache dostawcy.
+      return ofertaZFlagami(o, p, crit);
     });
     const scored = promoted.map((o) => scoreOffer(o, crit));
     const sorted = sortOffers(scored, crit.sort, crit.pax);

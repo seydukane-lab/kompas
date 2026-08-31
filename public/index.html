@@ -311,6 +311,11 @@
      pakietowych naraz (patrz ranking.js:filtrRozproszony). Stonowane jak .trust.unknown —
      to informacja o luce w danych, nie zarzut, że oferta jest zła. */
   .scatter-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;color:var(--ink-faint);background:var(--surface-2)}
+  /* „Powrót poza wpisanym oknem": termin PASUJE do filtra (okno dotyczy wylotu,
+     decyzja z 27.08.2026), ale klient wróci po dacie, którą sam podał. Zmierzone
+     30/31.08 na katalogu PL: przy oknie 7-dniowym dotyczy 100% ofert, przy
+     30-dniowym zera — więc przy szerokim oknie ta plakietka nie zapali się wcale. */
+  .powrot-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;color:var(--warn);background:var(--warn-soft)}
   .tab-warn{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;color:var(--ink-faint);background:var(--surface-2);vertical-align:middle}
 
   .card-price{padding:16px 18px;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right;min-width:158px}
@@ -1846,7 +1851,7 @@
   // DLA KLIENTA - a tam nie bylo juz zadnego sladu, ze hotel i cena sa pogladowe.
   // Na produkcji (brak kluczy API) demo sa WSZYSTKIE oferty, wiec klient dostawalby
   // liste zmyslonych propozycji bez jednego slowa ostrzezenia. Patrz printCart().
-  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),priceTotalPax:paxCount(),stars:h.stars,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",terminOd:h.terminOd||"",terminDo:h.terminDo||"",terminDomyslny:!!h.terminDomyslny,transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||"",demo:!!h.demo,filtrRozproszony:!!h.filtrRozproszony,attrUnknown:(h.attrUnknown||[]).slice(),centre:h.centre,yearBuilt:h.yearBuilt,amenities:Array.isArray(h.amenities)?h.amenities.slice():undefined};}
+  function cartSnap(h){return {id:h.id,name:h.name,region:h.region||h.country,country:h.country,price:h.price,priceTotal:offerTotal(h,paxCount()),priceTotalPax:paxCount(),stars:h.stars,rating:h.rating||0,trust:h.trust||0,reviews:h.reviews||0,freshDays:h.freshDays,board:h.board||"",nights:h.nights||0,cap:h.cap,capUnknown:h.capUnknown,beach:h.beach,roomType:h.roomType||"",airport:h.airport,ski:h.ski,newHotel:h.newHotel,adultsOnly:h.adultsOnly,yearRenov:h.yearRenov,tags:h.tags||[],operator:h.operator||h.source||"",departureCity:h.departureCity||"",departDate:h.departDate||"",terminOd:h.terminOd||"",terminDo:h.terminDo||"",terminDomyslny:!!h.terminDomyslny,transport:h.transport||"",bookingUrl:h.bookingUrl||"",offerNumber:h.offerNumber||"",demo:!!h.demo,filtrRozproszony:!!h.filtrRozproszony,returnDate:h.returnDate||"",powrotPoOknie:!!h.powrotPoOknie,attrUnknown:(h.attrUnknown||[]).slice(),centre:h.centre,yearBuilt:h.yearBuilt,amenities:Array.isArray(h.amenities)?h.amenities.slice():undefined};}
   function toggleCart(h){var i=cart.findIndex(function(x){return x.id===h.id;});var added;if(i>-1){cart.splice(i,1);added=false;}else{cart.push(cartSnap(h));added=true;}saveCart();updateCartCount();if(!cartDrawer.hidden)renderCart();return added;}
   function removeCart(id){var i=cart.findIndex(function(x){return x.id===id;});if(i>-1){cart.splice(i,1);saveCart();updateCartCount();renderCart();syncCardButtons();}}
   function updateCartCount(){var n=cart.length;cartCountEl.textContent=n;cartCountEl.classList.toggle("on",n>0);cartHeadN.textContent=n?("("+n+")"):"";}
@@ -1863,7 +1868,7 @@
       var os=x.priceTotalPax||0,teraz=paxCount();
       var t=x.priceTotal>0?(' · razem ~<b>'+fmt(x.priceTotal)+' zł</b>'+(os?' za '+os+' '+odmOsob(os):'')+(os&&os!==teraz?' <span class="ci-stale" title="Skład wyjazdu zmienił się od odłożenia tej oferty — odłóż ją ponownie, żeby przeliczyć.">skład się zmienił</span>':'')):'';
       var v=etaVerdict(x),medal=["🥇","🥈","🥉"][i]||("#"+(i+1));
-      return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+(x.terminDomyslny?' · '+terminDemoBadge(x):'')+(x.demo?' · <span class="ci-demo" title="Oferta z danych demonstracyjnych — hotel i cena są poglądowe. W wydruku dla klienta jest to oznaczone.">dane demo</span>':'')+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener noreferrer">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
+      return '<div class="cart-item"><div class="ci-rank">'+medal+'</div><div class="ci-body"><div class="ci-name">'+x.name+' <span class="stars">'+stars(x.stars)+'</span></div><div class="ci-loc">'+x.region+'</div><div class="ci-meta">'+(x.board?x.board:'')+(x.nights?' · '+x.nights+' nocy':'')+(x.operator?' · '+x.operator:'')+(x.offerNumber?' · '+x.offerNumber:'')+t+(x.terminDomyslny?' · '+terminDemoBadge(x):'')+(x.powrotPoOknie?' · <span class="powrot-badge" title="Powrót wypada po ostatnim dniu terminu wpisanego przy odkładaniu tej oferty.">powrót '+(x.returnDate?fmtDate(x.returnDate):'')+' — poza terminem</span>':'')+(x.demo?' · <span class="ci-demo" title="Oferta z danych demonstracyjnych — hotel i cena są poglądowe. W wydruku dla klienta jest to oznaczone.">dane demo</span>':'')+'</div><div class="ci-eta"><span class="rep-verdict '+v.c+'">'+v.t+'</span><span class="ci-score">ETA '+etaValue(x)+'/100</span></div></div><div class="ci-actions"><div class="ci-price">'+fmt(x.price)+' zł/os.</div>'+(x.bookingUrl?'<a class="ci-link" href="'+x.bookingUrl+'" target="_blank" rel="noopener noreferrer">Oferta ↗</a>':'')+'<button class="ci-rm" data-rm="'+x.id+'">usuń</button></div></div>';
     }).join("");
   }
   document.getElementById("cartBtn").addEventListener("click",function(){renderCart();cartDrawer.hidden=false;});
@@ -2665,6 +2670,10 @@
             // Żaden pojedynczy termin nie spełnia wszystkich aktywnych filtrów naraz —
             // flaga z backendu (server.js, patrz ranking.js:filtrRozproszony).
             (h.filtrRozproszony?'<span class="scatter-badge" title="Żaden pojedynczy termin nie spełnia wszystkich Twoich filtrów naraz — sprawdź zakładkę „Terminy i operatorzy”.">terminy rozproszone</span>':'')+
+            // Powrót wypada PO dacie wpisanej przez klienta (server.js, patrz
+            // ranking.js:powrotPoOknie). Wylot mieści się w oknie — dlatego oferta
+            // tu jest — ale koniec wyjazdu już nie, a to widać dopiero przy liczeniu dat.
+            (h.powrotPoOknie?'<span class="powrot-badge" title="Wylot mieści się w Twoim terminie, ale powrót wypada po jego ostatnim dniu. Okno terminu dotyczy daty WYLOTU — długość pobytu ustaw osobno, jeśli klient musi wrócić do konkretnego dnia.">powrót '+(h.returnDate?fmtDate(h.returnDate):'')+' — poza terminem</span>':'')+
             // Cena dotyczy okna, którego nikt nie wybrał — patrz terminDemoBadge().
             terminDemoBadge(h)+
           '</div>'+

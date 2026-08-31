@@ -1846,3 +1846,42 @@ test("kazde wejscie do wysylki ma swoj listener — przycisk i obsluga chodza pa
   assert.equal((cart.match(/blokDaneDoRezerwacji/g) || []).length, 1,
     "blok danych doklejany wielokrotnie — klient dostanie ten sam link przy kazdej propozycji");
 });
+
+test("plakietka powrotu wypisuje DATE, a nie kod, ktory ja liczy", () => {
+  // Ten blad przeszedl przez test skladni: konkatenacja podwojnym cudzyslowem
+  // WEWNATRZ stringa w apostrofach jest poprawna skladniowo, tylko zamiast daty
+  // wypisuje doslownie `"+(h.returnDate?...)+"`. Widac to wylacznie na ekranie,
+  // wiec test wykonuje wyrazenie i oglada wynik, zamiast czytac zapis.
+  const html = wczytaj("public/index.html");
+  // Wzorzec musi siegnac KONCA wyrazenia: w srodku jest drugie :'' (od daty),
+  // wiec leniwe dopasowanie uciete na pierwszym daje polowe kodu.
+  const wyr = html.match(/\(h\.powrotPoOknie\?[\s\S]*?poza terminem<\/span>':''\)/)?.[0];
+  assert.ok(wyr, "nie znalazlem wyrazenia plakietki powrotu");
+
+  const zbuduj = (h) => new Function("h", "fmtDate", "return " + wyr + ";")(
+    h, (d) => "22 wrz 2026"
+  );
+
+  const zFlaga = zbuduj({ powrotPoOknie: true, returnDate: "2026-09-22" });
+  assert.match(zFlaga, /powrót 22 wrz 2026 — poza terminem/,
+    "plakietka nie pokazuje sformatowanej daty powrotu");
+  assert.doesNotMatch(zFlaga, /\+\(h\.|fmtDate\(/,
+    "plakietka wypisuje wlasny kod zamiast daty — konkatenacja zlym cudzyslowem");
+  assert.match(zFlaga, /title="[^"]*wylot[^"]*"/i,
+    "brak wyjasnienia w title — sama plakietka nie tlumaczy, czemu oferta tu jest");
+
+  // Bez flagi ma NIE BYC niczego: przy szerokim oknie zjawiska nie ma wcale
+  // (zmierzone 30/31.08: okno 30-dniowe = 0 ofert), wiec pusty znacznik bylby halasem.
+  assert.equal(zbuduj({ powrotPoOknie: false, returnDate: "2026-09-22" }), "",
+    "plakietka pokazuje sie mimo powrotu mieszczacego sie w oknie");
+});
+
+test("koszyk pamieta flage powrotu — cartSnap ma RECZNA liste pol", () => {
+  // Pole nieprzepisane w cartSnap ginie w koszyku i w wydruku DLA KLIENTA.
+  // Zdarzylo sie to juz znacznikowi terminu i fladze demo.
+  const html = wczytaj("public/index.html");
+  const snap = html.match(/function cartSnap\(h\)\{return \{[\s\S]*?\};\}/)?.[0] || "";
+  assert.ok(snap, "nie znalazlem cartSnap");
+  assert.match(snap, /powrotPoOknie:!!h\.powrotPoOknie/, "flaga powrotu ginie przy odkladaniu do koszyka");
+  assert.match(snap, /returnDate:h\.returnDate\|\|""/, "data powrotu ginie — plakietka w koszyku nie ma czego pokazac");
+});
