@@ -955,6 +955,36 @@ test("termin poza oknem klienta odpada, termin w oknie zostaje", () => {
     "termin przestał odcinać oferty spoza okna — wraca filtr-widmo sprzed 24.08");
 });
 
+
+test("wylot PRZED dolną granicą okna też odpada", () => {
+  // Luka znaleziona 31.08.2026 przez `npm run sabotaz`: zepsucie warunku dolnej
+  // granicy (`v.departDate < from`) nie wywracało ANI JEDNEGO testu, bo wszystkie
+  // przypadki spoza okna leżały PO nim i odpadały przez `to`. Dolna granica nie
+  // była chroniona niczym.
+  //
+  // Dla konsultanta to nie jest szczegół: klient mówi „mogę wylecieć najwcześniej
+  // 20 września", bo do 19-go pracuje. Oferta z 1 września nie jest dla niego
+  // ofertą — jest terminem, którego nie może wziąć.
+  const lista = [
+    wyjazd("2026-09-01", "2026-09-08", { id: "za-wczesnie" }),
+    wyjazd("2026-09-22", "2026-09-29", { id: "w-oknie" }),
+  ];
+  const znalezione = applyFilters(lista, { from: "2026-09-20", to: "2026-09-30" }).map((h) => h.id);
+  assert.deepEqual(znalezione, ["w-oknie"],
+    "wylot przed dolną granicą okna przeszedł filtr — klient dostaje termin, w którym jeszcze pracuje");
+});
+
+test("sama dolna granica, bez górnej, też odcina", () => {
+  // „Najwcześniej od" jest realnym scenariuszem sprzedażowym samym w sobie:
+  // klient wie, od kiedy ma wolne, ale nie ma sztywnego końca urlopu.
+  const lista = [
+    wyjazd("2026-09-01", "2026-09-08", { id: "za-wczesnie" }),
+    wyjazd("2026-10-15", "2026-10-22", { id: "pozniej" }),
+  ];
+  assert.deepEqual(applyFilters(lista, { from: "2026-09-20" }).map((h) => h.id), ["pozniej"],
+    "sama dolna granica nic nie odcięła");
+});
+
 test("bez podanego terminu filtr w ogóle nie działa", () => {
   // Kluczowe zabezpieczenie: pola dat startują wypełnione (+30/+37 dni), więc
   // filtr odpalający się bez decyzji konsultanta odciąłby prawie cały katalog.

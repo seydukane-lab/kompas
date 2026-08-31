@@ -103,6 +103,29 @@ Najważniejszy test w całym zestawie nazywa się `ANTY-PRZEKOLORYZACJA` i pilnu
 świeżych opinii. To jest obietnica produktu — musi być weryfikowalna, nie
 deklaratywna.
 
+### Kontrolowany sabotaż
+
+```powershell
+npm run sabotaz -- --plik src/ranking.js --z "v.departDate < from" --na "false" --test test/ranking.test.js
+```
+
+Psuje **jedno** miejsce w kodzie, uruchamia testy, przywraca plik i mówi, czy
+którykolwiek test to złapał. Kod wyjścia 1, gdy **żaden** — bo to znaczy, że badana
+gałąź nie jest chroniona niczym.
+
+Sabotaż jest w tym projekcie jedynym dowodem, że test czegokolwiek pilnuje. Problem
+w tym, że sabotaż, który **cicho nie zaszedł**, wygląda identycznie jak sukces:
+zielone testy i spokojne sumienie. Zdarzyło się to kilka razy — raz przez gołe `\n`
+we wzorcu przy pliku z CRLF (całe repo jest edytowane na Windows), raz przez wzorzec,
+który po prostu nie trafił. Dlatego skrypt **odmawia startu**, gdy wzorzec nie
+występuje albo występuje więcej niż raz, potwierdza podmianę odczytem z dysku
+i sprawdza składnię, zanim uruchomi cokolwiek.
+
+Pierwszy przebieg na kluczowych regułach (31.08.2026) znalazł realną lukę: zepsucie
+dolnej granicy okna terminu (`v.departDate < from`) nie wywracało ani jednego testu,
+bo wszystkie przypadki spoza okna leżały **po** nim. Filtr mógł przepuszczać wyloty
+przed terminem klienta i nikt by się nie dowiedział. Test dopisany, luka zamknięta.
+
 ### Co stoi na produkcji
 
 ```powershell
@@ -137,6 +160,7 @@ src/providers/
 public/index.html         – panel doradcy (UI + generator skryptów)
 scripts/audyt.js          – audyt danych na żywych źródłach (`npm run audyt`)
 src/wersje.js             – co stoi na produkcji i czego tam nie ma (`npm run produkcja`)
+src/sabotaz.js            – reguły kontrolowanego sabotażu (`npm run sabotaz`)
 docs/struktura-oferty-pakietowej.md – kontrakt oferty; czytaj przed dodaniem źródła
 ```
 

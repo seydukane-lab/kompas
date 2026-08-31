@@ -23,7 +23,8 @@
     "wjazd": "node scripts/wjazd-sprawdz.js",
     "czasy": "node scripts/czasy-zrodel.js",
     "wdroz": "node scripts/wdroz.mjs",
-    "produkcja": "node scripts/produkcja.mjs"
+    "produkcja": "node scripts/produkcja.mjs",
+    "sabotaz": "node scripts/sabotaz.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
