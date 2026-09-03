@@ -17,6 +17,7 @@
 // ============================================================
 
 import { fetchWithTimeout } from "../http.js";
+import { eurToPln } from "../fx.js";
 
 const URL = process.env.MERLINX_URL || "";
 const LOGIN = process.env.MERLINX_LOGIN || "";
@@ -32,7 +33,6 @@ export function isEnabled() {
 }
 
 // Kurort/miasto -> miasto wylotu itd. mapujemy z odpowiedzi MerlinX (ma te pola).
-const EUR_PLN = 4.3; // MerlinX zwraca zwykle PLN; przelicznik na wypadek innej waluty.
 
 // ----------------------------------------------------------------
 //  Główna funkcja providera — kontrakt jak u pozostałych źródeł.
@@ -101,7 +101,13 @@ export function normalize(o) {
   if (!o) return null;
   const priceRaw = Number(o.price ?? o.priceTotal ?? 0);
   const currency = o.currency || "PLN";
-  const pricePerPerson = Math.round(currency === "PLN" ? priceRaw : priceRaw * EUR_PLN);
+  // Waluta inna niż PLN idzie przez ŻYWY kurs NBP (fx.js), nie przez stałą w kodzie.
+  // Do 02.09.2026 siedziało tu `priceRaw * 4.3` — kurs wpisany ręcznie, który starzeje
+  // się po cichu i nigdy nie krzyknie. Ta sama mina była w hotelbeds.js i została
+  // rozbrojona 24.08; tutaj przetrwała, bo bez kluczy MerlinX ta gałąź się nie wykonuje.
+  // Konsultant podaje klientowi kwotę policzoną tym przelicznikiem, więc kurs z kodu
+  // znaczy cenę cicho rozjeżdżającą się z rzeczywistością.
+  const pricePerPerson = Math.round(currency === "PLN" ? priceRaw : eurToPln(priceRaw));
 
   return {
     id: `mx-${o.id || o.offerId || o.code}`,
