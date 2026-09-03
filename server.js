@@ -172,7 +172,11 @@ app.put("/api/cart", (req, res) => {
 
 // --- Doradca ETA OS (Claude) — status + generowanie raportu ---
 app.get("/api/advisor/status", (req, res) => {
-  res.json({ enabled: advisor.isEnabled() });
+  // Budżet dokładamy tylko, gdy doradca w ogóle działa — przy braku klucza
+  // liczby o wydatkach byłyby myleniem odbiorcy.
+  if (!advisor.isEnabled()) return res.json({ enabled: false });
+  const u = advisor.usageSummary();
+  res.json({ enabled: true, budzet: u.budzet, wywolan: u.wywolan, kosztPln: u.kosztPln });
 });
 app.post("/api/advisor", async (req, res) => {
   if (!advisor.isEnabled()) {
@@ -186,6 +190,12 @@ app.post("/api/advisor", async (req, res) => {
     const r = await advisor.generateReport(offers, criteria);
     res.json({ report: r.text, model: r.model, cached: Boolean(r.cached) });
   } catch (err) {
+    // Wyczerpany budżet to decyzja właściciela, nie awaria — panel ma o tym
+    // napisać wprost, zamiast pokazywać „błąd analizy". Patrz advisor-limit.js.
+    if (err.kod === "BUDZET") {
+      console.warn("advisor: wstrzymane przez limit wydatków —", err.message);
+      return res.status(429).json({ error: err.message, budzet: true });
+    }
     console.error("advisor error:", err);
     res.status(500).json({ error: "Błąd analizy AI: " + err.message });
   }

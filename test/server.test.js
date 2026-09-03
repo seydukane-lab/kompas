@@ -47,7 +47,13 @@ test.before(async () => {
 
   serwer = spawn(process.execPath, [join(ROOT, "server.js")], {
     cwd: ROOT,
-    env: { ...process.env, DB_PATH, PORT: String(PORT), NODE_ENV: "test" },
+    // ⚠️ ANTHROPIC_API_KEY CELOWO PUSTY. Serwer testowy dziedziczy środowisko
+    // dewelopera, więc bez tego każdy test dotykający /api/advisor wywoływałby
+    // PŁATNE API — sprawdzone 03.09.2026: jedno takie wywołanie kosztowało 0,035 USD,
+    // a `npm test` chodzi po kilkanaście razy dziennie i w kontenerze nocnego.
+    // Hamulec wydatków ma własne testy jednostkowe (test/advisor-limit.test.js),
+    // które nie potrzebują ani klucza, ani sieci.
+    env: { ...process.env, DB_PATH, PORT: String(PORT), NODE_ENV: "test", ANTHROPIC_API_KEY: "" },
     stdio: "ignore",
   });
 
@@ -406,4 +412,39 @@ test("kod przestaje dzialac razem z odcieciem dostepu konsultantowi", async () =
     method: "POST", headers: { "Content-Type": "application/json", cookie: admin },
     body: JSON.stringify({ active: true }),
   });
+});
+
+// ============================================================
+//  Hamulec wydatkow na doradce
+//
+//  Do 03.09.2026 advisor.js liczyl wydatki, ale nic ich nie ograniczalo. Kredyt
+//  85 EUR przepada 19.09.2026, a po tej dacie kazde klikniecie ETA to pieniadze
+//  z karty wlasciciela — przy panelu w biurze, gdzie klika kilku konsultantow.
+// ============================================================
+
+test("wyczerpany budzet zatrzymuje doradce ZANIM cokolwiek kosztuje", async () => {
+  // Nie da sie tu odpalic prawdziwego doradcy (serwer testowy nie ma klucza API),
+  // wiec sprawdzamy kontrakt endpointu: bez klucza ma byc 503 i jawna informacja,
+  // ze to brak konfiguracji, a nie awaria ani wyczerpany budzet. To wazne, bo panel
+  // pokazuje TRZY rozne komunikaty i pomylenie ich myli konsultanta.
+  const cookie = await zaloguj(KONSULTANT.email, KONSULTANT.pass);
+  const r = await fetch(BASE + "/api/advisor", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", cookie },
+    body: JSON.stringify({ offers: [{ name: "X", price: 1000 }], criteria: {} }),
+  });
+  assert.equal(r.status, 503, "brak klucza API musi byc odrozniony od wyczerpanego budzetu (429)");
+  const d = await r.json();
+  assert.equal(d.needKey, true);
+  assert.notEqual(d.budzet, true, "brak klucza zostal opisany jako problem z budzetem");
+});
+
+test("status doradcy nie zdradza liczb o wydatkach, gdy doradca jest wylaczony", async () => {
+  // Kwoty przy wylaczonym doradcy to mylenie odbiorcy: sugeruja, ze cos dziala
+  // i cos kosztuje, podczas gdy nie ma nawet klucza.
+  const cookie = await zaloguj(KONSULTANT.email, KONSULTANT.pass);
+  const d = await (await fetch(BASE + "/api/advisor/status", { headers: { cookie } })).json();
+  assert.equal(d.enabled, false);
+  assert.equal(d.budzet, undefined, "status bez klucza podaje stan budzetu");
+  assert.equal(d.kosztPln, undefined, "status bez klucza podaje koszty");
 });

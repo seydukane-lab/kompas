@@ -103,6 +103,37 @@ Najważniejszy test w całym zestawie nazywa się `ANTY-PRZEKOLORYZACJA` i pilnu
 świeżych opinii. To jest obietnica produktu — musi być weryfikowalna, nie
 deklaratywna.
 
+### Ile kosztuje doradca ETA
+
+```powershell
+curl -s http://127.0.0.1:3000/api/advisor/status -H "cookie: ..."   # ile wydano, ile zostało
+```
+
+Zmierzone 03.09.2026 na realnym rejestrze: **~0,2 USD (ok. 0,8 zł) za jeden raport**,
+czas odpowiedzi ok. 70 s, model `claude-opus-5`. Raport z pamięci podręcznej jest
+darmowy i hamulec go nie dotyka.
+
+**Hamulec wydatków** (`src/advisor-limit.js`) zatrzymuje płatne wywołanie, zanim
+cokolwiek kosztuje:
+
+| zmienna | domyślnie | znaczenie |
+|---|---|---|
+| `ADVISOR_LIMIT_DZIEN_USD` | `5` | dobowy limit; `0` = bez limitu |
+| `ADVISOR_LIMIT_LACZNY_USD` | `0` | limit łączny; `0` = bez limitu |
+
+Po przekroczeniu panel pisze **„Analiza wstrzymana — limit wydatków"**, a nie
+„błąd analizy" — bo nic się nie zepsuło, tylko skończył się budżet. Przy 80%
+wykorzystania w logu pojawia się ostrzeżenie, żeby właściciel dowiedział się
+o tym PRZED zatrzymaniem narzędzia, a nie w środku rozmowy z klientem.
+
+Powód, dla którego to w ogóle powstało: do 03.09 wydatki były **liczone, ale
+nieograniczone**. Kredyt 85 € przepada 19.09.2026 — po tej dacie każde kliknięcie
+to pieniądze z karty, a panel ma trafić do biura, gdzie klika kilku konsultantów.
+
+⚠️ **Testy nigdy nie wołają płatnego API.** Serwer w `test/server.test.js` startuje
+z pustym `ANTHROPIC_API_KEY` — bez tego dziedziczyłby klucz dewelopera i każdy
+przebieg `npm test` kosztowałby (sprawdzone: 0,035 USD za jedno wywołanie).
+
 ### Kontrolowany sabotaż
 
 ```powershell
@@ -161,6 +192,7 @@ public/index.html         – panel doradcy (UI + generator skryptów)
 scripts/audyt.js          – audyt danych na żywych źródłach (`npm run audyt`)
 src/wersje.js             – co stoi na produkcji i czego tam nie ma (`npm run produkcja`)
 src/sabotaz.js            – reguły kontrolowanego sabotażu (`npm run sabotaz`)
+src/advisor-limit.js      – hamulec wydatków na doradcę ETA
 docs/struktura-oferty-pakietowej.md – kontrakt oferty; czytaj przed dodaniem źródła
 ```
 

@@ -2339,14 +2339,24 @@
       .then(function(r){return r.json();})
       .then(function(d){
         if(d.report){repBody.innerHTML=repDemoNote()+'<p class="rep-note">✨ Analiza ETA OS wygenerowana przez AI ('+(d.model||"Claude")+'). Na danych z listingu — ceny orientacyjne, szczegóły do potwierdzenia u organizatora.</p><div class="rep-ai">'+mdLite(d.report)+'</div>';}
-        else showAdvisorError(repBody,d.error||"Dostawca analizy AI nie zwrócił raportu.");
+        else showAdvisorError(repBody,d.error||"Dostawca analizy AI nie zwrócił raportu.",d.budzet);
       })
       .catch(function(e){showAdvisorError(repBody,e.message);})
       .finally(function(){clearInterval(timer);btn.disabled=false;btn.textContent=old;});
   });
   // Błąd zostaje NA EKRANIE (nie w toastcie, który znika po ~2 s) — po dwóch
   // minutach czekania doradca łatwo go przegapi i zostaje z pustym oknem.
-  function showAdvisorError(repBody,msg){
+  // Wyczerpany budżet NIE jest awarią: nic się nie zepsuło, właściciel ustawił limit.
+  // Nagłówek „Analiza AI się nie powiodła" sugerowałby błąd do zgłoszenia, a jedyne,
+  // co trzeba zrobić, to podnieść limit albo poczekać do jutra. Patrz advisor-limit.js.
+  function showAdvisorError(repBody,msg,budzet){
+    if(budzet){
+      repBody.innerHTML=
+        '<div class="rep-ai-err"><h4>⏸ Analiza wstrzymana — limit wydatków</h4>'+
+        '<p>'+String(msg||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</p>'+
+        '<p class="rep-note">Raporty policzone wcześniej otwierają się dalej i nic nie kosztują.</p></div>';
+      return;
+    }
     repBody.innerHTML=
       '<div class="rep-ai-err"><h4>⚠ Analiza AI się nie powiodła</h4>'+
       '<p>'+String(msg||"Nieznany błąd").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</p>'+
