@@ -10,7 +10,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { czyWolnoWydac, ostrzezenieBudzetu, dzienKluczem } from "../src/advisor-limit.js";
+import { czyWolnoWydac, ostrzezenieBudzetu, dzienKluczem, liczoneOd } from "../src/advisor-limit.js";
 
 const DZIS = Date.UTC(2026, 8, 3, 12, 0, 0); // 2026-09-03
 const dzis = dzienKluczem(DZIS);
@@ -101,4 +101,16 @@ test("po zatrzymaniu nie ostrzegamy — wtedy mówi już sam powód", () => {
     { teraz: DZIS, limitDzienUsd: 5 },
   );
   assert.equal(ostrzezenieBudzetu(stop), null);
+});
+
+test("rejestr mowi, OD KIEDY liczy — bo na produkcji zeruje sie przy wdrozeniu", () => {
+  // Rejestr lezy w data/, a na planie free Rendera dysk jest efemeryczny: znika
+  // przy kazdym wdrozeniu (patrz render.yaml). Suma podana bez tej daty klamalaby
+  // o tym, ile naprawde wydano — a limit laczny liczony od pustego pliku nie chroni
+  // przed niczym. Ta sama zasada co przy zrodlach danych: brak ochrony ma byc widoczny.
+  assert.equal(liczoneOd({ days: { "2026-08-30": { usd: 1 }, "2026-07-31": { usd: 2 } } }), "2026-07-31",
+    "zwrocono nie najstarszy dzien — data „liczone od\" bylaby falszywa");
+  assert.equal(liczoneOd({ days: {} }), null, "pusty rejestr musi dac null, a nie dzisiejsza date");
+  assert.equal(liczoneOd(null), null);
+  assert.equal(liczoneOd(undefined), null);
 });

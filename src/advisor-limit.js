@@ -105,3 +105,21 @@ export function ostrzezenieBudzetu(stan, prog = 0.8) {
   }
   return null;
 }
+
+/**
+ * Od kiedy liczy się ten rejestr — najstarszy dzień z wydatkami albo `null`,
+ * gdy jeszcze niczego nie wydano.
+ *
+ * ⚠️ TO NIE JEST OZDOBNIK. Rejestr leży w `data/`, a na planie free Rendera dysk
+ * jest EFEMERYCZNY: znika przy każdym wdrożeniu. Limit łączny liczony od pustego
+ * pliku nie chroni przed niczym — po deployu licznik wraca do zera, choć pieniądze
+ * zostały wydane naprawdę. Panel i log muszą więc mówić, OD KIEDY liczą, zamiast
+ * podawać sumę jako pełną prawdę o wydatkach.
+ *
+ * Trwały limit łączny wymaga dysku trwałego (Render Disk / VPS) — tak samo jak
+ * baza kont, patrz render.yaml.
+ */
+export function liczoneOd(spend) {
+  const dni = Object.keys(spend?.days || {}).sort();
+  return dni.length ? dni[0] : null;
+}
