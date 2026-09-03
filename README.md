@@ -144,6 +144,12 @@ Psuje **jedno** miejsce w kodzie, uruchamia testy, przywraca plik i mówi, czy
 którykolwiek test to złapał. Kod wyjścia 1, gdy **żaden** — bo to znaczy, że badana
 gałąź nie jest chroniona niczym.
 
+⚠️ **Na Git Bash (Windows) poprzedzaj komendę `MSYS_NO_PATHCONV=1`**, gdy wzorzec
+zawiera ukośnik. Powłoka zamienia argument zaczynający się od `/` na ścieżkę Windows
+(`/oznaczenia.html` → `C:/Program Files/Git/oznaczenia.html`), więc sabotaż na ścieżce,
+adresie URL albo wyrażeniu regularnym nie zajdzie. Skrypt to rozpoznaje i mówi wprost,
+zamiast raportować „wzorzec nie występuje”.
+
 Sabotaż jest w tym projekcie jedynym dowodem, że test czegokolwiek pilnuje. Problem
 w tym, że sabotaż, który **cicho nie zaszedł**, wygląda identycznie jak sukces:
 zielone testy i spokojne sumienie. Zdarzyło się to kilka razy — raz przez gołe `\n`

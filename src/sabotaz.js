@@ -111,3 +111,26 @@ export function werdykt({ blednePrzed, blednePo, blendePoPrzywroceniu, plikPrzyw
   }
   return { ok: true, kod: 0, tekst: `sabotaż złapany — spadło testów: ${blednePo}` };
 }
+
+/**
+ * Czy to powłoka zepsuła wzorzec, zanim dotarł do skryptu.
+ *
+ * Git Bash na Windows (MSYS) zamienia argument zaczynający się od ukośnika na
+ * ścieżkę Windows: `/oznaczenia.html` staje się `C:/Program Files/Git/oznaczenia.html`.
+ * Dotyczy to każdego wzorca ze ścieżką, adresem URL albo wyrażeniem regularnym —
+ * czyli dokładnie tego, co najczęściej chce się sabotować.
+ *
+ * Bez tego rozpoznania skrypt mówi „wzorzec NIE WYSTĘPUJE", co jest prawdą, ale
+ * kieruje uwagę w złe miejsce: człowiek szuka błędu we wzorcu, a błąd jest w tym,
+ * czego nigdy nie zobaczył. Znalezione 03.09.2026 przy sabotażu na linku w panelu.
+ */
+export function wykryjPodmianePowloki(wzorzec) {
+  const w = String(wzorzec || "");
+  const slady = [/[A-Za-z]:[\/](?:Program Files[\/])?Git[\/]/, /[A-Za-z]:[\/]msys64[\/]/];
+  if (!slady.some((r) => r.test(w))) return null;
+  return (
+    "wzorzec zawiera ścieżkę dopisaną przez powłokę (Git Bash zamienia argument " +
+    "zaczynający się od „/” na ścieżkę Windows). Uruchom z MSYS_NO_PATHCONV=1, " +
+    "użyj PowerShell albo podaj wzorzec bez wiodącego ukośnika."
+  );
+}

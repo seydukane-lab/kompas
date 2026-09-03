@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kompas — co znaczą oznaczenia</title>
+<!--
+  Ściągawka dla konsultanta. Powstała 03.09.2026 z jednego powodu: panel ma
+  kilkanaście oznaczeń, każde z tooltipem — ale tooltipa nie znajdzie ktoś, kto
+  nie najedzie myszką akurat na ten element. Przy wdrożeniu w biurze konsultant
+  ma rozumieć, co panel mu mówi, BEZ pytania właściciela.
+
+  Kolumna „powiedz klientowi" jest tu najważniejsza. Cały ten system pilnuje,
+  żeby nie obiecywać rzeczy, których nie wiemy — a to działa tylko wtedy, gdy
+  ostrożność z ekranu dojdzie do klienta w zdaniu, które konsultant umie wypowiedzieć.
+-->
+<style>
+  :root{
+    --paper:#FBFAF6;--surface:#fff;--surface-2:#F4F1EA;--ink:#13201F;--ink-soft:#46534F;--ink-faint:#7C8783;
+    --line:#E4DFD4;--line-strong:#D2CBBB;--accent:#0F6B68;--accent-deep:#0A4F4C;--accent-soft:#E1EEED;
+    --good:#2F7D57;--good-soft:#E4F1E9;--warn:#B26A1E;--warn-soft:#F8ECD9;--crit:#B23B3B;--crit-soft:#F7E4E1;
+    --shadow:0 1px 2px rgba(19,32,31,.05),0 8px 24px rgba(19,32,31,.06);
+    --radius:14px;--radius-sm:9px;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#0E1615;--surface:#151F1E;--surface-2:#1B2726;--ink:#EDF1EF;--ink-soft:#AEBAB6;--ink-faint:#7E8B87;
+    --line:#263332;--line-strong:#33413F;--accent:#3FB0AB;--accent-deep:#63C6C1;--accent-soft:#14302E;
+    --good:#5FB985;--good-soft:#172C21;--warn:#D69B4E;--warn-soft:#2C2213;--crit:#E0736E;--crit-soft:#2E1917;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }}
+
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 20px 64px;font-family:var(--sans);background:var(--paper);color:var(--ink);
+       line-height:1.55;font-size:15px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto}
+
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:26px}
+  .mark{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;box-shadow:var(--shadow);
+        background:radial-gradient(120% 120% at 30% 20%,var(--accent) 0%,var(--accent-deep) 100%)}
+  .mark svg{width:20px;height:20px}
+  .brand-name{font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .brand-sub{font-size:11.5px;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase}
+
+  h1{margin:0 0 8px;font-size:24px;font-weight:700;letter-spacing:-.015em}
+  .lead{margin:0 0 8px;font-size:15px;color:var(--ink-soft);max-width:70ch}
+  .lead b{color:var(--ink);font-weight:650}
+  h2{margin:32px 0 12px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+
+  table{width:100%;border-collapse:collapse;margin-bottom:6px}
+  th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+     color:var(--ink-faint);padding:0 12px 8px 0;border-bottom:1px solid var(--line-strong);vertical-align:bottom}
+  td{padding:13px 12px 13px 0;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
+  td:first-child{width:26%;white-space:nowrap}
+  td:nth-child(2){width:37%;color:var(--ink-soft)}
+  td:last-child{color:var(--ink)}
+  tbody tr:last-child td{border-bottom:0}
+  .mowa{font-style:italic}
+  .mowa::before{content:"„"}
+  .mowa::after{content:"”"}
+
+  .znak{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+        padding:3px 8px;border-radius:999px;white-space:nowrap}
+  .z-neutral{color:var(--ink-faint);background:var(--surface-2)}
+  .z-warn{color:var(--warn);background:var(--warn-soft)}
+  .z-good{color:var(--good);background:var(--good-soft)}
+  .z-crit{color:var(--crit);background:var(--crit-soft)}
+
+  .uwaga{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+         border-radius:var(--radius-sm);padding:14px 16px;margin:26px 0 0;font-size:14px;max-width:74ch}
+  .uwaga b{font-weight:650}
+  .foot{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-faint)}
+  .foot a{color:var(--ink-soft)}
+  @media (max-width:680px){
+    td:first-child,td:nth-child(2){width:auto;white-space:normal}
+    table,thead,tbody,tr,td,th{display:block}
+    thead{display:none}
+    tr{border-bottom:1px solid var(--line);padding:10px 0}
+    td{border:0;padding:3px 0}
+    td:first-child{font-weight:650}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="7" stroke="#fff" stroke-width="1.6"/><path d="M15 9l-2.2 4.8L8 16l2.2-4.8L15 9z" fill="#fff"/></svg></div>
+    <div><div class="brand-name">Kompas</div><div class="brand-sub">Co znaczą oznaczenia</div></div>
+  </div>
+
+  <h1>Co znaczą oznaczenia na karcie oferty</h1>
+  <p class="lead">Kompas nigdy nie obiecuje rzeczy, których nie wie — i mówi wprost, gdy czegoś nie wie. Ta strona tłumaczy każde oznaczenie i podaje <b>gotowe zdanie do powtórzenia klientowi</b>.</p>
+  <p class="lead">Zasada, z której wynika reszta: <b>brak danych to brak danych</b>, nigdy „nie ma". Jeśli operator nie podał odległości od plaży, to nie znaczy, że plaża jest daleko — znaczy, że nikt tego nie potwierdził.</p>
+
+  <h2>Ocena i opinie</h2>
+  <table>
+    <thead><tr><th>Oznaczenie</th><th>Co znaczy</th><th>Powiedz klientowi</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="znak z-neutral">ETA 80/100</span></td>
+        <td>Ocena wartości za pieniądze liczona przez panel: cena wobec standardu i ocen, skorygowana o wiarygodność opinii.</td>
+        <td><span class="mowa">To jest w tej cenie jedna z lepszych propozycji, jakie dziś widzę</span> — nie: „ma 80 punktów”.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-good">🏆 Najlepszy value</span></td>
+        <td>Najwyższa ocena wartości w bieżącym zestawieniu. Nie znaczy „najtańszy” ani „najlepszy hotel”.</td>
+        <td><span class="mowa">Za te pieniądze dostaje Pan tu najwięcej</span>.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-crit">❌ Drogo jak na oceny</span></td>
+        <td>Cena wysoka wobec tego, jak obiekt jest oceniany. To ostrzeżenie dla Ciebie, nie wyrok o hotelu.</td>
+        <td>Zwykle w ogóle tego nie pokazujesz — używasz do odsiania, zanim wyślesz propozycje.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-good">Opinie wiarygodne</span></td>
+        <td>Dużo świeżych opinii — ocena jest oparta na realnym doświadczeniu wielu gości.</td>
+        <td><span class="mowa">Ocena 8,7 z ponad czterech tysięcy świeżych opinii</span>.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-warn">Mało / stare opinie</span></td>
+        <td>Opinie są, ale jest ich niewiele albo są sprzed dłuższego czasu. Ocena może nie odzwierciedlać dzisiejszego stanu.</td>
+        <td><span class="mowa">Ocena jest dobra, ale opiera się na niewielu opiniach — warto to wziąć pod uwagę</span>.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-neutral">ℹ️ Brak danych o opiniach</span></td>
+        <td><b>To nie to samo, co mało opinii.</b> Dostawca w ogóle nie podał, ile ich jest — my nie wiemy, a nie „jest mało”.</td>
+        <td><span class="mowa">Ten dostawca nie przekazuje liczby opinii, więc samej ocenie nie przypisywałbym dużej wagi</span>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Termin wyjazdu</h2>
+  <table>
+    <thead><tr><th>Oznaczenie</th><th>Co znaczy</th><th>Powiedz klientowi</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="znak z-warn">powrót 24 wrz — poza terminem</span></td>
+        <td>Wylot mieści się w terminie, który wpisałeś, ale powrót wypada po jego ostatnim dniu. Okno terminu dotyczy <b>daty wylotu</b>.</td>
+        <td><span class="mowa">Wylot mamy w Pani terminie, ale wracamy 24-go — czy to jeszcze pasuje do urlopu?</span></td>
+      </tr>
+      <tr>
+        <td><span class="znak z-neutral">terminy rozproszone</span></td>
+        <td>Żaden pojedynczy termin nie spełnia wszystkich zaznaczonych filtrów naraz — każdy warunek spełnia inny wariant.</td>
+        <td>Zanim cokolwiek obiecasz, otwórz <b>Terminy i operatorzy</b> i wybierz konkretny wariant.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-warn">termin przykładowy</span></td>
+        <td>Nie podałeś terminu, więc cena dotyczy naszego okna domyślnego — nie tego, co uzgodniłeś z klientem.</td>
+        <td>Nie wysyłaj takiej ceny. Najpierw wpisz termin klienta i wyszukaj ponownie.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Cena</h2>
+  <table>
+    <thead><tr><th>Oznaczenie</th><th>Co znaczy</th><th>Powiedz klientowi</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Razem: 5010 zł (2 dor.)</b></td>
+        <td>Suma za cały skład. W nawiasie zawsze stoi, ilu osób dotyczy — bo to najczęstsze źródło nieporozumień.</td>
+        <td><span class="mowa">Za Państwa dwoje razem 5010 zł</span>.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-warn">cena orientacyjna</span></td>
+        <td>Kwota z listingu, nie z systemu rezerwacyjnego. Do potwierdzenia u organizatora.</td>
+        <td><span class="mowa">Cena orientacyjna, potwierdzę ją przy rezerwacji</span> — powiedz to zawsze, zanim klient ją zapamięta.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-warn">skład się zmienił</span></td>
+        <td>Liczba osób w wyszukiwarce zmieniła się od chwili odłożenia oferty do koszyka — kwota jest sprzed zmiany.</td>
+        <td>Odłóż ofertę ponownie, żeby przeliczyć. Nie podawaj tej kwoty.</td>
+      </tr>
+      <tr>
+        <td>Gwiazdka przy <b>Razem</b></td>
+        <td>Operator podał cenę dla innego składu, więc suma to nasz szacunek (cena za osobę × liczba osób), nie kwota z systemu.</td>
+        <td><span class="mowa">To wyliczenie orientacyjne — dokładną kwotę dla Państwa składu potwierdzę</span>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Skąd pochodzą dane</h2>
+  <table>
+    <thead><tr><th>Oznaczenie</th><th>Co znaczy</th><th>Powiedz klientowi</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="znak z-neutral">brak danych</span></td>
+        <td>Oferta przeszła przez filtr, bo dostawca <b>nie podał</b> tej cechy — nie dlatego, że ją potwierdził.</td>
+        <td><span class="mowa">Ten operator nie podaje tej informacji — sprawdzę i potwierdzę</span>. Nigdy: „tak, jest”.</td>
+      </tr>
+      <tr>
+        <td><span class="znak z-warn">dane demo</span></td>
+        <td>Oferta z katalogu demonstracyjnego: hotel i cena są poglądowe. W wydruku dla klienta jest to oznaczone.</td>
+        <td><b>Nie wysyłaj takiej oferty klientowi.</b> Służy do pokazania działania panelu.</td>
+      </tr>
+      <tr>
+        <td>Pasek <span class="znak z-warn">wyniki są niepełne</span></td>
+        <td>Któreś źródło nie odpowiedziało w tym wyszukiwaniu. Lista jest krótsza, niż powinna — to nie znaczy, że nic więcej nie ma.</td>
+        <td><span class="mowa">Sprawdzę jeszcze raz za chwilę, część ofert mogła się nie pobrać</span>. Kliknij „Szukaj ofert” ponownie.</td>
+      </tr>
+      <tr>
+        <td>„Nie pytaliśmy tych źródeł”</td>
+        <td>Źródło nie jest skonfigurowane — jego oferty w ogóle nie brały udziału w wyszukiwaniu. To nie awaria.</td>
+        <td>Informacja dla Ciebie: rynek jest szerszy niż to, co widzisz na ekranie.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="uwaga">
+    <b>Jedna zasada ważniejsza od reszty.</b> Gdy panel czegoś nie potwierdza, mów o tym wprost, zamiast domyślać się na korzyść oferty. Klient, który usłyszy „potwierdzę i oddzwonię”, wraca. Klient, któremu obiecano pokój przy plaży na podstawie pustego pola, nie wraca nigdy — i ma rację.
+  </div>
+
+  <p class="foot">Kompas — narzędzie pracy konsultanta. <a href="/">Wróć do wyszukiwarki</a> · <a href="/o-serwisie.html">O serwisie</a></p>
+</div>
+</body>
+</html>

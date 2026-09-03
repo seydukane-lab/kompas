@@ -16,7 +16,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const STRONY = ["public/index.html", "public/login.html", "public/o-serwisie.html", "public/dane-do-rezerwacji.html"];
+const STRONY = ["public/index.html", "public/login.html", "public/o-serwisie.html", "public/dane-do-rezerwacji.html", "public/oznaczenia.html"];
 
 function wczytaj(plik) {
   return readFileSync(join(ROOT, plik), "utf8");
@@ -1884,4 +1884,40 @@ test("koszyk pamieta flage powrotu — cartSnap ma RECZNA liste pol", () => {
   assert.ok(snap, "nie znalazlem cartSnap");
   assert.match(snap, /powrotPoOknie:!!h\.powrotPoOknie/, "flaga powrotu ginie przy odkladaniu do koszyka");
   assert.match(snap, /returnDate:h\.returnDate\|\|""/, "data powrotu ginie — plakietka w koszyku nie ma czego pokazac");
+});
+
+test("sciagawka tlumaczy KAZDE oznaczenie, ktore panel pokazuje na karcie", () => {
+  // Onboarding z backlogu: „czy konsultant umie sam, bez Ciebie nad ramieniem".
+  // Panel ma kilkanascie oznaczen z tooltipami, ale tooltipa nie znajdzie ktos,
+  // kto nie najedzie myszka akurat na ten element. Ta strona jest jedynym miejscem,
+  // gdzie wszystkie sa wytlumaczone — wiec nowe oznaczenie w panelu MUSI tu trafic,
+  // inaczej sciagawka po cichu przestaje byc kompletna.
+  const sciagawka = wczytaj("public/oznaczenia.html");
+
+  const oznaczenia = [
+    ["ETA", /ETA \d+\/100/],
+    ["Najlepszy value", /Najlepszy value/],
+    ["Brak danych o opiniach", /Brak danych o opiniach/],
+    ["Mało / stare opinie", /Mało \/ stare opinie/],
+    ["terminy rozproszone", /terminy rozproszone/],
+    ["powrót poza terminem", /poza terminem/],
+    ["termin przykładowy", /termin przykładowy/],
+    ["cena orientacyjna", /cena orientacyjna/],
+    ["skład się zmienił", /skład się zmienił/],
+    ["brak danych", /brak danych/],
+    ["dane demo", /dane demo/],
+  ];
+  for (const [nazwa, wzorzec] of oznaczenia) {
+    assert.match(sciagawka, wzorzec, `ściągawka nie tłumaczy oznaczenia „${nazwa}" — konsultant zostaje z tooltipem albo z niczym`);
+  }
+
+  // Kolumna „powiedz klientowi" jest sednem: ostrożność z ekranu ma dojść do klienta
+  // w zdaniu, które konsultant umie wypowiedzieć. Bez niej to tylko słowniczek.
+  assert.match(sciagawka, /Powiedz klientowi/, "brak kolumny z gotowym zdaniem dla klienta");
+  assert.ok((sciagawka.match(/class="mowa"/g) || []).length >= 8,
+    "za mało gotowych zdań do powiedzenia klientowi — ściągawka zamienia się w słowniczek");
+
+  // Panel musi do niej prowadzić, inaczej nikt jej nie znajdzie.
+  assert.match(wczytaj("public/index.html"), /href="\/oznaczenia\.html"/,
+    "brak linku ze strony panelu — ściągawka istnieje, ale konsultant o niej nie wie");
 });

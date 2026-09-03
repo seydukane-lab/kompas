@@ -10,7 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   koncowkaLinii, dopasujKoncowki, ileWystapien,
-  przygotujPodmiane, potwierdzPodmiane, werdykt,
+  przygotujPodmiane, potwierdzPodmiane, werdykt, wykryjPodmianePowloki,
 } from "../src/sabotaz.js";
 
 test("wzorzec pisany z \\n trafia w plik z CRLF", () => {
@@ -130,4 +130,22 @@ test("podmiana w zlym miejscu nadal jest lapana", () => {
   const w = potwierdzPodmiane("stara i nowa", "stara", "nowa", "stara");
   assert.equal(w.ok, false);
   assert.match(w.powod, /nadal tam jest/);
+});
+
+test("rozpoznaje wzorzec przerobiony przez powloke, zamiast mowic „nie wystepuje\"", () => {
+  // Git Bash na Windows (MSYS) zamienia argument zaczynajacy sie od ukosnika na
+  // sciezke Windows: `/oznaczenia.html` staje sie `C:/Program Files/Git/oznaczenia.html`.
+  // Dotyczy to sciezek, adresow URL i wyrazen regularnych — czyli tego, co najczesciej
+  // chce sie sabotowac. Komunikat „wzorzec NIE WYSTEPUJE" byl prawdziwy, ale kierowal
+  // uwage w zle miejsce: czlowiek szukal bledu we wzorcu, ktorego nigdy nie zobaczyl.
+  const przerobiony = 'href="C:/Program Files/Git/oznaczenia.html"';
+  const komunikat = wykryjPodmianePowloki(przerobiony);
+  assert.ok(komunikat, "nie rozpoznano sladu powloki — zostaje mylacy komunikat o wzorcu");
+  assert.match(komunikat, /MSYS_NO_PATHCONV|PowerShell/, "komunikat nie mowi, JAK to obejsc");
+
+  assert.equal(wykryjPodmianePowloki('href="/oznaczenia.html"'), null,
+    "zwykly wzorzec ze sciezka uznany za przerobiony — falszywy alarm zablokowalby poprawny sabotaz");
+  assert.equal(wykryjPodmianePowloki("return true;"), null);
+  assert.equal(wykryjPodmianePowloki(""), null);
+  assert.equal(wykryjPodmianePowloki(null), null);
 });

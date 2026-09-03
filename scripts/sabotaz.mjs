@@ -25,7 +25,7 @@
 
 import { readFileSync, writeFileSync, copyFileSync, unlinkSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { przygotujPodmiane, potwierdzPodmiane, werdykt } from "../src/sabotaz.js";
+import { przygotujPodmiane, potwierdzPodmiane, werdykt, wykryjPodmianePowloki } from "../src/sabotaz.js";
 
 function argi(lista) {
   const out = {};
@@ -80,6 +80,16 @@ function testy(etykieta) {
 const oryginal = readFileSync(PLIK, "utf8");
 const podmiana = przygotujPodmiane(oryginal, a.z, a.na);
 if (!podmiana.ok) {
+  // Najpierw sprawdzamy, czy to nie POWŁOKA przerobiła wzorzec — inaczej człowiek
+  // szuka błędu we wzorcu, którego nigdy nie zobaczył w tej postaci.
+  const odPowloki = wykryjPodmianePowloki(a.z) || wykryjPodmianePowloki(a.na);
+  if (odPowloki) {
+    console.error(`
+✖ ODMAWIAM: ${odPowloki}`);
+    console.error(`Skrypt dostał: ${JSON.stringify(String(a.z).slice(0, 90))}
+`);
+    process.exit(2);
+  }
   console.error(`\n✖ ODMAWIAM: ${podmiana.powod}.`);
   console.error("To jest ta sytuacja, dla której powstał ten skrypt: sabotaż, który nie zachodzi,");
   console.error("daje zielone testy wyglądające jak dowód, choć niczego nie sprawdzono.\n");
