@@ -148,3 +148,43 @@ test("withDeadline nie przecieka timerem po udanym zadaniu", async () => {
   const wynik = await withDeadline(Promise.resolve("szybko"), 5000, "test");
   assert.equal(wynik, "szybko");
 });
+
+test("withDeadline PRZERYWA zadanie, ktore przekroczylo limit", async () => {
+  // Luka znaleziona 03.09.2026 przez `npm run sabotaz`: zamiana calego ciala funkcji
+  // na `return promise` (czyli calkowite wylaczenie limitu) nie wywracala ANI JEDNEGO
+  // testu. Jedyny istniejacy test sprawdzal brak wycieku timera przy zadaniu, ktore
+  // i tak konczylo sie szybko — czyli sciezke, ktora limitu w ogole nie dotyka.
+  //
+  // To jest ten sam mechanizm, ktory 26.08 skrocil czekanie konsultanta z 6 s do 2,5 s
+  // (commit c4543e2). Bez niego jedno uspione zrodlo znowu zatrzymuje cale wyszukiwanie,
+  // a panel nie ma jak powiedziec, ze lista jest niepelna.
+  const wolne = new Promise((res) => setTimeout(() => res("za pozno"), 5000));
+
+  await assert.rejects(
+    () => withDeadline(wolne, 20, "wakacje.pl"),
+    (e) => {
+      assert.match(e.message, /wakacje\.pl/, "komunikat nie mowi, KTORE zrodlo nie zdazylo");
+      assert.match(e.message, /20 ms/, "komunikat nie podaje limitu, ktory przekroczono");
+      return true;
+    },
+    "zadanie ponad limit NIE zostalo przerwane — wolne zrodlo znowu zatrzyma cale wyszukiwanie"
+  );
+});
+
+test("withDeadline nie rusza zadania, ktore zdazylo", async () => {
+  // Limit ma odcinac wylacznie spoznionych. Zrodlo, ktore odpowiedzialo w czasie,
+  // musi oddac swoja wartosc bez zmian — inaczej „ochrona" kosztowalaby oferty.
+  const szybkie = new Promise((res) => setTimeout(() => res({ offers: 12 }), 5));
+  assert.deepEqual(await withDeadline(szybkie, 200, "test"), { offers: 12 });
+});
+
+test("blad zrodla leci dalej jako blad zrodla, nie jako przekroczony limit", async () => {
+  // Rozroznienie „padlo" od „nie zdazylo" jest w tym projekcie zasada (patrz trzy stany
+  // zrodla): panel pisze co innego przy awarii, a co innego przy ciszy. Podmiana
+  // komunikatu zatarlaby te roznice.
+  await assert.rejects(
+    () => withDeadline(Promise.reject(new Error("HTTP 403")), 500, "hotelbeds"),
+    /HTTP 403/,
+    "blad dostawcy zostal przebrany za przekroczenie limitu"
+  );
+});
