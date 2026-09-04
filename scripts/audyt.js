@@ -132,9 +132,28 @@ for (const attr of ["pokoje-polaczone", "pokoj-dzielony", "plaza", "niepelnospra
   }
   const pokrycie = (d.attrs || [])[0];
   if (!pokrycie) continue;
-  console.log(`atrybut ${attr.padEnd(24)} ${licz(d.count || 0)} ofert = ${pokrycie.confirmed} potwierdzonych + ${pokrycie.unknown} bez danych`);
+  const bezWiedzy = pokrycie.pozaWiedzaZrodel || 0;
+  console.log(`atrybut ${attr.padEnd(24)} ${licz(d.count || 0)} ofert = ${pokrycie.confirmed} potwierdzonych + ${pokrycie.unknown} bez danych` + (bezWiedzy ? ` (w tym ${bezWiedzy} ze źródeł, które tej cechy NIE ZNAJĄ)` : ""));
+
+  // DWIE RÓŻNE WIADOMOŚCI, do 04.09.2026 zgłaszane jednym zdaniem:
+  //
+  //  (a) żadne źródło nie zna tej cechy — to fakt o ZASIĘGU DANYCH, nie usterka
+  //      filtra. Tak jest z „niepelnosprawni": seed demo świadomie nie deklaruje
+  //      o tym wiedzy (patrz packages.js:AMENITY_COVERAGE), więc zgłaszanie tego
+  //      co przebieg było szumem, który uczył ignorować całą kategorię INFO;
+  //  (b) źródło DEKLARUJE wiedzę o tej cesze, a mimo to nic nie potwierdza —
+  //      to jest podejrzane: albo mapowanie nie działa, albo filtr pyta o coś
+  //      innego, niż dostawca zapisuje. Tego chcemy się dowiadywać.
+  //
+  // Poprzednia reguła zgłaszała (a) i (b) tak samo, więc hałas z (a) skutecznie
+  // zagłuszał (b) — dokładnie odwrotnie, niż ten audyt ma działać.
   if (d.count > 0 && pokrycie.confirmed === 0) {
-    zglos("INFO", `filtr „${attr}" zwraca same niewiadome`, `${d.count} ofert, 0 potwierdzonych`);
+    if (bezWiedzy >= pokrycie.unknown) {
+      console.log(`         └ żadne z odpytanych źródeł nie przekazuje informacji o cesze „${attr}" — to zasięg danych, nie usterka filtra`);
+    } else {
+      zglos("INFO", `filtr „${attr}" niczego nie potwierdza, choć źródła deklarują wiedzę o tej cesze`,
+        `${d.count} ofert, 0 potwierdzonych, ${pokrycie.unknown - bezWiedzy} ze źródeł, które TĘ cechę znają`);
+    }
   }
 }
 

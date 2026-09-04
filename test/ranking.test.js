@@ -1175,3 +1175,55 @@ test("bez zadnej flagi oferta idzie dalej bez zbednego kopiowania", () => {
   assert.equal(wynik, o);
   assert.deepEqual(Object.keys(o), ["type", "departDate", "returnDate"]);
 });
+
+test("pokrycie atrybutu odroznia BRAK WIEDZY ZRODLA od filtra, ktory nic nie potwierdza", () => {
+  // Do 04.09.2026 audyt zglaszal jednym zdaniem dwie zupelnie rozne rzeczy:
+  //  (a) zadne zrodlo nie zna tej cechy — fakt o zasiegu danych,
+  //  (b) zrodlo DEKLARUJE wiedze, a mimo to zero trafien — realnie podejrzane.
+  // Efekt: haslas z (a) — filtr „niepelnosprawni" w KAZDYM przebiegu — uczyl
+  // ignorowac cala kategorie INFO, wiec (b) nie mialoby szans zostac zauwazone.
+  const zSeeda = (over = {}) => offer({
+    amenities: ["basen", "wifi"],
+    amenityCoverage: ["basen", "wifi", "spa"],   // zrodlo NIE zna „niepelnosprawni"
+    ...over,
+  });
+
+  const [niepelno] = attributeCoverage([zSeeda(), zSeeda()], { attrs: ["niepelnosprawni"] });
+  assert.equal(niepelno.confirmed, 0);
+  assert.equal(niepelno.unknown, 2);
+  assert.equal(niepelno.pozaWiedzaZrodel, 2,
+    "nie policzono, ze niewiadome biora sie z BRAKU WIEDZY zrodla — audyt dalej bedzie halasowal");
+
+  // Scenariusz mieszany, taki jak na produkcji: obok seeda leci oferta ze zrodla,
+  // ktore w ogole nie deklaruje pokrycia i nie podaje amenities. Jej niewiadoma NIE
+  // jest brakiem wiedzy zrodla o cesze — i wlasnie ta roznica decyduje, czy audyt
+  // ma milczec, czy krzyczec.
+  const bezDeklaracji = offer({ amenities: undefined });
+  const [mieszane] = attributeCoverage([zSeeda(), bezDeklaracji], { attrs: ["niepelnosprawni"] });
+  assert.equal(mieszane.unknown, 2, "obie oferty powinny byc niewiadome");
+  assert.equal(mieszane.pozaWiedzaZrodel, 1,
+    "policzono jako brak wiedzy zrodla takze oferte, ktora pokrycia nie deklaruje — audyt wyciszylby realne znalezisko");
+});
+
+test("zrodlo bez deklaracji pokrycia nie jest liczone jako niewiedzace", () => {
+  // Hotelbeds nie deklaruje `amenityCoverage` — dla niego obowiazuje stara regula:
+  // tablica amenities istnieje, wiec odpowiedz jest znana. Zaliczanie go do „nie zna"
+  // wyciszyloby audyt akurat na jedynym zywym zrodle.
+  const hb = offer({ amenities: ["basen"] });
+  const [wynik] = attributeCoverage([hb], { attrs: ["spa"] });
+  assert.equal(wynik.unknown, 0, "brak cechy w tablicy od Hotelbeds to jawne NIE, nie niewiadoma");
+  assert.equal(wynik.pozaWiedzaZrodel, 0);
+});
+
+test("zrodlo, ktore ZNA te ceche, nie jest liczone jako niewiedzace", () => {
+  // Przypadek graniczny, ale to on odroznia poprawna regule od pozornej: zrodlo
+  // deklaruje wiedze o „niepelnosprawni", tylko dla TEJ oferty nie podalo amenities.
+  // Niewiadoma jest wiec prawdziwa (brak danych o obiekcie), a NIE brakiem wiedzy
+  // zrodla o cesze — audyt ma o tym krzyczec, nie milczec.
+  const znaCeche = offer({ amenities: undefined, amenityCoverage: ["niepelnosprawni", "basen"] });
+  const [wynik] = attributeCoverage([znaCeche], { attrs: ["niepelnosprawni"] });
+
+  assert.equal(wynik.unknown, 1);
+  assert.equal(wynik.pozaWiedzaZrodel, 0,
+    "zrodlo deklarujace wiedze o tej cesze policzone jako niewiedzace — audyt wyciszylby realne znalezisko");
+});

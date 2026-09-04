@@ -2414,8 +2414,17 @@
       var nazwa=attrChipLabel(s.key);
       if(!s.confirmed){
         zeroPotwierdzen=true;
-        rows.push('<div class="ac-row">Żadna ze znalezionych ofert nie ma potwierdzonej informacji o cesze <b>'+nazwa+
-          '</b>. Poniższe '+odmianaOfert(s.unknown)+' jej nie podaje — to nie znaczy, że jej nie mają.</div>');
+        // DWA RÓŻNE ZDANIA, bo to dwie różne wiadomości dla konsultanta:
+        // gdy WSZYSTKIE niewiadome biorą się z tego, że źródła tej cechy nie znają,
+        // zdanie „żadna oferta nie ma potwierdzonej informacji" brzmi jak wynik
+        // sprawdzenia — a my niczego nie sprawdziliśmy, bo nikt nam tego nie przekazuje.
+        if(s.pozaWiedzaZrodel>=s.unknown){
+          rows.push('<div class="ac-row">Cechy <b>'+nazwa+'</b> nie przekazuje ŻADNE z odpytanych źródeł — '+
+            'to luka w danych, nie wynik sprawdzenia. Potwierdź ją u organizatora, zanim odpowiesz klientowi.</div>');
+        }else{
+          rows.push('<div class="ac-row">Żadna ze znalezionych ofert nie ma potwierdzonej informacji o cesze <b>'+nazwa+
+            '</b>. Poniższe '+odmianaOfert(s.unknown)+' jej nie podaje — to nie znaczy, że jej nie mają.</div>');
+        }
       }else{
         rows.push('<div class="ac-row"><b>'+nazwa+'</b>: '+odmianaOfert(s.confirmed)+' potwierdza tę cechę, '+
           odmianaOfert(s.unknown)+' nie podaje danych.</div>');

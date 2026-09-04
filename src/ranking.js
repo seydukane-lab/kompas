@@ -216,12 +216,20 @@ export function attributeCoverage(list, crit) {
   return attrs.map((key) => {
     let confirmed = 0;
     let unknown = 0;
+    // Ile z niewiadomych bierze się stąd, że ŹRÓDŁO JAWNIE NIE ZNA tej cechy.
+    // To zupełnie inna wiadomość niż „filtr niczego nie potwierdza”: pierwsze mówi
+    // o zasięgu danych (nikt nam tego nie przekazuje), drugie o podejrzanym filtrze
+    // (źródło deklaruje wiedzę, a mimo to zero trafień). Bez tego rozróżnienia audyt
+    // zgłaszał jedno i drugie tym samym zdaniem — i szum z pierwszego zagłuszał drugie.
+    let pozaWiedzaZrodel = 0;
     for (const offer of list) {
       const val = hasAttribute(offer, key);
-      if (val === true) confirmed++;
-      else if (val === undefined) unknown++;
+      if (val === true) { confirmed++; continue; }
+      if (val !== undefined) continue;
+      unknown++;
+      if (Array.isArray(offer.amenityCoverage) && !offer.amenityCoverage.includes(key)) pozaWiedzaZrodel++;
     }
-    return { key, confirmed, unknown };
+    return { key, confirmed, unknown, pozaWiedzaZrodel };
   });
 }
 
