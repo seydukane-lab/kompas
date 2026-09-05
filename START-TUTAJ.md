@@ -14,6 +14,46 @@ npm run produkcja # co stoi pod publicznym adresem i czego tam nie ma
 npm run sabotaz   # sprawdza, czy test czegokolwiek pilnuje
 ```
 
+## ⏱ ZRÓB TO PRZED WYJAZDEM (5 minut) — bez tego nocny nie wypchnie nic
+
+Nocny ma już kolejkę zadań (`docs/nocny-kolejka.md`, 7 pozycji) i skrypt
+`npm run nocny-push`. Brakuje mu **jednej rzeczy: tokenu**.
+
+**1. Wygeneruj token** — GitHub → Settings → Developer settings →
+Personal access tokens → **Fine-grained tokens** → Generate new token:
+
+- **Repository access:** Only select repositories → `seydukane-lab/kompas`
+- **Permissions → Repository permissions → Contents:** `Read and write`
+- reszta uprawnień: **No access**
+- ważność: ustaw na 30 dni (wystarczy na tydzień z zapasem)
+
+**2. Wklej go do konfiguracji nocnego w chmurze** jako zmienną `GITHUB_TOKEN`.
+Nie wklejaj go do repo, do `.env` ani do rozmowy — skrypt go nie wypisuje
+i tak ma zostać.
+
+**3. Dopisz jedno zdanie do instrukcji nocnego** (tam, gdzie ustawiasz routine):
+
+> Zadanie na dziś bierz z `docs/nocny-kolejka.md` — pierwsza pozycja bez
+> `[ZROBIONE]`. Zasady pracy: `docs/nocny-instrukcja.md`. Na koniec, jeśli masz
+> commity, uruchom `npm run nocny-push`.
+
+To zastępuje wpisywanie zadania na sztywno w konfiguracji — kolejka jest w repo,
+więc nie trzeba tam wracać przez cały tydzień.
+
+**Co zobaczysz po powrocie:** gałęzie `nightwork-RRRR-MM-DD`, jedna na noc.
+
+```powershell
+git fetch
+git branch -r | Select-String nightwork          # co przyszło
+git log --oneline origin/main..origin/nightwork-2026-09-08
+git merge origin/nightwork-2026-09-08            # albo cherry-pick wybranych
+```
+
+Nic nie wleci na `main` samo — skrypt tego pilnuje i mają to zabezpieczone testy.
+
+**Opcjonalnie, ta sama chwila:** wklej `RENDER_DEPLOY_HOOK` do `.env`, to po
+powrocie wdrożysz produkcję jedną komendą zamiast klikać w panelu.
+
 ## Trzy rzeczy czekają na Ciebie — żadnej nie zrobię sam
 
 **1. Produkcja jest 10 commitów w tyle** (stoi na `fec8d11`).
@@ -30,10 +70,8 @@ git cherry-pick ci-czeka-na-token; git push origin main
 git branch -D ci-czeka-na-token
 ```
 
-**3. Nocny agent nie pushuje** (403 jest celowe), więc jego commity przepadają razem
-z kontenerem — trzy razy odtwarzałem jego pracę z opisu. Fine-grained token tylko do
-tego repo (Contents: Read and write) + w jego instrukcji `git push origin
-nightwork:nightwork-RRRR-MM-DD` (**nigdy** na `main`) i przestajemy tracić patche.
+**3. Nocny agent** — ma już `npm run nocny-push` i kolejkę zadań. Brakuje tylko
+tokenu: patrz sekcja „ZRÓB TO PRZED WYJAZDEM" wyżej.
 
 ## Twardy termin
 
