@@ -9,22 +9,15 @@ Cztery noce z rzędu zeszły na odkrywanie, że zlecone zadanie jest zrobione od
 
 ---
 
-## 1. Audyt pokrycia: `src/advisor.js`
+## 1. Audyt pokrycia: `src/advisor.js` — [POMIŃ, NIEWYKONALNE W KONTENERZE]
 
-**Cel.** `npm run sabotaz` przejechał już `ranking.js`, `http.js`, `audyt-reguly.js`,
-`auth.js`, `fx.js`, `wersje.js`, `login-limit.js` i providery. `advisor.js` nie był
-sprawdzony ani razu, a to on wydaje pieniądze.
+⚠️ **Sprawdzone 06.09.2026 przy pierwszym uruchomieniu: tego zadania NIE DA SIĘ zrobić
+w chmurze.** `src/advisor.js` jest **gitignorowany** (razem z `eta-os-prompt.js`
+i `providers/wakacje.js`), więc w klonie nocnego po prostu nie istnieje — `ls` zwraca
+„No such file or directory". Audyt sabotażem wymaga pliku na dysku.
 
-**Jak.** Dla każdej nietrywialnej gałęzi (cache trafiony/nietrafiony, składanie promptu,
-liczenie kosztu w `logUsage`, zapis rejestru) uruchom sabotaż i sprawdź, czy któryś test
-spada. Kod wyjścia 1 znaczy „ta gałąź nie jest chroniona" — wtedy **dopisz test** i powtórz
-sabotaż, aż złapie.
-
-**Uwaga.** Nie wywołuj prawdziwego API. Testy mają działać bez klucza — jeśli musisz
-sprawdzić ścieżkę płatną, zrób to na atrapie odpowiedzi, nie na żywym dostawcy.
-
-**Skończone, gdy:** każda sprawdzona gałąź albo ma test, który ją chroni, albo jest
-w raporcie wymieniona z powodem, dla którego testu nie warto pisać.
+To zadanie zostaje **dla właściciela**, który ma ten plik lokalnie. Nocny: pomiń
+i weź następne. Zostawiam je tutaj, żeby nie wróciło jako „pomysł" za tydzień.
 
 ---
 
