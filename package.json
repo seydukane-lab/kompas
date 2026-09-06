@@ -25,7 +25,8 @@
     "wdroz": "node scripts/wdroz.mjs",
     "produkcja": "node scripts/produkcja.mjs",
     "sabotaz": "node scripts/sabotaz.mjs",
-    "nocny-push": "node scripts/nocny-push.mjs"
+    "nocny-push": "node scripts/nocny-push.mjs",
+    "przed-wyjazdem": "node scripts/przed-wyjazdem.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
