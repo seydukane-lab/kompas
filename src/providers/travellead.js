@@ -139,7 +139,7 @@ export function normalize(o) {
     // Odległość od plaży: BRAK danych zostaje brakiem. Domyślne 300 m pokazywało się
     // na karcie jako „🏖 plaża 300 m" — liczba wzięta z powietrza, którą konsultant
     // powtarzał klientowi i na której podstawie działał filtr „przy plaży".
-    beach: Number(pick(o, "beachDistance", "odlegloscOdPlazy")) || null,
+    beach: liczbaLubNull(pick(o, "beachDistance", "odlegloscOdPlazy")),
     operator: String(pick(o, "operator", "tourOperator", "organizator") || "Wakacje.pl"),
     departureCity: String(pick(o, "departureCity", "departure", "wylotZ", "airport") || ""),
     transport: mapTransport(pick(o, "transport", "transportType", "dojazd")),
@@ -175,4 +175,20 @@ function mapTransport(v) {
   if (/bus|autokar/.test(s)) return "Autokar";
   if (/own|własny|wlasny|dojazd/.test(s)) return "Własny dojazd";
   return "Samolot";
+}
+
+
+// Odróżnia REALNE 0 od braku danych. `Number(v) || null` myli te dwa przypadki,
+// bo zero jest falsy — hotel dosłownie NA PLAŻY (0 m) stawał się przez to ofertą
+// „bez danych o plaży", czyli tracił cechę, którą naprawdę potwierdzono.
+// To ta sama pomyłka co udawanie wiedzy, tylko w drugą stronę: zamiast zmyślać
+// fakt, gubimy go. Znalezione przez nocnego 06.09.2026; hotelbeds.js miał to
+// od początku dobrze (patrz distByCode).
+//
+// Pusty string NIE MOŻE trafić do Number(): Number("") to 0, czyli znowu
+// zamienilibyśmy brak danych w twierdzenie „plaża przy hotelu".
+function liczbaLubNull(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }

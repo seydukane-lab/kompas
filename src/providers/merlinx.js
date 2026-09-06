@@ -135,7 +135,7 @@ export function normalize(o) {
     tags: Array.isArray(o.tags) ? o.tags : [],
     // Domyślne 300 m trafiało na kartę jako „🏖 plaża 300 m" i zasilało filtr
     // „przy plaży" — twierdzenie o hotelu, którego nikt nie sprawdził.
-    beach: Number(o.beachDistance) || null,
+    beach: liczbaLubNull(o.beachDistance),
     operator: o.operator || o.tourOperator || "",
     departureCity: o.departureCity || o.departureAirport || "",
     transport: o.transport || "Samolot",
@@ -160,4 +160,20 @@ function mapBoard(code) {
   // Nieznany kod wyżywienia zostaje nieznany — „BB" byłoby obietnicą śniadań,
   // których nikt nie potwierdził (ta sama zasada co mapBoard w hotelbeds.js).
   return code || undefined;
+}
+
+
+// Odróżnia REALNE 0 od braku danych. `Number(v) || null` myli te dwa przypadki,
+// bo zero jest falsy — hotel dosłownie NA PLAŻY (0 m) stawał się przez to ofertą
+// „bez danych o plaży", czyli tracił cechę, którą naprawdę potwierdzono.
+// To ta sama pomyłka co udawanie wiedzy, tylko w drugą stronę: zamiast zmyślać
+// fakt, gubimy go. Znalezione przez nocnego 06.09.2026; hotelbeds.js miał to
+// od początku dobrze (patrz distByCode).
+//
+// Pusty string NIE MOŻE trafić do Number(): Number("") to 0, czyli znowu
+// zamienilibyśmy brak danych w twierdzenie „plaża przy hotelu".
+function liczbaLubNull(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
